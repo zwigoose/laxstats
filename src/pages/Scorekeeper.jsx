@@ -4,9 +4,9 @@ import { supabase } from "../lib/supabase";
 import LaxStats from "../components/LaxStats";
 
 const S = {
-  header: { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10 },
-  backBtn: { fontSize: 13, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0" },
-  headerTitle: { fontSize: 14, fontWeight: 500, color: "#111", flex: 1 },
+  header: { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10, fontFamily: "system-ui, sans-serif" },
+  backBtn: { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
+  headerTitle: { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" },
   saveStatus: { fontSize: 12, color: "#aaa" },
   viewBtn: { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" },
   loading: { fontFamily: "system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#888", fontSize: 14 },
@@ -108,6 +108,10 @@ export default function Scorekeeper() {
       <LaxStats
         initialState={game?.state}
         onStateChange={handleStateChange}
+        onCancel={async () => {
+          await supabase.from("games").delete().eq("id", id);
+          navigate("/");
+        }}
       />
     </div>
   );

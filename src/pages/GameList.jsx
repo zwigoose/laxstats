@@ -56,13 +56,25 @@ function playerCount(roster) {
   if (!roster) return 0;
   return roster.split("\n").map(l => l.trim()).filter(Boolean).length;
 }
+
+function findDuplicateNums(rosterText) {
+  if (!rosterText) return [];
+  const lines = rosterText.split("\n").map(l => l.trim()).filter(Boolean);
+  const nums = lines.map(line => { const m = line.match(/^#?(\d+)/); return m ? m[1] : null; }).filter(Boolean);
+  const seen = new Set(), dupes = new Set();
+  nums.forEach(n => { if (seen.has(n)) dupes.add(`#${n}`); else seen.add(n); });
+  return [...dupes];
+}
 function getGameInfo(game) {
   const s = game.state;
   if (!s?.teams) return null;
   const t0 = s.teams[0], t1 = s.teams[1];
   const score0 = (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
   const score1 = (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
-  return { t0, t1, score0, score1, gameOver: s.gameOver };
+  // A game is Live only when the scorekeeper explicitly pressed Start Tracking
+  // (trackingStarted flag) with both rosters at ≥10 players enforced at that point
+  const started = !!s.trackingStarted;
+  return { t0, t1, score0, score1, gameOver: s.gameOver, started };
 }
 
 // ── Game Card ─────────────────────────────────────────────────────────────────
@@ -115,10 +127,10 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {info?.gameOver ? (
               <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "3px 9px", letterSpacing: "0.04em", textTransform: "uppercase" }}>Final</span>
-            ) : info ? (
+            ) : info?.started ? (
               <span style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "3px 9px", letterSpacing: "0.04em" }}>● Live</span>
             ) : (
-              <span style={{ fontSize: 11, color: "#bbb", fontWeight: 500 }}>Not started</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "3px 9px", letterSpacing: "0.04em" }}>● Pending</span>
             )}
             <span style={{ fontSize: 11, color: "#bbb" }}>{formatDate(game.created_at)}</span>
           </div>
@@ -126,7 +138,7 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
             <button style={{ padding: "5px 10px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
               onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
             <button style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: "#111", border: "none", borderRadius: 8, cursor: "pointer", color: "#fff" }}
-              onClick={() => navigate(`/games/${game.id}/score`)}>Score</button>
+              onClick={() => navigate(`/games/${game.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
             <button style={{ padding: "5px 8px", fontSize: 13, background: "transparent", border: "1px solid #f0a0a0", borderRadius: 8, cursor: "pointer", color: "#c0392b", lineHeight: 1 }}
               onClick={() => onDeleteStage(deleteStage === 0 ? 1 : null)}>🗑</button>
           </div>
@@ -216,8 +228,10 @@ function RosterEditor({ initial, onSave, onDelete, onCancel, isNew }) {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const dupes = findDuplicateNums(roster);
+
   async function handleSave() {
-    if (!name.trim()) return;
+    if (!name.trim() || dupes.length > 0) return;
     setSaving(true);
     await onSave({ name: name.trim(), roster, color });
     setSaving(false);
@@ -242,9 +256,13 @@ function RosterEditor({ initial, onSave, onDelete, onCancel, isNew }) {
       </div>
 
       <span style={labelStyle}>Roster</span>
-      <textarea style={textareaStyle} value={roster} onChange={e => setRoster(e.target.value)}
+      <textarea style={{ ...textareaStyle, borderColor: dupes.length > 0 ? "#f0a0a0" : "#e0e0e0" }}
+        value={roster} onChange={e => setRoster(e.target.value)}
         placeholder={"#2 First Last\n#7 First Last\n#11 First Last"} />
-      <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>One player per line — #number Name</div>
+      {dupes.length > 0
+        ? <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4, fontWeight: 500 }}>Duplicate number{dupes.length > 1 ? "s" : ""}: {dupes.join(", ")}</div>
+        : <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>One player per line — #number Name</div>
+      }
 
       <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center" }}>
         {!isNew && !confirmDelete && (
@@ -259,8 +277,8 @@ function RosterEditor({ initial, onSave, onDelete, onCancel, isNew }) {
           <button style={{ padding: "9px 14px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 9, cursor: "pointer", color: "#555" }}
             onClick={onCancel}>Cancel</button>
         )}
-        <button style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 13, fontWeight: 600, background: name.trim() && !saving ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 9, cursor: name.trim() && !saving ? "pointer" : "not-allowed" }}
-          disabled={!name.trim() || saving} onClick={handleSave}>
+        <button style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 13, fontWeight: 600, background: name.trim() && !saving && !dupes.length ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 9, cursor: name.trim() && !saving && !dupes.length ? "pointer" : "not-allowed" }}
+          disabled={!name.trim() || saving || dupes.length > 0} onClick={handleSave}>
           {saving ? "Saving…" : isNew ? "Save team" : "Save changes"}
         </button>
       </div>

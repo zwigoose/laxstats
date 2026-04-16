@@ -32,6 +32,17 @@ function parseRoster(text) {
   }).filter(p => p.name);
 }
 
+function findDuplicateNums(rosterText) {
+  const players = parseRoster(rosterText);
+  const seen = new Set(), dupes = new Set();
+  players.forEach(p => {
+    if (!p.num) return;
+    if (seen.has(p.num)) dupes.add(`#${p.num}`);
+    else seen.add(p.num);
+  });
+  return [...dupes];
+}
+
 export function buildPlayerStats(entries) {
   const map = {};
   entries.forEach(e => {
@@ -99,21 +110,25 @@ const S = {
   startBtn: (disabled) => ({ width: "100%", marginTop: 20, padding: 14, fontSize: 16, fontWeight: 500, background: disabled ? "#ccc" : "#111", color: "#fff", border: "none", borderRadius: 10, cursor: disabled ? "not-allowed" : "pointer" }),
   stepLabel: { fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 },
   teamBtns: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 },
-  teamBigBtn: (c) => ({ padding: "28px 12px", fontWeight: 500, border: "none", borderRadius: 14, background: c, cursor: "pointer", textAlign: "center", lineHeight: 1.3, width: "100%" }),
+  teamBigBtn: (c, isHome) => isHome
+    ? { padding: "28px 12px", fontWeight: 600, border: `5px solid ${c}`, borderRadius: 14, background: "#fff", color: c, cursor: "pointer", textAlign: "center", lineHeight: 1.3, width: "100%", boxSizing: "border-box" }
+    : { padding: "28px 12px", fontWeight: 500, border: "none", borderRadius: 14, background: c, color: "#fff", cursor: "pointer", textAlign: "center", lineHeight: 1.3, width: "100%" },
   endQtrBtn: (disabled) => ({ width: "100%", padding: 13, fontSize: 14, fontWeight: 500, border: "1px solid #e0d0b0", borderRadius: 10, background: disabled ? "#f5f5f5" : "#fffbf0", color: disabled ? "#bbb" : "#7a5c00", cursor: disabled ? "default" : "pointer", marginTop: 4, opacity: disabled ? 0.5 : 1 }),
   eventGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 },
   eventBtn: (sel) => ({ padding: "14px 10px", fontSize: 13, fontWeight: 500, border: sel ? "2px solid #111" : "1px solid #ddd", borderRadius: 10, background: sel ? "#f0f0f0" : "#fff", color: "#111", cursor: "pointer", textAlign: "center", width: "100%" }),
   evIcon: { fontSize: 20, display: "block", marginBottom: 4 },
   playerGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8, maxHeight: 340, overflowY: "auto" },
-  playerBtn: (sel, color) => ({
+  playerBtn: (sel, color, isHome) => ({
     padding: "12px 8px", fontSize: 13, borderRadius: 10, cursor: "pointer", textAlign: "center", width: "100%",
-    background: color || "#555",
-    border: sel ? "3px solid #fff" : "2px solid transparent",
+    background: isHome ? (sel ? (color || "#555") : "#fff") : (color || "#555"),
+    border: isHome
+      ? (sel ? "3px solid #fff" : `4px solid ${color || "#555"}`)
+      : (sel ? "3px solid #fff" : "2px solid transparent"),
     outline: sel ? "2px solid " + (color || "#555") : "none",
     boxSizing: "border-box",
   }),
-  playerNum: () => ({ fontSize: 18, fontWeight: 600, display: "block", color: "#fff" }),
-  playerName: () => ({ fontSize: 11, color: "rgba(255,255,255,0.75)", marginTop: 2, wordBreak: "break-word" }),
+  playerNum: (sel, isHome, color) => ({ fontSize: 18, fontWeight: 600, display: "block", color: (isHome && !sel) ? (color || "#555") : "#fff" }),
+  playerName: (sel, isHome, color) => ({ fontSize: 11, color: (isHome && !sel) ? "#aaa" : "rgba(255,255,255,0.75)", marginTop: 2, wordBreak: "break-word" }),
   backBtn: { fontSize: 13, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: 14 },
   confirmCard: { background: "#f7f7f7", borderRadius: 12, padding: 24, textAlign: "center", marginBottom: 14 },
   confirmBtns: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
@@ -205,8 +220,9 @@ function TimeWheel({ maxMinutes, selectedMin, selectedSec, onMinChange, onSecCha
 }
 
 // ── Main Component ──────────────────────────────────────────────────────────
-export default function LaxStats({ initialState = null, onStateChange = null }) {
+export default function LaxStats({ initialState = null, onStateChange = null, onCancel = null }) {
   const [screen, setScreen] = useState("setup"); // setup | track | stats | log
+  const [trackingStarted, setTrackingStarted] = useState(false);
   const [teams, setTeams] = useState([{ name: "Home", roster: "", color: "#1a6bab" }, { name: "Away", roster: "", color: "#b84e1a" }]);
   const [parsedRosters, setParsedRosters] = useState([[], []]);
   const [log, setLog] = useState([]);
@@ -269,8 +285,9 @@ export default function LaxStats({ initialState = null, onStateChange = null }) 
     setCurrentQuarter(initialState.currentQuarter ?? 1);
     setCompletedQuarters(initialState.completedQuarters ?? []);
     setGameOver(initialState.gameOver ?? false);
+    setTrackingStarted(initialState.trackingStarted ?? false);
     if (initialState._nextId) _nextId = initialState._nextId;
-    setScreen(initialState.gameOver ? "stats" : "track");
+    setScreen(initialState.gameOver ? "stats" : initialState.trackingStarted ? "track" : "setup");
     resetEntry();
     // Mark as hydrated after this render cycle so the onStateChange effect
     // doesn't fire for the state-sets above
@@ -281,9 +298,9 @@ export default function LaxStats({ initialState = null, onStateChange = null }) 
   // Notify parent of state changes (for Supabase save)
   useEffect(() => {
     if (!onStateChange || !hydratedRef.current) return;
-    onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, _nextId });
+    onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, trackingStarted, _nextId });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log, teams, currentQuarter, completedQuarters, gameOver]);
+  }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted]);
 
   const teamColors = [teams[0].color, teams[1].color];
 
@@ -588,8 +605,9 @@ export default function LaxStats({ initialState = null, onStateChange = null }) 
   function handleStart() {
     if (gameOver) return;
     const r0 = parseRoster(teams[0].roster), r1 = parseRoster(teams[1].roster);
-    if (!r0.length || !r1.length) return;
+    if (r0.length < 10 || r1.length < 10) return;
     setParsedRosters([r0, r1]);
+    setTrackingStarted(true);
     setScreen("track");
     resetEntry();
   }
@@ -723,7 +741,7 @@ export default function LaxStats({ initialState = null, onStateChange = null }) 
             {[0, 1].map(ti => (
               <div key={ti} style={S.setupCard(teams[ti].color)}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={S.teamLabel(teams[ti].color)}>Team {ti + 1}</div>
+                  <div style={S.teamLabel(teams[ti].color)}>{ti === 0 ? "Home" : "Away"}</div>
                   {savedTeams.length > 0 && (
                     <select
                       style={{ fontSize: 11, color: teams[ti].color, border: "1px solid #e5e5e5", borderRadius: 6, padding: "3px 6px", background: "#fafafa", cursor: "pointer", maxWidth: 120 }}
@@ -760,21 +778,47 @@ export default function LaxStats({ initialState = null, onStateChange = null }) 
                 </div>
                 {teams[ti].roster && (() => {
                   const players = parseRoster(teams[ti].roster);
+                  const dupes = findDuplicateNums(teams[ti].roster);
                   return (
                     <div style={{ marginTop: 10 }}>
                       <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{players.length} player{players.length !== 1 ? "s" : ""}</div>
                       {players.slice(0, 5).map((p, i) => <span key={i} style={S.chip}><span style={S.chipNum}>#{p.num}</span>{p.name}</span>)}
                       {players.length > 5 && <span style={S.chip}>+{players.length - 5} more</span>}
+                      {dupes.length > 0 && (
+                        <div style={{ fontSize: 11, color: "#c0392b", marginTop: 6, fontWeight: 500 }}>
+                          Duplicate number{dupes.length > 1 ? "s" : ""}: {dupes.join(", ")}
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
               </div>
             ))}
           </div>
-          <button style={S.startBtn(!teams[0].roster.trim() || !teams[1].roster.trim() || gameOver)}
-            disabled={!teams[0].roster.trim() || !teams[1].roster.trim() || gameOver} onClick={handleStart}>
-            {gameOver ? "Game Finalized" : "Start Tracking →"}
-          </button>
+          {(() => {
+            const r0len = parseRoster(teams[0].roster).length;
+            const r1len = parseRoster(teams[1].roster).length;
+            const dupes0 = findDuplicateNums(teams[0].roster);
+            const dupes1 = findDuplicateNums(teams[1].roster);
+            const hasDupes = dupes0.length > 0 || dupes1.length > 0;
+            const ready = r0len >= 10 && r1len >= 10 && !hasDupes && !gameOver;
+            const hasAny = r0len > 0 || r1len > 0;
+            return (
+              <>
+                <button style={S.startBtn(!ready)} disabled={!ready} onClick={handleStart}>
+                  {gameOver ? "Game Finalized" : "Start Tracking →"}
+                </button>
+                {!gameOver && hasAny && !ready && (
+                  <div style={{ fontSize: 12, color: hasDupes ? "#c0392b" : "#aaa", textAlign: "center", marginTop: 8 }}>
+                    {hasDupes
+                      ? "Fix duplicate numbers before starting"
+                      : <>Both teams need at least 10 players{r0len > 0 && r1len > 0 ? ` (${teams[0].name}: ${r0len}, ${teams[1].name}: ${r1len})` : ""}</>
+                    }
+                  </div>
+                )}
+              </>
+            );
+          })()}
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             <button style={{ flex: 1, padding: "11px", fontSize: 14, fontWeight: 500, border: "1px solid #ddd", borderRadius: 10, color: showImport ? "#111" : "#555", cursor: "pointer", background: showImport ? "#f0f0f0" : "#f7f7f7" }}
               onClick={() => { setShowImport(v => !v); setExportJson(null); setImportError(""); }}>
@@ -787,6 +831,14 @@ export default function LaxStats({ initialState = null, onStateChange = null }) 
               </button>
             )}
           </div>
+          {onCancel && !trackingStarted && (
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <button style={{ fontSize: 13, color: "#c0392b", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+                onClick={onCancel}>
+                Discard game
+              </button>
+            </div>
+          )}
 
           {/* Import panel */}
           {showImport && (
@@ -865,9 +917,9 @@ export default function LaxStats({ initialState = null, onStateChange = null }) 
               <div style={S.stepLabel}>Who scored / acted?</div>
               <div style={S.teamBtns}>
                 {[0, 1].map(ti => (
-                  <button key={ti} style={S.teamBigBtn(teamColors[ti])} onClick={() => { setSelectedTeam(ti); setStep("event"); }}>
-                    <span style={{ fontSize: 36, fontWeight: 600, display: "block", marginBottom: 4, color: "#fff" }}>{totalScores[ti]}</span>
-                    <span style={{ fontSize: 13, color: "rgba(255,255,255,0.8)" }}>{teams[ti].name}</span>
+                  <button key={ti} style={S.teamBigBtn(teamColors[ti], ti === 0)} onClick={() => { setSelectedTeam(ti); setStep("event"); }}>
+                    <span style={{ fontSize: 36, fontWeight: 600, display: "block", marginBottom: 4, color: ti === 0 ? teamColors[0] : "#fff" }}>{totalScores[ti]}</span>
+                    <span style={{ fontSize: 13, color: ti === 0 ? teamColors[0] : "rgba(255,255,255,0.8)" }}>{teams[ti].name}</span>
                   </button>
                 ))}
               </div>
@@ -931,7 +983,8 @@ export default function LaxStats({ initialState = null, onStateChange = null }) 
                 {parsedRosters[selectedTeam]?.map((p, i) => {
                   const prev = editingGroupId ? prevPlayerInGroup(editingGroupId, selectedTeam) : null;
                   const sel = prev ? (prev.num === p.num && prev.name === p.name) : false;
-                  return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam])} onClick={() => handlePlayerSelected(p)}><span style={S.playerNum()}>#{p.num}</span><span style={S.playerName()}>{p.name}</span></button>;
+                  const isHome = selectedTeam === 0;
+                  return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handlePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
                 })}
               </div>
             </div>
@@ -951,7 +1004,8 @@ export default function LaxStats({ initialState = null, onStateChange = null }) 
                 {parsedRosters[1 - selectedTeam]?.map((p, i) => {
                   const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "turnover")?.player : null;
                   const sel = prev ? (prev.num === p.num && prev.name === p.name) : false;
-                  return <button key={i} style={S.playerBtn(sel, teamColors[1 - selectedTeam])} onClick={() => handleForcedToPlayerSelected(p)}><span style={S.playerNum()}>#{p.num}</span><span style={S.playerName()}>{p.name}</span></button>;
+                  const isHome = (1 - selectedTeam) === 0;
+                  return <button key={i} style={S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleForcedToPlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
                 })}
               </div>
             </div>
@@ -992,7 +1046,8 @@ export default function LaxStats({ initialState = null, onStateChange = null }) 
                 {parsedRosters[selectedTeam]?.filter(p => !(p.num === selectedPlayer?.num && p.name === selectedPlayer?.name)).map((p, i) => {
                   const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "assist")?.player : null;
                   const sel = prev ? (prev.num === p.num && prev.name === p.name) : false;
-                  return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam])} onClick={() => handleAssistPlayerSelected(p)}><span style={S.playerNum()}>#{p.num}</span><span style={S.playerName()}>{p.name}</span></button>;
+                  const isHome = selectedTeam === 0;
+                  return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handleAssistPlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
                 })}
               </div>
             </div>
@@ -1086,7 +1141,8 @@ export default function LaxStats({ initialState = null, onStateChange = null }) 
                 {parsedRosters[1 - selectedTeam]?.map((p, i) => {
                   const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "shot_saved")?.player : lastGoalie[1 - selectedTeam];
                   const sel = prev ? (prev.num === p.num && prev.name === p.name) : false;
-                  return <button key={i} style={S.playerBtn(sel, teamColors[1 - selectedTeam])} onClick={() => handleSavePlayerSelected(p)}><span style={S.playerNum()}>#{p.num}</span><span style={S.playerName()}>{p.name}</span></button>;
+                  const isHome = (1 - selectedTeam) === 0;
+                  return <button key={i} style={S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleSavePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
                 })}
               </div>
             </div>
