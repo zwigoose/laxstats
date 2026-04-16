@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { supabase } from "../lib/supabase";
 
 // caused_to renamed to forced_to
 export const EVENTS = [
@@ -478,6 +479,13 @@ export default function NDPBLAXStats({ initialState = null, onStateChange = null
     }
   }
 
+  // ── Saved teams (for setup screen loader) ───────────────────────
+  const [savedTeams, setSavedTeams] = useState([]);
+  useEffect(() => {
+    supabase.from("saved_teams").select("id, name, roster, color").order("name")
+      .then(({ data }) => { if (data) setSavedTeams(data); });
+  }, []);
+
   // ── Export / Import ─────────────────────────────────────────────
   const [exportCopied, setExportCopied] = useState(false);
   const [exportJson, setExportJson] = useState(null);
@@ -705,7 +713,25 @@ export default function NDPBLAXStats({ initialState = null, onStateChange = null
           <div style={S.setupGrid}>
             {[0, 1].map(ti => (
               <div key={ti} style={S.setupCard(teams[ti].color)}>
-                <div style={S.teamLabel(teams[ti].color)}>Team {ti + 1}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={S.teamLabel(teams[ti].color)}>Team {ti + 1}</div>
+                  {savedTeams.length > 0 && (
+                    <select
+                      style={{ fontSize: 11, color: teams[ti].color, border: "1px solid #e5e5e5", borderRadius: 6, padding: "3px 6px", background: "#fafafa", cursor: "pointer", maxWidth: 120 }}
+                      defaultValue=""
+                      onChange={e => {
+                        const saved = savedTeams.find(t => t.id === e.target.value);
+                        if (!saved) return;
+                        setTeams(t => t.map((x, i) => i === ti ? { ...x, name: saved.name, roster: saved.roster, color: saved.color } : x));
+                        e.target.value = "";
+                      }}>
+                      <option value="" disabled>Load saved…</option>
+                      {savedTeams.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
                 <input style={S.textInput} placeholder={ti === 0 ? "Home team name" : "Away team name"}
                   value={teams[ti].name} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, name: e.target.value } : x))} />
                 <div style={{ marginBottom: 4, fontSize: 11, color: "#888" }}>Team color</div>
