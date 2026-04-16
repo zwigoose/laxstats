@@ -14,8 +14,8 @@ export const EVENTS = [
   { id: "failed_clear", label: "Failed Clear",     icon: "⬇️", teamStat: true },
 ];
 
-export const STAT_KEYS =["goal","emo_goal","shot","shot_saved","ground_ball","faceoff_win","turnover","forced_to","penalty_tech","penalty_min","assist","clear","failed_clear"];
-export const STAT_LABELS ={ goal:"G", emo_goal:"EMO", shot:"Sh", shot_saved:"Sv", ground_ball:"GB", faceoff_win:"FW", turnover:"TO", forced_to:"FTO", penalty_tech:"Tech", penalty_min:"PF Min", assist:"A", clear:"Clr", failed_clear:"FCl" };
+export const STAT_KEYS =["goal","emo_goal","shot","shot_saved","ground_ball","faceoff_win","turnover","forced_to","penalty_tech","penalty_min","assist","clear","failed_clear","successful_ride","failed_ride"];
+export const STAT_LABELS ={ goal:"G", emo_goal:"EMO", shot:"Sh", shot_saved:"Sv", ground_ball:"GB", faceoff_win:"FW", turnover:"TO", forced_to:"FTO", penalty_tech:"Tech", penalty_min:"PF Min", assist:"A", clear:"Clr", failed_clear:"FCl", successful_ride:"SRide", failed_ride:"FRide" };
 
 const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
 
@@ -47,7 +47,7 @@ export function buildPlayerStats(entries) {
 }
 
 export function buildTeamTotals(entries) {
-  return [0, 1].map(ti => {
+  const totals = [0, 1].map(ti => {
     const tot = Object.fromEntries(STAT_KEYS.map(k => [k, 0]));
     entries.filter(e => e.teamIdx === ti).forEach(e => {
       if (e.event === "penalty_tech") tot.penalty_tech++;
@@ -57,6 +57,14 @@ export function buildTeamTotals(entries) {
     });
     return tot;
   });
+  // Ride stats are the mirror of the opposing team's clear stats:
+  // successful clear for A  →  failed ride for B
+  // failed clear for A      →  successful ride for B
+  totals[0].successful_ride = totals[1].failed_clear;
+  totals[0].failed_ride     = totals[1].clear;
+  totals[1].successful_ride = totals[0].failed_clear;
+  totals[1].failed_ride     = totals[0].clear;
+  return totals;
 }
 
 export function qLabel(q) { return q <= 4 ? `Q${q}` : `OT${q - 4}`; }
@@ -197,7 +205,7 @@ function TimeWheel({ maxMinutes, selectedMin, selectedSec, onMinChange, onSecCha
 }
 
 // ── Main Component ──────────────────────────────────────────────────────────
-export default function NDPBLAXStats({ initialState = null, onStateChange = null }) {
+export default function LaxStats({ initialState = null, onStateChange = null }) {
   const [screen, setScreen] = useState("setup"); // setup | track | stats | log
   const [teams, setTeams] = useState([{ name: "Home", roster: "", color: "#1a6bab" }, { name: "Away", roster: "", color: "#b84e1a" }]);
   const [parsedRosters, setParsedRosters] = useState([[], []]);
@@ -309,6 +317,7 @@ export default function NDPBLAXStats({ initialState = null, onStateChange = null
   const sortedPlayers = useMemo(() => [...playerStats].sort((a, b) => b[sortKey] - a[sortKey]), [playerStats, sortKey]);
 
   const shotPct = (ti) => { const s = teamTotals[ti].shot, g = teamTotals[ti].goal; return s ? `${Math.round((g/s)*100)}%` : "—"; };
+  const clearPct = (ti) => { const c = teamTotals[ti].clear, f = teamTotals[ti].failed_clear; return (c + f) ? `${Math.round((c/(c+f))*100)}%` : "—"; };
   const savePct = (ti) => {
     const shots = filteredLog.filter(e => e.teamIdx === (1-ti) && e.event === "shot").length;
     const saves = filteredLog.filter(e => e.teamIdx === ti && e.event === "shot_saved").length;
@@ -1258,7 +1267,10 @@ export default function NDPBLAXStats({ initialState = null, onStateChange = null
                 { label: "Saves", key: "shot_saved" }, { label: "Save %", custom: savePct },
                 { label: "Ground Balls", key: "ground_ball" }, { label: "Faceoffs Won", key: "faceoff_win" },
                 { label: "Turnovers", key: "turnover" }, { label: "Forced TOs", key: "forced_to" },
-                { label: "Successful Clears", key: "clear" }, { label: "Failed Clears", key: "failed_clear" }, { label: "Technicals", key: "penalty_tech" },
+                { label: "Successful Clears", key: "clear" }, { label: "Failed Clears", key: "failed_clear" },
+                { label: "Clearing %", custom: clearPct },
+                { label: "Successful Rides", key: "successful_ride" }, { label: "Failed Rides", key: "failed_ride" },
+                { label: "Technicals", key: "penalty_tech" },
                 { label: "PF Minutes", key: "penalty_min" }, { label: "Assists", key: "assist" },
               ].map(({ label, key, custom }) => (
                 <div key={label} style={S.summaryCard}>
@@ -1284,7 +1296,7 @@ export default function NDPBLAXStats({ initialState = null, onStateChange = null
                     <table style={S.table}>
                       <thead><tr>
                         <th style={S.thLeft}>Player</th>
-                        {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear").map(k => <th key={k} style={S.th(sortKey === k)} onClick={() => setSortKey(k)}>{STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}</th>)}
+                        {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride").map(k => <th key={k} style={S.th(sortKey === k)} onClick={() => setSortKey(k)}>{STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}</th>)}
                       </tr></thead>
                       <tbody>
                         {[0,1].map(ti => {
@@ -1295,7 +1307,7 @@ export default function NDPBLAXStats({ initialState = null, onStateChange = null
                             ...rows.map((row, i) => (
                               <tr key={`${ti}-${i}`}>
                                 <td style={S.tdLeft}><span style={S.numBadge}>#{row.player.num}</span>{row.player.name}</td>
-                                {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear").map(k => <td key={k} style={{ ...S.td, fontWeight: k === sortKey ? 600 : 400, opacity: row[k] === 0 ? 0.3 : 1 }}>{k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}</td>)}
+                                {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride").map(k => <td key={k} style={{ ...S.td, fontWeight: k === sortKey ? 600 : 400, opacity: row[k] === 0 ? 0.3 : 1 }}>{k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}</td>)}
                               </tr>
                             ))
                           ];

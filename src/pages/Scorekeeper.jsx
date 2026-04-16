@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import NDPBLAXStats from "../components/NDPBLAXStats";
+import LaxStats from "../components/LaxStats";
 
 const S = {
   header: { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10 },
@@ -47,7 +47,7 @@ export default function Scorekeeper() {
     pendingSave.current = newState;
 
     // Update the display name only — do NOT write state back into game here,
-    // as that would change the initialState prop and re-trigger hydration in NDPBLAXStats.
+    // as that would change the initialState prop and re-trigger hydration in LaxStats.
     if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
       const autoName = `${newState.teams[0].name} vs ${newState.teams[1].name}`;
       setGame(prev => prev ? { ...prev, name: autoName } : prev);
@@ -105,7 +105,7 @@ export default function Scorekeeper() {
           Live view →
         </button>
       </div>
-      <NDPBLAXStats
+      <LaxStats
         initialState={game?.state}
         onStateChange={handleStateChange}
       />

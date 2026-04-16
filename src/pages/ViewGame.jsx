@@ -5,9 +5,9 @@ import {
   buildPlayerStats, buildTeamTotals,
   STAT_KEYS, STAT_LABELS,
   qLabel, isOT,
-} from "../components/NDPBLAXStats";
+} from "../components/LaxStats";
 
-// ── Styles (matches NDPBLAXStats style conventions) ─────────────────────────
+// ── Styles (matches LaxStats style conventions) ──────────────────────────────
 const S = {
   page: { fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto", padding: "0 0 40px" },
   header: { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10 },
@@ -130,6 +130,7 @@ export default function ViewGame() {
   const sortedPlayers = useMemo(() => [...playerStats].sort((a, b) => b[sortKey] - a[sortKey]), [playerStats, sortKey]);
 
   const shotPct = (ti) => { const s = teamTotals[ti].shot, g = teamTotals[ti].goal; return s ? `${Math.round((g / s) * 100)}%` : "—"; };
+  const clearPct = (ti) => { const c = teamTotals[ti].clear, f = teamTotals[ti].failed_clear; return (c + f) ? `${Math.round((c / (c + f)) * 100)}%` : "—"; };
   const savePct = (ti) => {
     const shots = filteredLog.filter(e => e.teamIdx === (1 - ti) && e.event === "shot").length;
     const saves = filteredLog.filter(e => e.teamIdx === ti && e.event === "shot_saved").length;
@@ -256,6 +257,8 @@ export default function ViewGame() {
                   { label: "Ground Balls", key: "ground_ball" }, { label: "Faceoffs Won", key: "faceoff_win" },
                   { label: "Turnovers", key: "turnover" }, { label: "Forced TOs", key: "forced_to" },
                   { label: "Successful Clears", key: "clear" }, { label: "Failed Clears", key: "failed_clear" },
+                  { label: "Clearing %", custom: clearPct },
+                  { label: "Successful Rides", key: "successful_ride" }, { label: "Failed Rides", key: "failed_ride" },
                   { label: "Technicals", key: "penalty_tech" }, { label: "PF Minutes", key: "penalty_min" },
                   { label: "Assists", key: "assist" },
                 ].map(({ label, key, custom }) => (
@@ -287,7 +290,7 @@ export default function ViewGame() {
                       <table style={S.table}>
                         <thead><tr>
                           <th style={S.thLeft}>Player</th>
-                          {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear").map(k => (
+                          {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride").map(k => (
                             <th key={k} style={S.th(sortKey === k)} onClick={() => setSortKey(k)}>
                               {STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}
                             </th>
@@ -308,7 +311,7 @@ export default function ViewGame() {
                                   <td style={S.tdLeft}>
                                     <span style={S.numBadge}>#{row.player.num}</span>{row.player.name}
                                   </td>
-                                  {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear").map(k => (
+                                  {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride").map(k => (
                                     <td key={k} style={{ ...S.td, fontWeight: k === sortKey ? 600 : 400, opacity: row[k] === 0 ? 0.3 : 1 }}>
                                       {k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}
                                     </td>
