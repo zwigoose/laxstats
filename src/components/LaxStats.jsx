@@ -10,12 +10,14 @@ export const EVENTS = [
   { id: "turnover",    label: "Turnover",     icon: "↩️" },
   { id: "forced_to",   label: "Forced TO",    icon: "🥊" },
   { id: "penalty",     label: "Penalty",      icon: "🟨" },
+  { id: "mdd_success", label: "MDD Stop",     icon: "🛡️", teamStat: true },
+  { id: "timeout",     label: "Timeout",      icon: "⏸️" },
   { id: "clear",        label: "Successful Clear", icon: "⬆️", teamStat: true },
   { id: "failed_clear", label: "Failed Clear",     icon: "⬇️", teamStat: true },
 ];
 
-export const STAT_KEYS =["goal","emo_goal","shot","shot_saved","ground_ball","faceoff_win","turnover","forced_to","penalty_tech","penalty_min","assist","clear","failed_clear","successful_ride","failed_ride"];
-export const STAT_LABELS ={ goal:"G", emo_goal:"EMO", shot:"Sh", shot_saved:"Sv", ground_ball:"GB", faceoff_win:"FW", turnover:"TO", forced_to:"FTO", penalty_tech:"Tech", penalty_min:"PF Min", assist:"A", clear:"Clr", failed_clear:"FCl", successful_ride:"SRide", failed_ride:"FRide" };
+export const STAT_KEYS =["goal","emo_goal","emo_fail","mdd_success","mdd_fail","shot","sog","shot_saved","shot_post","shot_blocked","ground_ball","faceoff_win","turnover","forced_to","penalty_tech","penalty_min","assist","clear","failed_clear","successful_ride","failed_ride"];
+export const STAT_LABELS ={ goal:"G", emo_goal:"EMO", emo_fail:"FEMO", mdd_success:"MDD", mdd_fail:"FMDD", shot:"Sh", sog:"SOG", shot_saved:"Sv", shot_post:"Post", shot_blocked:"Blk", ground_ball:"GB", faceoff_win:"FW", turnover:"TO", forced_to:"FTO", penalty_tech:"Tech", penalty_min:"PF Min", assist:"A", clear:"Clr", failed_clear:"FCl", successful_ride:"SRide", failed_ride:"FRide" };
 
 const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
 
@@ -44,6 +46,13 @@ function findDuplicateNums(rosterText) {
 }
 
 export function buildPlayerStats(entries) {
+  // Build group lookup so we can determine SOG per shot
+  const groups = {};
+  entries.forEach(e => {
+    if (!groups[e.groupId]) groups[e.groupId] = [];
+    groups[e.groupId].push(e);
+  });
+
   const map = {};
   entries.forEach(e => {
     if (e.teamStat) return;
@@ -51,7 +60,19 @@ export function buildPlayerStats(entries) {
     if (!map[k]) map[k] = { teamIdx: e.teamIdx, player: e.player, ...Object.fromEntries(STAT_KEYS.map(s => [s, 0])) };
     if (e.event === "penalty_tech") map[k].penalty_tech++;
     else if (e.event === "penalty_min") map[k].penalty_min += e.penaltyMin || 0;
-    else if (e.event === "goal") { map[k].goal++; if (e.emo) map[k].emo_goal++; }
+    else if (e.event === "goal") {
+      map[k].goal++;
+      if (e.emo) map[k].emo_goal++;
+      map[k].sog++; // a goal is always on goal
+    }
+    else if (e.event === "shot") {
+      map[k].shot++;
+      // SOG: saved (group has shot_saved) or hit the post (group has shot_post for same team)
+      const group = groups[e.groupId] || [];
+      const onGoal = group.some(ge => ge.event === "shot_saved")
+                  || group.some(ge => ge.event === "shot_post" && ge.teamIdx === e.teamIdx);
+      if (onGoal) map[k].sog++;
+    }
     else if (map[k][e.event] !== undefined) map[k][e.event]++;
   });
   return Object.values(map);
@@ -68,18 +89,38 @@ export function buildTeamTotals(entries) {
     });
     return tot;
   });
-  // Ride stats are the mirror of the opposing team's clear stats:
-  // successful clear for A  →  failed ride for B
-  // failed clear for A      →  successful ride for B
+  // Ride stats mirror the opposing team's clear stats
   totals[0].successful_ride = totals[1].failed_clear;
   totals[0].failed_ride     = totals[1].clear;
   totals[1].successful_ride = totals[0].failed_clear;
   totals[1].failed_ride     = totals[0].clear;
+  // MDD fail mirrors the opposing team's EMO goals
+  totals[0].mdd_fail = entries.filter(e => e.event === "goal" && e.emo && e.teamIdx === 1).length;
+  totals[1].mdd_fail = entries.filter(e => e.event === "goal" && e.emo && e.teamIdx === 0).length;
+  // EMO fail mirrors the opposing team's MDD stops (a stopped EMO = a successful MDD)
+  totals[0].emo_fail = totals[1].mdd_success;
+  totals[1].emo_fail = totals[0].mdd_success;
+  // SOG = goals + shots off post + saves by the opposing goalie (goals are always on goal)
+  totals[0].sog = totals[0].goal + totals[0].shot_post + totals[1].shot_saved;
+  totals[1].sog = totals[1].goal + totals[1].shot_post + totals[0].shot_saved;
   return totals;
 }
 
 export function qLabel(q) { return q <= 4 ? `Q${q}` : `OT${q - 4}`; }
 export function isOT(q) { return q > 4; }
+
+// Returns [timeoutsLeftTeam0, timeoutsLeftTeam1] for the current timeout period.
+// Q1+Q2 = first half (2 each), Q3+Q4 = second half (2 each), each OT quarter = 1 each.
+// Unused timeouts do not carry between periods.
+function getTimeoutsLeft(log, currentQuarter) {
+  let periodQuarters, allowed;
+  if (currentQuarter <= 2)      { periodQuarters = [1, 2]; allowed = 2; }
+  else if (currentQuarter <= 4) { periodQuarters = [3, 4]; allowed = 2; }
+  else                          { periodQuarters = [currentQuarter]; allowed = 1; }
+  return [0, 1].map(ti =>
+    Math.max(0, allowed - log.filter(e => e.event === "timeout" && e.teamIdx === ti && periodQuarters.includes(e.quarter)).length)
+  );
+}
 
 function entryDisplayInfo(entry) {
   let icon = EVENTS.find(e => e.id === entry.event)?.icon || "•";
@@ -114,12 +155,12 @@ const S = {
     ? { padding: "28px 12px", fontWeight: 600, border: `5px solid ${c}`, borderRadius: 14, background: "#fff", color: c, cursor: "pointer", textAlign: "center", lineHeight: 1.3, width: "100%", boxSizing: "border-box" }
     : { padding: "28px 12px", fontWeight: 500, border: "none", borderRadius: 14, background: c, color: "#fff", cursor: "pointer", textAlign: "center", lineHeight: 1.3, width: "100%" },
   endQtrBtn: (disabled) => ({ width: "100%", padding: 13, fontSize: 14, fontWeight: 500, border: "1px solid #e0d0b0", borderRadius: 10, background: disabled ? "#f5f5f5" : "#fffbf0", color: disabled ? "#bbb" : "#7a5c00", cursor: disabled ? "default" : "pointer", marginTop: 4, opacity: disabled ? 0.5 : 1 }),
-  eventGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 },
-  eventBtn: (sel) => ({ padding: "14px 10px", fontSize: 13, fontWeight: 500, border: sel ? "2px solid #111" : "1px solid #ddd", borderRadius: 10, background: sel ? "#f0f0f0" : "#fff", color: "#111", cursor: "pointer", textAlign: "center", width: "100%" }),
-  evIcon: { fontSize: 20, display: "block", marginBottom: 4 },
-  playerGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8, maxHeight: 340, overflowY: "auto" },
+  eventGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10 },
+  eventBtn: (sel) => ({ padding: "18px 10px", fontSize: 13, fontWeight: 500, border: sel ? "2px solid #111" : "1px solid #ddd", borderRadius: 12, background: sel ? "#f0f0f0" : "#fff", color: "#111", cursor: "pointer", textAlign: "center", width: "100%" }),
+  evIcon: { fontSize: 24, display: "block", marginBottom: 6 },
+  playerGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 10, maxHeight: "calc(100dvh - 260px)", overflowY: "auto" },
   playerBtn: (sel, color, isHome) => ({
-    padding: "12px 8px", fontSize: 13, borderRadius: 10, cursor: "pointer", textAlign: "center", width: "100%",
+    padding: "18px 10px", fontSize: 14, borderRadius: 12, cursor: "pointer", textAlign: "center", width: "100%",
     background: isHome ? (sel ? (color || "#555") : "#fff") : (color || "#555"),
     border: isHome
       ? (sel ? "3px solid #fff" : `4px solid ${color || "#555"}`)
@@ -127,8 +168,8 @@ const S = {
     outline: sel ? "2px solid " + (color || "#555") : "none",
     boxSizing: "border-box",
   }),
-  playerNum: (sel, isHome, color) => ({ fontSize: 18, fontWeight: 600, display: "block", color: (isHome && !sel) ? (color || "#555") : "#fff" }),
-  playerName: (sel, isHome, color) => ({ fontSize: 11, color: (isHome && !sel) ? "#aaa" : "rgba(255,255,255,0.75)", marginTop: 2, wordBreak: "break-word" }),
+  playerNum: (sel, isHome, color) => ({ fontSize: 20, fontWeight: 600, display: "block", color: (isHome && !sel) ? (color || "#555") : "#fff" }),
+  playerName: (sel, isHome, color) => ({ fontSize: 12, color: (isHome && !sel) ? "#aaa" : "rgba(255,255,255,0.75)", marginTop: 3, wordBreak: "break-word" }),
   backBtn: { fontSize: 13, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: 14 },
   confirmCard: { background: "#f7f7f7", borderRadius: 12, padding: 24, textAlign: "center", marginBottom: 14 },
   confirmBtns: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
@@ -190,6 +231,37 @@ function TimeWheel({ maxMinutes, selectedMin, selectedSec, onMinChange, onSecCha
   const isValid = (m, s) => ceilingSecs == null || (m * 60 + s) < ceilingSecs;
   const mins = Array.from({ length: maxMinutes + 1 }, (_, i) => maxMinutes - i);
   const secs = Array.from({ length: 60 }, (_, i) => 59 - i);
+  const minScrollRef = useRef(null);
+  const secScrollRef = useRef(null);
+  const ITEM_H = 44;
+
+  // On mount: scroll both wheels to the first valid position.
+  // If a ceiling exists, scroll to just at/below the ceiling time so valid
+  // options are visible immediately. Otherwise default seconds to the midpoint.
+  useEffect(() => {
+    if (ceilingSecs != null) {
+      const ceilMin = Math.floor(ceilingSecs / 60);
+      const ceilSec = ceilingSecs % 60;
+      // Scroll minutes: put the ceiling minute at the top of the visible area
+      if (minScrollRef.current) {
+        const minIdx = maxMinutes - ceilMin; // index in reversed [maxMinutes → 0] array
+        minScrollRef.current.scrollTop = minIdx * ITEM_H;
+      }
+      // Scroll seconds: show the highest valid second at the ceiling minute
+      // (= ceilSec - 1). If ceilSec is 0, the ceiling minute itself is invalid;
+      // show 59 (the top of the next valid minute block).
+      if (secScrollRef.current) {
+        const targetSec = ceilSec > 0 ? ceilSec - 1 : 59;
+        const secIdx = 59 - targetSec; // index in reversed [59 → 0] array
+        secScrollRef.current.scrollTop = secIdx * ITEM_H;
+      }
+    } else if (secScrollRef.current && selectedSec === null) {
+      // No ceiling: default seconds to the midpoint (~30)
+      secScrollRef.current.scrollTop = 29 * ITEM_H;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleMinChange(m) {
     onMinChange(m);
     if (selectedSec !== null && !isValid(m, selectedSec)) onSecChange(null);
@@ -198,7 +270,7 @@ function TimeWheel({ maxMinutes, selectedMin, selectedSec, onMinChange, onSecCha
     <div style={S.wheelWrap}>
       <div style={S.wheelCol}>
         <div style={S.wheelLabel}>Min</div>
-        <div style={S.wheelScroll}>
+        <div style={S.wheelScroll} ref={minScrollRef}>
           {mins.map(m => {
             const ok = ceilingSecs == null || (m * 60) < ceilingSecs;
             return <div key={m} style={{ ...S.wheelItem(selectedMin === m), opacity: ok ? 1 : 0.25, pointerEvents: ok ? "auto" : "none" }} onClick={() => ok && handleMinChange(m)}>{m}</div>;
@@ -208,7 +280,7 @@ function TimeWheel({ maxMinutes, selectedMin, selectedSec, onMinChange, onSecCha
       <div style={S.wheelSep}>:</div>
       <div style={S.wheelCol}>
         <div style={S.wheelLabel}>Sec</div>
-        <div style={S.wheelScroll}>
+        <div style={S.wheelScroll} ref={secScrollRef}>
           {secs.map(s => {
             const ok = selectedMin !== null ? isValid(selectedMin, s) : (ceilingSecs == null || s < ceilingSecs);
             return <div key={s} style={{ ...S.wheelItem(selectedSec === s), opacity: ok ? 1 : 0.25, pointerEvents: ok ? "auto" : "none" }} onClick={() => ok && onSecChange(s)}>{String(s).padStart(2,"0")}</div>;
@@ -232,7 +304,7 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
 
   // Step machine:
   // team | event | player
-  // ask_save | save_player
+  // ask_save | save_player | ask_post | ask_blocked | blocked_player
   // ask_assist | assist_player | ask_emo | ask_goal_time
   // ask_forced_to_player
   // ask_penalty_type | ask_penalty_min
@@ -333,12 +405,16 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
   const teamTotals = useMemo(() => buildTeamTotals(filteredLog), [filteredLog]);
   const sortedPlayers = useMemo(() => [...playerStats].sort((a, b) => b[sortKey] - a[sortKey]), [playerStats, sortKey]);
 
-  const shotPct = (ti) => { const s = teamTotals[ti].shot, g = teamTotals[ti].goal; return s ? `${Math.round((g/s)*100)}%` : "—"; };
-  const clearPct = (ti) => { const c = teamTotals[ti].clear, f = teamTotals[ti].failed_clear; return (c + f) ? `${Math.round((c/(c+f))*100)}%` : "—"; };
+  const shotPct  = (ti) => { const s = teamTotals[ti].shot,  g = teamTotals[ti].goal;        return s     ? `${Math.round((g/s)*100)}%` : "—"; };
+  const sogPct   = (ti) => { const sog = teamTotals[ti].sog, g = teamTotals[ti].goal;         return sog   ? `${Math.round((g/sog)*100)}%` : "—"; };
+  const clearPct = (ti) => { const c = teamTotals[ti].clear, f = teamTotals[ti].failed_clear; return (c+f) ? `${Math.round((c/(c+f))*100)}%` : "—"; };
+  const emoPct   = (ti) => { const s = teamTotals[ti].emo_goal,    f = teamTotals[ti].emo_fail;  return (s+f) ? `${Math.round((s/(s+f))*100)}%` : "—"; };
+  const mddPct   = (ti) => { const s = teamTotals[ti].mdd_success, f = teamTotals[ti].mdd_fail; return (s+f) ? `${Math.round((s/(s+f))*100)}%` : "—"; };
   const savePct = (ti) => {
-    const shots = filteredLog.filter(e => e.teamIdx === (1-ti) && e.event === "shot").length;
-    const saves = filteredLog.filter(e => e.teamIdx === ti && e.event === "shot_saved").length;
-    return shots ? `${Math.round((saves/shots)*100)}%` : "—";
+    // Save % = saves / SOG faced (SOG by the opposing team)
+    const sogFaced = teamTotals[1 - ti].sog;
+    const saves = teamTotals[ti].shot_saved;
+    return sogFaced ? `${Math.round((saves/sogFaced)*100)}%` : "—";
   };
 
   // Log groups for the event log view — preserve original log order, group by groupId
@@ -355,19 +431,26 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
   }, [log, statsQtr]);
 
   // All goals in chronological order for timeline
-  const goalTimeline = useMemo(() => {
+  const scoringTimeline = useMemo(() => {
     const source = statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr));
     const groups = {};
-    const order = []; // preserve first-seen order from the log
+    const order = [];
     source.forEach(e => {
       if (!groups[e.groupId]) { groups[e.groupId] = []; order.push(e.groupId); }
       groups[e.groupId].push(e);
     });
     return order
       .map(gid => groups[gid])
-      .filter(g => g.some(e => e.event === "goal"))
-      .map(g => ({ group: g, goal: g.find(e => e.event === "goal"), assist: g.find(e => e.event === "assist") }));
+      .filter(g => g.some(e => e.event === "goal" || e.event === "timeout"))
+      .map(g => {
+        const goal = g.find(e => e.event === "goal");
+        const timeout = g.find(e => e.event === "timeout");
+        if (goal) return { type: "goal", goal, assist: g.find(e => e.event === "assist") };
+        return { type: "timeout", timeout };
+      });
   }, [log, statsQtr]);
+
+  const timeoutsLeft = useMemo(() => getTimeoutsLeft(log, currentQuarter), [log, currentQuarter]);
 
   function groupPrimary(group) {
     return group.find(e => e.event === "goal") || group.find(e => e.event === "shot") || group[0];
@@ -651,11 +734,20 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
   }
 
   // Shot flow: save?
-  function handleSaveNo() { commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`); }
+  function handleSaveNo() { setStep("ask_post"); }
   function handleSaveYes() { setStep("save_player"); }
   function handleSavePlayerSelected(goalie) {
     setLastGoalie(prev => prev.map((g, i) => i === (1 - selectedTeam) ? goalie : g));
-    commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_saved", goalie)], `Shot — #${selectedPlayer.num} ${selectedPlayer.name} (saved by #${goalie.num} ${goalie.name})`);
+    commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_saved", goalie)], `Shot (saved) — #${selectedPlayer.num} ${selectedPlayer.name} · saved by #${goalie.num} ${goalie.name}`);
+  }
+  function handlePostYes() {
+    commitEntries([...pendingEntries, mkEntry(selectedTeam, "shot_post", selectedPlayer)], `Shot off post — #${selectedPlayer.num} ${selectedPlayer.name}`);
+  }
+  function handlePostNo() { setStep("ask_blocked"); }
+  function handleBlockedYes() { setStep("blocked_player"); }
+  function handleBlockedNo() { commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`); }
+  function handleBlockerSelected(blockingPlayer) {
+    commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_blocked", blockingPlayer)], `Shot blocked — #${selectedPlayer.num} ${selectedPlayer.name} · blocked by #${blockingPlayer.num} ${blockingPlayer.name}`);
   }
 
   // Forced TO flow: pick the opposing player who turned it over
@@ -699,11 +791,18 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
     return getGroupById(gid).find(e => e.teamIdx === ti && !e.teamStat)?.player || null;
   }
 
-  const goalTimeCeilingSecs = useMemo(() => {
-    const qGoals = log.filter(e => e.event === "goal" && e.quarter === currentQuarter && e.goalTime && (editingGroupId === null || e.groupId !== editingGroupId));
-    if (!qGoals.length) return null;
-    const toS = t => { const [m, s] = t.split(":").map(Number); return m * 60 + s; };
-    return Math.min(...qGoals.map(g => toS(g.goalTime)));
+  const toSecs = t => { const [m, s] = t.split(":").map(Number); return m * 60 + s; };
+
+  // Global time ceiling: the lowest "time remaining" recorded in the current quarter
+  // across ALL timed events (goals, timeouts). Any new timed entry must be strictly less.
+  const timeCeilingSecs = useMemo(() => {
+    const timedEntries = log.filter(e =>
+      e.quarter === currentQuarter &&
+      (e.goalTime || e.timeoutTime) &&
+      (editingGroupId === null || e.groupId !== editingGroupId)
+    );
+    if (!timedEntries.length) return null;
+    return Math.min(...timedEntries.map(e => toSecs(e.goalTime || e.timeoutTime)));
   }, [log, currentQuarter, editingGroupId]);
 
   // Pending bubble helper — build context summary line
@@ -920,6 +1019,9 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
                   <button key={ti} style={S.teamBigBtn(teamColors[ti], ti === 0)} onClick={() => { setSelectedTeam(ti); setStep("event"); }}>
                     <span style={{ fontSize: 36, fontWeight: 600, display: "block", marginBottom: 4, color: ti === 0 ? teamColors[0] : "#fff" }}>{totalScores[ti]}</span>
                     <span style={{ fontSize: 13, color: ti === 0 ? teamColors[0] : "rgba(255,255,255,0.8)" }}>{teams[ti].name}</span>
+                    <span style={{ fontSize: 11, marginTop: 6, display: "block", opacity: 0.65, color: ti === 0 ? teamColors[0] : "#fff" }}>
+                      ⏸ {timeoutsLeft[ti]} timeout{timeoutsLeft[ti] !== 1 ? "s" : ""} left
+                    </span>
                   </button>
                 ))}
               </div>
@@ -959,8 +1061,9 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
                     <button key={ev.id} style={S.eventBtn(editingGroupId && prevEv === ev.id)}
                       onClick={() => {
                         setSelectedEvent(ev);
-                        if (ev.teamStat) {
-                          // Clear: commit immediately, no confirmation needed
+                        if (ev.id === "timeout") {
+                          setStep("ask_timeout_time");
+                        } else if (ev.teamStat) {
                           commitEntries([mkEntry(selectedTeam, ev.id, null, { teamStat: true })], `${ev.label} — ${teams[selectedTeam].name}`);
                         } else {
                           setStep("player");
@@ -1088,15 +1191,42 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
               </div>
               <div style={S.questionCard}>
                 <div style={S.questionText}>Time remaining in {curQLabel}?</div>
-                {goalTimeCeilingSecs !== null && <div style={{ fontSize: 12, color: "#888", textAlign: "center", marginTop: 4 }}>Must be less than {Math.floor(goalTimeCeilingSecs/60)}:{String(goalTimeCeilingSecs%60).padStart(2,"0")}</div>}
+                {timeCeilingSecs !== null && <div style={{ fontSize: 12, color: "#888", textAlign: "center", marginTop: 4 }}>Must be before {Math.floor(timeCeilingSecs/60)}:{String(timeCeilingSecs%60).padStart(2,"0")} remaining</div>}
                 {goalTimeMin !== null && goalTimeSec !== null && <div style={{ fontSize: 24, fontWeight: 500, textAlign: "center", marginTop: 8 }}>{goalTimeMin}:{String(goalTimeSec).padStart(2,"0")}</div>}
               </div>
               <TimeWheel maxMinutes={isOT(currentQuarter) ? 4 : 12} selectedMin={goalTimeMin} selectedSec={goalTimeSec}
-                onMinChange={m => setGoalTimeMin(m)} onSecChange={s => setGoalTimeSec(s)} ceilingSecs={goalTimeCeilingSecs} />
+                onMinChange={m => setGoalTimeMin(m)} onSecChange={s => setGoalTimeSec(s)} ceilingSecs={timeCeilingSecs} />
               <button style={{ ...S.timeConfirmBtn, background: (goalTimeMin !== null && goalTimeSec !== null) ? "#111" : "#ccc", cursor: (goalTimeMin !== null && goalTimeSec !== null) ? "pointer" : "not-allowed" }}
                 disabled={goalTimeMin === null || goalTimeSec === null}
                 onClick={() => handleGoalTime(`${goalTimeMin}:${String(goalTimeSec).padStart(2,"0")}`)}>
                 Confirm time →
+              </button>
+            </div>
+          )}
+
+          {/* Timeout: time remaining */}
+          {step === "ask_timeout_time" && (
+            <div>
+              <button style={S.backBtn} onClick={() => setStep("event")}>← Back</button>
+              <div style={S.questionCard}>
+                <div style={S.questionText}>Timeout — {teams[selectedTeam]?.name}</div>
+                <div style={S.questionSub}>Time remaining in {curQLabel}?</div>
+                {goalTimeMin !== null && goalTimeSec !== null && <div style={{ fontSize: 24, fontWeight: 500, textAlign: "center", marginTop: 8 }}>{goalTimeMin}:{String(goalTimeSec).padStart(2,"0")}</div>}
+              </div>
+              <TimeWheel maxMinutes={isOT(currentQuarter) ? 4 : 12} selectedMin={goalTimeMin} selectedSec={goalTimeSec}
+                onMinChange={m => setGoalTimeMin(m)} onSecChange={s => setGoalTimeSec(s)} ceilingSecs={timeCeilingSecs} />
+              <button style={{ ...S.timeConfirmBtn, background: (goalTimeMin !== null && goalTimeSec !== null) ? "#111" : "#ccc", cursor: (goalTimeMin !== null && goalTimeSec !== null) ? "pointer" : "not-allowed" }}
+                disabled={goalTimeMin === null || goalTimeSec === null}
+                onClick={() => {
+                  const t = `${goalTimeMin}:${String(goalTimeSec).padStart(2,"0")}`;
+                  commitEntries([mkEntry(selectedTeam, "timeout", null, { teamStat: true, timeoutTime: t })], `Timeout — ${teams[selectedTeam]?.name} at ${t}`);
+                }}>
+                Log Timeout →
+              </button>
+              <button style={{ ...S.btnSecondary, marginTop: 8 }} onClick={() => {
+                commitEntries([mkEntry(selectedTeam, "timeout", null, { teamStat: true })], `Timeout — ${teams[selectedTeam]?.name}`);
+              }}>
+                Log without time
               </button>
             </div>
           )}
@@ -1143,6 +1273,60 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
                   const sel = prev ? (prev.num === p.num && prev.name === p.name) : false;
                   const isHome = (1 - selectedTeam) === 0;
                   return <button key={i} style={S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleSavePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Shot: post/crossbar? */}
+          {step === "ask_post" && (
+            <div>
+              <button style={S.backBtn} onClick={() => setStep("ask_save")}>← Back</button>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>
+                🎯 Shot — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
+              </div>
+              <div style={S.questionCard}>
+                <div style={S.questionText}>Did it hit the post or crossbar?</div>
+                <div style={S.questionSub}>Counts as a shot on goal (SOG)</div>
+              </div>
+              <div style={S.yesNoRow}>
+                <button style={S.btnNo} onClick={handlePostNo}>No</button>
+                <button style={S.btnYes} onClick={handlePostYes}>Yes — off the post</button>
+              </div>
+            </div>
+          )}
+
+          {/* Shot: blocked? */}
+          {step === "ask_blocked" && (
+            <div>
+              <button style={S.backBtn} onClick={() => setStep("ask_post")}>← Back</button>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>
+                🎯 Shot — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
+              </div>
+              <div style={S.questionCard}>
+                <div style={S.questionText}>Was it blocked?</div>
+                <div style={S.questionSub}>by a {teams[1 - selectedTeam]?.name} field player</div>
+              </div>
+              <div style={S.yesNoRow}>
+                <button style={S.btnNo} onClick={handleBlockedNo}>No — missed / wide</button>
+                <button style={S.btnYes} onClick={handleBlockedYes}>Yes — blocked</button>
+              </div>
+            </div>
+          )}
+
+          {/* Shot: pick blocker */}
+          {step === "blocked_player" && (
+            <div>
+              <button style={S.backBtn} onClick={() => setStep("ask_blocked")}>← Back</button>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>
+                🎯 Shot blocked — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
+              </div>
+              <div style={{ ...S.stepLabel, color: teamColors[1 - selectedTeam] }}>{teams[1 - selectedTeam]?.name} — Who made the block?</div>
+              <div style={S.playerGrid}>
+                {parsedRosters[1 - selectedTeam]?.map((p, i) => {
+                  const isHome = (1 - selectedTeam) === 0;
+                  const sel = false;
+                  return <button key={i} style={S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleBlockerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
                 })}
               </div>
             </div>
@@ -1278,6 +1462,17 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
             </div>
           )}
 
+          {/* Timeouts remaining (live games only) */}
+          {!gameOver && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+              {[0, 1].map(ti => (
+                <div key={ti} style={{ fontSize: 12, color: teamColors[ti], fontWeight: 500 }}>
+                  ⏸ {timeoutsLeft[ti]} timeout{timeoutsLeft[ti] !== 1 ? "s" : ""} left
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Quarter score grid */}
           {allQuarters.length > 1 && (
             <div style={{ ...S.tableWrap, marginBottom: 20 }}>
@@ -1318,8 +1513,14 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
           {statsTab === "summary" && (
             <div style={S.summaryGrid}>
               {[
-                { label: "Goals", key: "goal" }, { label: "EMO Goals", key: "emo_goal" },
-                { label: "Shots", key: "shot" }, { label: "Shot %", custom: shotPct },
+                { label: "Goals", key: "goal" },
+                { label: "Successful EMO", key: "emo_goal" }, { label: "Failed EMO", key: "emo_fail" },
+                { label: "EMO %", custom: emoPct },
+                { label: "Successful MDD", key: "mdd_success" }, { label: "Failed MDD", key: "mdd_fail" },
+                { label: "MDD %", custom: mddPct },
+                { label: "Total Shots", key: "shot" }, { label: "Shot %", custom: shotPct },
+                { label: "Shots on Goal", key: "sog" }, { label: "SOG %", custom: sogPct },
+                { label: "Blocked Shots", key: "shot_blocked" },
                 { label: "Saves", key: "shot_saved" }, { label: "Save %", custom: savePct },
                 { label: "Ground Balls", key: "ground_ball" }, { label: "Faceoffs Won", key: "faceoff_win" },
                 { label: "Turnovers", key: "turnover" }, { label: "Forced TOs", key: "forced_to" },
@@ -1352,7 +1553,7 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
                     <table style={S.table}>
                       <thead><tr>
                         <th style={S.thLeft}>Player</th>
-                        {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride").map(k => <th key={k} style={S.th(sortKey === k)} onClick={() => setSortKey(k)}>{STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}</th>)}
+                        {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride" && k !== "mdd_success" && k !== "mdd_fail" && k !== "emo_fail" && k !== "shot_post").map(k => <th key={k} style={S.th(sortKey === k)} onClick={() => setSortKey(k)}>{STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}</th>)}
                       </tr></thead>
                       <tbody>
                         {[0,1].map(ti => {
@@ -1363,7 +1564,7 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
                             ...rows.map((row, i) => (
                               <tr key={`${ti}-${i}`}>
                                 <td style={S.tdLeft}><span style={S.numBadge}>#{row.player.num}</span>{row.player.name}</td>
-                                {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride").map(k => <td key={k} style={{ ...S.td, fontWeight: k === sortKey ? 600 : 400, opacity: row[k] === 0 ? 0.3 : 1 }}>{k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}</td>)}
+                                {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride" && k !== "mdd_success" && k !== "mdd_fail" && k !== "emo_fail" && k !== "shot_post").map(k => <td key={k} style={{ ...S.td, fontWeight: k === sortKey ? 600 : 400, opacity: row[k] === 0 ? 0.3 : 1 }}>{k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}</td>)}
                               </tr>
                             ))
                           ];
@@ -1376,37 +1577,58 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
 
           {/* Timeline — goals only with timestamps */}
           {statsTab === "timeline" && (
-            goalTimeline.length === 0
-              ? <div style={S.emptyState}>No goals recorded yet</div>
+            scoringTimeline.length === 0
+              ? <div style={S.emptyState}>No events recorded yet</div>
               : <div style={S.tableWrap}>
-                  <div style={S.tableTitle}><span>Scoring timeline</span><span style={{ fontWeight: 400, fontSize: 11 }}>{goalTimeline.length} goal{goalTimeline.length !== 1 ? "s" : ""}</span></div>
+                  {(() => {
+                    const goalCount = scoringTimeline.filter(e => e.type === "goal").length;
+                    const toCount   = scoringTimeline.filter(e => e.type === "timeout").length;
+                    const meta = [goalCount && `${goalCount} goal${goalCount !== 1 ? "s" : ""}`, toCount && `${toCount} timeout${toCount !== 1 ? "s" : ""}`].filter(Boolean).join(", ");
+                    return <div style={S.tableTitle}><span>Timeline</span><span style={{ fontWeight: 400, fontSize: 11 }}>{meta}</span></div>;
+                  })()}
                   <table style={S.table}>
                     <thead><tr>
                       <th style={{ ...S.th(false), textAlign: "left", paddingLeft: 14 }}>Time</th>
                       <th style={{ ...S.th(false), textAlign: "left" }}>Team</th>
-                      <th style={{ ...S.th(false), textAlign: "left" }}>Scorer</th>
+                      <th style={{ ...S.th(false), textAlign: "left" }}>Event</th>
                       <th style={{ ...S.th(false), textAlign: "left" }}>Assist</th>
                       <th style={S.th(false)}>Score</th>
                     </tr></thead>
                     <tbody>
                       {(() => {
-                        // Pre-compute running scores in chronological order, then display reversed
                         const withScores = [];
                         const scores = [0, 0];
-                        goalTimeline.forEach(({ goal, assist }) => {
-                          scores[goal.teamIdx]++;
-                          withScores.push({ goal, assist, scoreSnap: [...scores] });
+                        scoringTimeline.forEach(entry => {
+                          if (entry.type === "goal") scores[entry.goal.teamIdx]++;
+                          withScores.push({ ...entry, scoreSnap: [...scores] });
                         });
-                        // Show newest first
-                        return [...withScores].reverse().map(({ goal, assist, scoreSnap }, gi) => (
-                            <tr key={gi}>
+                        return [...withScores].reverse().map((entry, gi) => {
+                          if (entry.type === "timeout") {
+                            const to = entry.timeout;
+                            return (
+                              <tr key={`to-${gi}`} style={{ background: "#fafafa" }}>
+                                <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
+                                  {to.timeoutTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{to.timeoutTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
+                                  <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(to.quarter)}</span>
+                                </td>
+                                <td style={S.tdLeft}><span style={{ color: teamColors[to.teamIdx], fontWeight: 500 }}>{teams[to.teamIdx]?.name}</span></td>
+                                <td style={{ ...S.tdLeft, color: "#888", fontStyle: "italic" }} colSpan={2}>⏸ Timeout</td>
+                                <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                                  <span style={{ color: teamColors[0] }}>{entry.scoreSnap[0]}</span>
+                                  <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
+                                  <span style={{ color: teamColors[1] }}>{entry.scoreSnap[1]}</span>
+                                </td>
+                              </tr>
+                            );
+                          }
+                          const { goal, assist, scoreSnap } = entry;
+                          return (
+                            <tr key={`g-${gi}`}>
                               <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
                                 {goal.goalTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{goal.goalTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
                                 <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(goal.quarter)}</span>
                               </td>
-                              <td style={S.tdLeft}>
-                                <span style={{ color: teamColors[goal.teamIdx], fontWeight: 500 }}>{teams[goal.teamIdx]?.name}</span>
-                              </td>
+                              <td style={S.tdLeft}><span style={{ color: teamColors[goal.teamIdx], fontWeight: 500 }}>{teams[goal.teamIdx]?.name}</span></td>
                               <td style={S.tdLeft}>
                                 <span style={{ fontWeight: 500 }}>#{goal.player?.num} {goal.player?.name}</span>
                                 {goal.emo && <span style={{ marginLeft: 6, fontSize: 11, background: "#e8f5e9", color: "#2a7a3b", borderRadius: 4, padding: "1px 5px" }}>EMO</span>}
@@ -1420,7 +1642,8 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
                                 <span style={{ color: teamColors[1] }}>{scoreSnap[1]}</span>
                               </td>
                             </tr>
-                          ));
+                          );
+                        });
                       })()}
                     </tbody>
                   </table>

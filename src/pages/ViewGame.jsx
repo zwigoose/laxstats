@@ -7,6 +7,16 @@ import {
   qLabel, isOT,
 } from "../components/LaxStats";
 
+function getLatestTime(log, currentQuarter) {
+  if (!log?.length) return null;
+  const toS = t => { const [m, s] = t.split(":").map(Number); return m * 60 + s; };
+  const timed = log
+    .filter(e => e.quarter === currentQuarter && (e.goalTime || e.timeoutTime))
+    .map(e => ({ str: e.goalTime || e.timeoutTime, secs: toS(e.goalTime || e.timeoutTime) }));
+  if (!timed.length) return null;
+  return timed.reduce((min, t) => t.secs < min.secs ? t : min).str;
+}
+
 // ── Styles (matches LaxStats style conventions) ──────────────────────────────
 const S = {
   page: { fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto", padding: "0 0 40px" },
@@ -129,15 +139,18 @@ export default function ViewGame() {
   const teamTotals = useMemo(() => buildTeamTotals(filteredLog), [filteredLog]);
   const sortedPlayers = useMemo(() => [...playerStats].sort((a, b) => b[sortKey] - a[sortKey]), [playerStats, sortKey]);
 
-  const shotPct = (ti) => { const s = teamTotals[ti].shot, g = teamTotals[ti].goal; return s ? `${Math.round((g / s) * 100)}%` : "—"; };
-  const clearPct = (ti) => { const c = teamTotals[ti].clear, f = teamTotals[ti].failed_clear; return (c + f) ? `${Math.round((c / (c + f)) * 100)}%` : "—"; };
+  const shotPct  = (ti) => { const s = teamTotals[ti].shot,  g = teamTotals[ti].goal;          return s     ? `${Math.round((g/s)*100)}%` : "—"; };
+  const sogPct   = (ti) => { const sog = teamTotals[ti].sog, g = teamTotals[ti].goal;           return sog   ? `${Math.round((g/sog)*100)}%` : "—"; };
+  const clearPct = (ti) => { const c = teamTotals[ti].clear, f = teamTotals[ti].failed_clear;   return (c+f) ? `${Math.round((c/(c+f))*100)}%` : "—"; };
+  const emoPct   = (ti) => { const s = teamTotals[ti].emo_goal,    f = teamTotals[ti].emo_fail;  return (s+f) ? `${Math.round((s/(s+f))*100)}%` : "—"; };
+  const mddPct   = (ti) => { const s = teamTotals[ti].mdd_success, f = teamTotals[ti].mdd_fail; return (s+f) ? `${Math.round((s/(s+f))*100)}%` : "—"; };
   const savePct = (ti) => {
-    const shots = filteredLog.filter(e => e.teamIdx === (1 - ti) && e.event === "shot").length;
-    const saves = filteredLog.filter(e => e.teamIdx === ti && e.event === "shot_saved").length;
-    return shots ? `${Math.round((saves / shots) * 100)}%` : "—";
+    const sogFaced = teamTotals[1 - ti].sog;
+    const saves = teamTotals[ti].shot_saved;
+    return sogFaced ? `${Math.round((saves / sogFaced) * 100)}%` : "—";
   };
 
-  const goalTimeline = useMemo(() => {
+  const scoringTimeline = useMemo(() => {
     const source = statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr));
     const groups = {};
     const order = [];
@@ -147,8 +160,13 @@ export default function ViewGame() {
     });
     return order
       .map(gid => groups[gid])
-      .filter(g => g.some(e => e.event === "goal"))
-      .map(g => ({ group: g, goal: g.find(e => e.event === "goal"), assist: g.find(e => e.event === "assist") }));
+      .filter(g => g.some(e => e.event === "goal" || e.event === "timeout"))
+      .map(g => {
+        const goal = g.find(e => e.event === "goal");
+        const timeout = g.find(e => e.event === "timeout");
+        if (goal) return { type: "goal", goal, assist: g.find(e => e.event === "assist") };
+        return { type: "timeout", timeout };
+      });
   }, [log, statsQtr]);
 
   if (loading) return <div style={{ ...S.loading, fontFamily: "system-ui, sans-serif" }}>Loading game…</div>;
@@ -172,6 +190,16 @@ export default function ViewGame() {
           <div style={S.noGame}>Game hasn't started yet. Check back when the scorekeeper begins tracking.</div>
         ) : (
           <>
+            {/* Latest known time — shown above score for live games */}
+            {!gameOver && (() => {
+              const t = getLatestTime(log, currentQuarter);
+              return t ? (
+                <div style={{ textAlign: "center", padding: "10px 0 0", fontSize: 13, color: "#888" }}>
+                  <span style={{ fontWeight: 600, color: "#111" }}>{t}</span> remaining · {qLabel(currentQuarter)}
+                </div>
+              ) : null;
+            })()}
+
             {/* Score / final banner */}
             {gameOver ? (
               <div style={S.finalBanner}>
@@ -251,8 +279,14 @@ export default function ViewGame() {
             {statsTab === "summary" && (
               <div style={S.summaryGrid}>
                 {[
-                  { label: "Goals", key: "goal" }, { label: "EMO Goals", key: "emo_goal" },
-                  { label: "Shots", key: "shot" }, { label: "Shot %", custom: shotPct },
+                  { label: "Goals", key: "goal" },
+                  { label: "Successful EMO", key: "emo_goal" }, { label: "Failed EMO", key: "emo_fail" },
+                  { label: "EMO %", custom: emoPct },
+                  { label: "Successful MDD", key: "mdd_success" }, { label: "Failed MDD", key: "mdd_fail" },
+                  { label: "MDD %", custom: mddPct },
+                  { label: "Total Shots", key: "shot" }, { label: "Shot %", custom: shotPct },
+                  { label: "Shots on Goal", key: "sog" }, { label: "SOG %", custom: sogPct },
+                  { label: "Blocked Shots", key: "shot_blocked" },
                   { label: "Saves", key: "shot_saved" }, { label: "Save %", custom: savePct },
                   { label: "Ground Balls", key: "ground_ball" }, { label: "Faceoffs Won", key: "faceoff_win" },
                   { label: "Turnovers", key: "turnover" }, { label: "Forced TOs", key: "forced_to" },
@@ -290,7 +324,7 @@ export default function ViewGame() {
                       <table style={S.table}>
                         <thead><tr>
                           <th style={S.thLeft}>Player</th>
-                          {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride").map(k => (
+                          {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride" && k !== "mdd_success" && k !== "mdd_fail" && k !== "emo_fail" && k !== "shot_post").map(k => (
                             <th key={k} style={S.th(sortKey === k)} onClick={() => setSortKey(k)}>
                               {STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}
                             </th>
@@ -311,7 +345,7 @@ export default function ViewGame() {
                                   <td style={S.tdLeft}>
                                     <span style={S.numBadge}>#{row.player.num}</span>{row.player.name}
                                   </td>
-                                  {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride").map(k => (
+                                  {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride" && k !== "mdd_success" && k !== "mdd_fail" && k !== "emo_fail" && k !== "shot_post").map(k => (
                                     <td key={k} style={{ ...S.td, fontWeight: k === sortKey ? 600 : 400, opacity: row[k] === 0 ? 0.3 : 1 }}>
                                       {k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}
                                     </td>
@@ -328,18 +362,20 @@ export default function ViewGame() {
 
             {/* Timeline */}
             {statsTab === "timeline" && (
-              goalTimeline.length === 0
-                ? <div style={S.emptyState}>No goals recorded yet</div>
+              scoringTimeline.length === 0
+                ? <div style={S.emptyState}>No events recorded yet</div>
                 : <div style={S.tableWrap}>
-                    <div style={S.tableTitle}>
-                      <span>Scoring timeline</span>
-                      <span style={{ fontWeight: 400, fontSize: 11 }}>{goalTimeline.length} goal{goalTimeline.length !== 1 ? "s" : ""}</span>
-                    </div>
+                    {(() => {
+                      const goalCount = scoringTimeline.filter(e => e.type === "goal").length;
+                      const toCount   = scoringTimeline.filter(e => e.type === "timeout").length;
+                      const meta = [goalCount && `${goalCount} goal${goalCount !== 1 ? "s" : ""}`, toCount && `${toCount} timeout${toCount !== 1 ? "s" : ""}`].filter(Boolean).join(", ");
+                      return <div style={S.tableTitle}><span>Timeline</span><span style={{ fontWeight: 400, fontSize: 11 }}>{meta}</span></div>;
+                    })()}
                     <table style={S.table}>
                       <thead><tr>
                         <th style={{ ...S.th(false), textAlign: "left", paddingLeft: 14 }}>Time</th>
                         <th style={{ ...S.th(false), textAlign: "left" }}>Team</th>
-                        <th style={{ ...S.th(false), textAlign: "left" }}>Scorer</th>
+                        <th style={{ ...S.th(false), textAlign: "left" }}>Event</th>
                         <th style={{ ...S.th(false), textAlign: "left" }}>Assist</th>
                         <th style={S.th(false)}>Score</th>
                       </tr></thead>
@@ -347,39 +383,52 @@ export default function ViewGame() {
                         {(() => {
                           const withScores = [];
                           const scores = [0, 0];
-                          goalTimeline.forEach(({ goal, assist }) => {
-                            scores[goal.teamIdx]++;
-                            withScores.push({ goal, assist, scoreSnap: [...scores] });
+                          scoringTimeline.forEach(entry => {
+                            if (entry.type === "goal") scores[entry.goal.teamIdx]++;
+                            withScores.push({ ...entry, scoreSnap: [...scores] });
                           });
-                          return [...withScores].reverse().map(({ goal, assist, scoreSnap }, gi) => (
-                            <tr key={gi}>
-                              <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
-                                {goal.goalTime
-                                  ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{goal.goalTime}</span>
-                                  : <span style={{ color: "#ccc" }}>—</span>
-                                }
-                                <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(goal.quarter)}</span>
-                              </td>
-                              <td style={S.tdLeft}>
-                                <span style={{ color: teamColors[goal.teamIdx], fontWeight: 500 }}>{teams[goal.teamIdx]?.name}</span>
-                              </td>
-                              <td style={S.tdLeft}>
-                                <span style={{ fontWeight: 500 }}>#{goal.player?.num} {goal.player?.name}</span>
-                                {goal.emo && <span style={{ marginLeft: 6, fontSize: 11, background: "#e8f5e9", color: "#2a7a3b", borderRadius: 4, padding: "1px 5px" }}>EMO</span>}
-                              </td>
-                              <td style={S.tdLeft}>
-                                {assist
-                                  ? <span style={{ color: "#888" }}>#{assist.player?.num} {assist.player?.name}</span>
-                                  : <span style={{ color: "#ddd" }}>—</span>
-                                }
-                              </td>
-                              <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                                <span style={{ color: teamColors[0] }}>{scoreSnap[0]}</span>
-                                <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
-                                <span style={{ color: teamColors[1] }}>{scoreSnap[1]}</span>
-                              </td>
-                            </tr>
-                          ));
+                          return [...withScores].reverse().map((entry, gi) => {
+                            if (entry.type === "timeout") {
+                              const to = entry.timeout;
+                              return (
+                                <tr key={`to-${gi}`} style={{ background: "#fafafa" }}>
+                                  <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
+                                    {to.timeoutTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{to.timeoutTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
+                                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(to.quarter)}</span>
+                                  </td>
+                                  <td style={S.tdLeft}><span style={{ color: teamColors[to.teamIdx], fontWeight: 500 }}>{teams[to.teamIdx]?.name}</span></td>
+                                  <td style={{ ...S.tdLeft, color: "#888", fontStyle: "italic" }} colSpan={2}>⏸ Timeout</td>
+                                  <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                                    <span style={{ color: teamColors[0] }}>{entry.scoreSnap[0]}</span>
+                                    <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
+                                    <span style={{ color: teamColors[1] }}>{entry.scoreSnap[1]}</span>
+                                  </td>
+                                </tr>
+                              );
+                            }
+                            const { goal, assist, scoreSnap } = entry;
+                            return (
+                              <tr key={`g-${gi}`}>
+                                <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
+                                  {goal.goalTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{goal.goalTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
+                                  <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(goal.quarter)}</span>
+                                </td>
+                                <td style={S.tdLeft}><span style={{ color: teamColors[goal.teamIdx], fontWeight: 500 }}>{teams[goal.teamIdx]?.name}</span></td>
+                                <td style={S.tdLeft}>
+                                  <span style={{ fontWeight: 500 }}>#{goal.player?.num} {goal.player?.name}</span>
+                                  {goal.emo && <span style={{ marginLeft: 6, fontSize: 11, background: "#e8f5e9", color: "#2a7a3b", borderRadius: 4, padding: "1px 5px" }}>EMO</span>}
+                                </td>
+                                <td style={S.tdLeft}>
+                                  {assist ? <span style={{ color: "#888" }}>#{assist.player?.num} {assist.player?.name}</span> : <span style={{ color: "#ddd" }}>—</span>}
+                                </td>
+                                <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                                  <span style={{ color: teamColors[0] }}>{scoreSnap[0]}</span>
+                                  <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
+                                  <span style={{ color: teamColors[1] }}>{scoreSnap[1]}</span>
+                                </td>
+                              </tr>
+                            );
+                          });
                         })()}
                       </tbody>
                     </table>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { qLabel } from "../components/LaxStats";
 
 const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
 
@@ -65,16 +66,27 @@ function findDuplicateNums(rosterText) {
   nums.forEach(n => { if (seen.has(n)) dupes.add(`#${n}`); else seen.add(n); });
   return [...dupes];
 }
+function getLatestTime(state) {
+  if (!state?.log || !state.currentQuarter) return null;
+  const q = state.currentQuarter;
+  const toS = t => { const [m, s] = t.split(":").map(Number); return m * 60 + s; };
+  const timed = (state.log || [])
+    .filter(e => e.quarter === q && (e.goalTime || e.timeoutTime))
+    .map(e => ({ str: e.goalTime || e.timeoutTime, secs: toS(e.goalTime || e.timeoutTime) }));
+  if (!timed.length) return null;
+  return timed.reduce((min, t) => t.secs < min.secs ? t : min).str;
+}
+
 function getGameInfo(game) {
   const s = game.state;
   if (!s?.teams) return null;
   const t0 = s.teams[0], t1 = s.teams[1];
   const score0 = (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
   const score1 = (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
-  // A game is Live only when the scorekeeper explicitly pressed Start Tracking
-  // (trackingStarted flag) with both rosters at ≥10 players enforced at that point
   const started = !!s.trackingStarted;
-  return { t0, t1, score0, score1, gameOver: s.gameOver, started };
+  const latestTime = getLatestTime(s);
+  const currentQuarter = s.currentQuarter || 1;
+  return { t0, t1, score0, score1, gameOver: s.gameOver, started, latestTime, currentQuarter };
 }
 
 // ── Game Card ─────────────────────────────────────────────────────────────────
@@ -128,7 +140,9 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
             {info?.gameOver ? (
               <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "3px 9px", letterSpacing: "0.04em", textTransform: "uppercase" }}>Final</span>
             ) : info?.started ? (
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "3px 9px", letterSpacing: "0.04em" }}>● Live</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "3px 9px", letterSpacing: "0.04em" }}>
+                ● Live{info.latestTime ? ` · ${info.latestTime} ${qLabel(info.currentQuarter)}` : ""}
+              </span>
             ) : (
               <span style={{ fontSize: 11, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "3px 9px", letterSpacing: "0.04em" }}>● Pending</span>
             )}

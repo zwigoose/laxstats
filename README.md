@@ -1,45 +1,61 @@
 # LaxStats 🥍
 
-Live men's lacrosse stat tracking. One person keeps score on the sideline — everyone else follows along in real time.
+An electronic scorebook for men's lacrosse — the kind of thing that used to live on a clipboard at the scorers table, now on your phone. One person runs it on the sideline while the game is happening; coaches, parents, and players can follow the score and stats live from anywhere.
 
 ---
 
 ## How to use this app
 
-### Before the game — set up your rosters
-Go to the **Rosters** tab on the main screen and create a saved team for each team you track regularly. Enter the team name, pick a color, and add players one per line in `#number Name` format. Saved rosters can be loaded into any future game in one tap.
+### Before the season — save your rosters
+Go to the **Rosters** tab and create a saved team for each team you track. Enter the team name, pick a color, and add players one per line (`#2 John Smith`). Saved rosters load into any game in one tap and don't need to be re-entered.
 
-### Starting a game
-Tap **＋ New Game** from the main screen. On the setup screen, use the **Load saved…** dropdown on each team card to pull in a saved roster, or type everything in manually. Once both teams have at least one player, tap **Start Tracking →**.
+### Game day — create a game
+Tap **＋ New Game** from the main screen. You'll land on the setup screen. Use the **Load saved…** dropdown on each team card to pull in a saved roster, or type one in manually. Both teams need at least 10 players and no duplicate numbers before you can start.
 
-### Tracking stats during the game
-The **Track** tab walks you through every entry step by step:
-1. Tap the team the event belongs to
-2. Tap the event type (Goal, Shot, Ground Ball, etc.)
-3. Tap the player involved
-4. Answer any follow-up questions (save? assist? EMO? time remaining? foul type?)
+The left card is always **Home** (white jerseys) and the right card is **Away** (colored jerseys). The button colors in the tracking UI mirror this — white with a colored border for home, solid color for away — so your eye can match what you see on the field.
 
-After each entry a banner shows what was just recorded with an **undo** button if you need to correct a mistake immediately. To fix something older, go to the **Event Log** tab and tap ✏️ to edit or ✕ to delete any entry.
+Tap **Start Tracking →** when you're ready.
 
-### Ending quarters
-Tap **End Q# →** at the bottom of the Track screen. After Q4, the app either finalizes the game (if the score isn't tied) or starts overtime. Overtime is sudden death — the app ends the game automatically on the first OT goal.
+### During the game — tracking events
+The **Track** tab walks you through every stat entry step by step. Tap the team, tap the event, tap the player, answer any follow-up questions. The app handles all the derived stats automatically — rides, MDD, EMO fail, SOG — so you only enter what actually happened.
+
+The most common flows:
+- **Goal:** team → player → assist? → EMO? → time remaining?
+- **Shot:** team → player → saved? → (if no) post/crossbar? → (if no) blocked? → pick blocker / just log
+- **Timeout:** team → time remaining?
+
+Use the **undo** button after any entry to remove it immediately. For older corrections, go to the **Event Log** tab to edit or delete any entry at any time.
+
+### Timeouts
+Each team gets **2 timeouts per half** (Q1+Q2, then Q3+Q4 separately). In overtime, each team gets **1 per OT period**. Unused timeouts don't carry over between periods. The remaining count is shown on each team's button in the Track screen.
+
+### Ending quarters and overtime
+Tap **End Q# →** at the bottom of the Track screen. After Q4, the app either finalizes the game (score not tied) or starts overtime. Overtime is sudden death — first goal ends the game automatically.
 
 ### Viewing stats
-The **Stats** tab shows a full breakdown: team totals in **Summary**, a sortable player table in **Players**, and a goal-by-goal **Timeline**. Use the quarter buttons at the top to filter to any individual quarter.
+The **Stats** tab has three views — **Summary** (team totals), **Players** (sortable individual stats), and **Timeline** (goals and timeouts in order). Use the quarter buttons to filter to any single quarter.
 
-### Sharing the live view
-Anyone can follow the game in real time by opening the **Live View** link (`/games/:id/view`), or by tapping **View** on any game card from the main screen. It updates automatically as stats are entered — no refresh needed.
+### Sharing
+Anyone can follow the game live at `/games/:id/view` or by tapping **View** on a game card. The Live View updates in real time as you enter stats. The latest recorded time remaining is shown above the score so viewers have the most current clock reference available.
 
 ---
 
-## Stat types tracked
+## Stats tracked
 
-Goals, EMO goals, shots, shot %, saves, save %, ground balls, faceoff wins, turnovers, forced turnovers, successful clears, failed clears, clearing %, successful rides, failed rides, assists, technical fouls, and personal foul minutes.
+| Category | Stats |
+|---|---|
+| Scoring | Goals, Successful EMO, Failed EMO, EMO % |
+| Defense | Successful MDD, Failed MDD, MDD % |
+| Shooting | Total Shots, Shot %, Shots on Goal (SOG), SOG %, Blocked Shots, Saves, Save % |
+| Possession | Ground Balls, Faceoff Wins, Turnovers, Forced TOs |
+| Clearing | Successful Clears, Failed Clears, Clearing %, Successful Rides, Failed Rides |
+| Penalties | Technical Fouls, Personal Foul Minutes |
+| Other | Assists, Timeouts |
 
-> Rides are calculated automatically — a successful clear for one team counts as a failed ride for the other, and vice versa.
+Rides, MDD Fail, EMO Fail, and SOG are all calculated automatically — you never enter them directly.
 
 ---
 
 ## Full documentation
 
-See [USER_GUIDE.md](./USER_GUIDE.md) for a detailed reference covering every feature.
+See [USER_GUIDE.md](./USER_GUIDE.md) for a complete reference.

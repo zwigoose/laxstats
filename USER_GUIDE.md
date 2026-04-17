@@ -1,6 +1,6 @@
 # LaxStats — User Guide
 
-LaxStats is a live men's lacrosse stat-tracking app. One person runs the **Scorekeeper** view on their device during a game; anyone else can follow along in real time on the **Live View** from their own device.
+LaxStats is an electronic scorebook for men's lacrosse. It replaces the clipboard at the scorers table — one person enters stats on a phone or tablet during the game, and everyone else follows along live from their own device.
 
 ---
 
@@ -8,50 +8,50 @@ LaxStats is a live men's lacrosse stat-tracking app. One person runs the **Score
 
 1. [Main Screen](#1-main-screen)
 2. [Roster Management](#2-roster-management)
-3. [Creating a Game](#3-creating-a-game)
+3. [Creating and Managing Games](#3-creating-and-managing-games)
 4. [Scorekeeper — Setup](#4-scorekeeper--setup)
 5. [Scorekeeper — Tracking Events](#5-scorekeeper--tracking-events)
 6. [Event Reference](#6-event-reference)
-7. [Quarter & Game Management](#7-quarter--game-management)
-8. [Editing and Deleting Entries](#8-editing-and-deleting-entries)
-9. [Stats Views](#9-stats-views)
-10. [Live View](#10-live-view)
-11. [Stat Definitions](#11-stat-definitions)
+7. [Timeouts](#7-timeouts)
+8. [Quarter & Game Management](#8-quarter--game-management)
+9. [Editing and Deleting Entries](#9-editing-and-deleting-entries)
+10. [Stats Views](#10-stats-views)
+11. [Live View](#11-live-view)
+12. [Stat Definitions](#12-stat-definitions)
 
 ---
 
 ## 1. Main Screen
 
-The main screen (`/`) has two tabs:
+The main screen has two tabs: **Games** and **Rosters**.
 
 ### Games tab
-Lists all games ordered newest first. Each card shows:
-- **Team names and score** (once tracking has begun)
-- **Status pill** — green **● Live** while in progress, gray **Final** when complete, or *Not started* for a brand-new game
-- **View** — opens the read-only Live View for that game
-- **Score** — opens the Scorekeeper for that game
-- **🗑** — delete the game (requires two confirmations; see [Deleting a Game](#deleting-a-game))
+
+Lists all games newest first. Each card shows:
+
+- **Team names and score** once tracking has begun
+- **Status pill:**
+  - **● Pending** (orange) — game exists but tracking has not started
+  - **● Live · 8:54 Q2** (green) — actively being tracked; shows the latest recorded time remaining
+  - **Final** (gray) — game is complete
+- **Setup** button (pending games) or **Score** button (live/final games) — opens the Scorekeeper
+- **View** button — opens the read-only Live View
+- **🗑** — delete the game (requires two confirmations)
 
 ### Rosters tab
-Manage saved team rosters that can be quickly loaded into any game setup. See [Roster Management](#2-roster-management).
+
+Manage saved team rosters. See [Roster Management](#2-roster-management).
 
 ---
 
 ## 2. Roster Management
 
-Saved rosters let you build a team once and reuse it across many games without re-typing players each time.
+Saved rosters let you enter a team once and load it into any future game in a single tap.
 
 ### Creating a saved team
-1. Go to the **Rosters** tab on the main screen.
-2. Tap **+ New Team**.
-3. Enter a **team name**, pick a **color**, and type the **roster** (one player per line in `#number Name` format).
-4. Tap **Save team**.
-
-### Editing a saved team
-Tap any team row to expand it, make changes, then tap **Save changes**.
-
-### Deleting a saved team
-Expand the team row, tap **Delete**, then **Confirm delete**. This only removes the saved roster — it does not affect any game that already used it.
+1. Go to the **Rosters** tab and tap **+ New Team**.
+2. Enter a team name, pick a color, and type the roster (one player per line).
+3. Tap **Save team**.
 
 ### Roster format
 ```
@@ -59,60 +59,60 @@ Expand the team row, tap **Delete**, then **Confirm delete**. This only removes 
 #7 Mike Johnson
 #11 Alex Williams
 ```
-The `#` before the number is optional. Both `#2 John Smith` and `2 John Smith` work.
+The `#` is optional. Players must have unique numbers — the app will show a red error and block saving if any number appears more than once.
+
+### Editing a saved team
+Tap any team row to expand it, make changes, and tap **Save changes**.
+
+### Deleting a saved team
+Expand the team row, tap **Delete**, then **Confirm delete**. This only removes the saved roster and does not affect any game that already used it.
 
 ---
 
-## 3. Creating a Game
+## 3. Creating and Managing Games
 
-Tap **＋ New Game** on the main screen hero. A new game record is created instantly and you are taken directly to the Scorekeeper setup screen.
+### Creating a game
+Tap **＋ New Game** on the main screen. A new game record is created and you land on the Scorekeeper setup screen. The game shows as **● Pending** on the main screen until tracking is started.
+
+### Discarding a game before it starts
+On the setup screen, tap **Discard game** (shown below the import/export buttons). This permanently deletes the game and returns you to the main screen. This option disappears once you tap **Start Tracking →**.
 
 ### Deleting a game
-On the main screen, tap the **🗑** icon on a game card:
-1. First confirmation: *"Delete this game?"* — tap **Delete** to continue.
-2. Second confirmation: *"Permanently delete? Cannot be undone."* — tap **Yes, delete** to remove the game and all its stats from the database permanently.
+On the main screen, tap **🗑** on any game card:
+1. First confirmation: *"Delete this game?"*
+2. Second confirmation: *"Permanently delete? Cannot be undone."*
 
-Tap **Cancel** at either step to abort.
+Deletion removes the game and all its stats from the database. There is no recovery.
 
 ---
 
 ## 4. Scorekeeper — Setup
 
-Before tracking begins, configure both teams on the **Setup** tab.
+### Home and Away
+The left team card is always **Home** and the right card is **Away**. This matters for button styling in the tracking UI — home team buttons are white with a colored border (white jerseys), away team buttons are solid color (colored jerseys). This makes it fast to match what you see on the field to what you tap on screen.
 
 ### Loading a saved team
-If you have saved rosters, a **Load saved…** dropdown appears in the top corner of each team card. Select a team to populate the name, color, and roster automatically. You can edit any field after loading.
-
-### Team name
-Type the team name in the text field. This name appears on all scoreboards and stat views.
-
-### Team color
-Pick from the ten preset color swatches or click the color picker icon for a custom color. The color is used throughout the app to visually distinguish the two teams.
+If you have saved rosters, a **Load saved…** dropdown appears at the top of each team card. Selecting a team fills the name, color, and roster — all fields remain editable after loading.
 
 ### Roster entry
-Type players into the text area, one per line:
-```
-#2 John Smith
-#7 Mike Johnson
-```
-A live preview below the text area shows how many players have been parsed and lists the first five.
+Type players into the text area, one per line (`#number Name`). A live preview below shows how many players were parsed and lists the first five. Validation rules:
+- **No duplicate numbers** — any duplicates are listed in red and must be fixed before starting
+- **Minimum 10 players per team** — required to start tracking (matches the minimum for a legal game)
 
-You can also **Upload CSV** — the file should have one player per row with number and name as separate columns (or combined in one column).
+You can also **Upload CSV** with one player per row (number and name as separate columns, or combined).
 
 ### Starting tracking
-Once both rosters have at least one player, the **Start Tracking →** button becomes active. Tap it to move to the tracking screen.
-
-> **Note:** You can return to Setup at any time during a game to correct team names, colors, or rosters. Changes take effect immediately.
+Once both rosters pass validation, tap **Start Tracking →**. The game status changes to **● Live** and the button on the main screen changes from **Setup** to **Score**.
 
 ### Import / Export
-- **Export game (JSON)** — copies the full game state to your clipboard as JSON. Useful for backup or transferring a game to another device.
-- **Import game (JSON)** — paste exported JSON to restore a game's state.
+- **Export game (JSON)** — copies the full game state to your clipboard for backup or transfer
+- **Import game (JSON)** — paste exported JSON to restore a game's state
 
 ---
 
 ## 5. Scorekeeper — Tracking Events
 
-The **Track** tab is the heart of the app. Every stat entry follows a guided multi-step flow:
+The **Track** tab is the core of the app. Every stat entry follows a guided step flow:
 
 ```
 Step 1 → Select team
@@ -121,161 +121,253 @@ Step 3 → Select player (if applicable)
 Step 4 → Answer follow-up questions (if applicable)
 ```
 
-Tap **← Back** at any step to go back one level without committing anything.
+Tap **← Back** at any step to go back without committing anything.
 
-### Step 1 — Select team
-Tap the button for the team that the event belongs to. For most events this is the team that *performed* the action (e.g., the team that scored the goal, won the faceoff, or committed the turnover).
+### Selecting a team
 
-### Step 2 — Select event type
-See [Event Reference](#6-event-reference) for a full description of each event.
+Two large buttons show the current score for each team. Home (white jersey) is the white-bordered button; Away (colored jersey) is the solid-color button. Each button also shows how many **timeouts remaining** the team has in the current period.
 
-### Step 3 — Select player
-Tap a player button from the roster grid. For **Successful Clear** and **Failed Clear** these are team stats with no individual player — the entry is committed immediately after selecting the event.
+### Selecting a player
 
-### Step 4 — Follow-up questions
-Depending on the event, additional questions appear:
+Players are shown in a grid. Home team players use the white-bordered style; away team players use solid color. The grid fills as much of the screen as possible to minimize scrolling.
 
-| Event | Follow-up questions |
-|---|---|
-| **Shot** | Was it saved? → Yes: pick the goalie / No: record as unsaved shot |
-| **Goal** | Was there an assist? → Yes: pick the assisting player / Was it EMO? → What was the time remaining? |
-| **Forced TO** | Pick the opposing player who turned the ball over |
-| **Penalty** | Technical foul or Personal foul? → Personal: how many minutes? (1, 2, or 3) |
-| All others | Commits immediately after player selection |
+### Time entry
+
+Several events ask for the time remaining in the current quarter. A scroll wheel lets you pick minutes and seconds. The wheel automatically scrolls to the most recently recorded time — if a goal was logged at 8:54, the wheel opens positioned at 8:54 so you only need to scroll down from there. Any new timed entry must be at or before the most recent recorded time across all events (goals and timeouts) in the current quarter.
 
 ### Last entry banner
-After each committed entry, a banner at the top of the Track screen shows a summary of what was just recorded and an **undo** button. Tapping undo removes that entire entry group instantly, with no additional confirmation.
+
+After each committed entry, a banner shows a summary of what was recorded and an **undo** button. Tapping undo removes the entire entry group instantly. The banner disappears once you start a new entry.
 
 ### Save indicator
-The header shows **Saving…** while writing to the database and **Saved ✓** on success. Stats are debounced and written approximately 800ms after the last entry.
+
+The header shows **Saving…** while writing to the database and **Saved ✓** on success. Stats are written approximately 800ms after the last entry to reduce unnecessary writes.
 
 ---
 
 ## 6. Event Reference
 
-| Event | Who gets it | Notes |
-|---|---|---|
-| **Goal** 🥍 | The player who scored | Triggers follow-up for assist, EMO, and time remaining |
-| **Shot** 🎯 | The player who shot | Triggers follow-up for save; if saved, the goalie also gets a **Save** credited to the opposing team |
-| **Ground Ball** 🪣 | The player who picked it up | — |
-| **Faceoff W** 🔄 | The player who won the faceoff | — |
-| **Turnover** ↩️ | The player who turned it over | Record directly; or use **Forced TO** if an opposing player caused it |
-| **Forced TO** 🥊 | The player who forced the turnover | The app also records a **Turnover** for the opposing player you select in the follow-up |
-| **Penalty** 🟨 | The player who committed the foul | **Technical** = no time served; **Personal** = 1, 2, or 3 minutes |
-| **Successful Clear** ⬆️ | Team stat (no player) | Automatically counts as a **Failed Ride** for the opposing team |
-| **Failed Clear** ⬇️ | Team stat (no player) | Automatically counts as a **Successful Ride** for the opposing team |
+### Goal 🥍
+**Who:** The player who scored.
 
-> **Rides vs. Clears:** You never need to enter a ride directly. Every clear entry automatically updates both teams' ride and clear stats simultaneously.
+**Follow-ups:**
+1. **Assist?** — Yes: pick the assisting player from the same team's roster.
+2. **EMO?** — Was this scored on a man-up? Credits the team with a Successful EMO and the opposing team with a Failed MDD.
+3. **Time remaining?** — Time left in the quarter when the goal was scored.
+
+### Shot 🎯
+**Who:** The player who shot.
+
+**Follow-ups (in order):**
+1. **Saved?** — Yes: pick the goalie. Credits the goalie with a Save and counts as a Shot on Goal (SOG) for the shooter.
+2. **Post or crossbar?** — If not saved: did it hit the frame? Yes: counts as SOG for the shooter.
+3. **Blocked?** — If not saved and not a post: was it blocked by a field player? Yes: pick the blocking player from the opposing roster. Credits the blocker with a Block. Not a SOG.
+4. If none of the above: logs as a missed/wide shot.
+
+### Ground Ball 🪣
+**Who:** The player who picked it up. Commits immediately after player selection.
+
+### Faceoff Win 🔄
+**Who:** The player who won the faceoff. Commits immediately.
+
+### Turnover ↩️
+**Who:** The player who turned the ball over. Use this for unforced turnovers.
+
+### Forced TO 🥊
+**Who:** The player who applied the pressure (caused the turnover).
+
+**Follow-up:** Pick the opposing player who turned the ball over. Both the forced turnover and the turnover are recorded in the same entry group.
+
+### Penalty 🟨
+**Who:** The player who committed the foul.
+
+**Follow-ups:**
+1. **Type** — Technical foul (no time served) or Personal foul (time served).
+2. **Minutes** (personal only) — 1, 2, or 3 minutes.
+
+### MDD Stop 🛡️
+**Team stat.** Log when the defense successfully holds off an EMO without allowing a goal. Commits immediately for the selected team. Automatically credits the opposing team with a Failed EMO.
+
+### Timeout ⏸️
+**Team stat.** Log when either team calls a timeout.
+
+**Follow-up:** Time remaining in the quarter. You can also tap **Log without time** if the exact time isn't available.
+
+See [Timeouts](#7-timeouts) for rules on how many each team gets.
+
+### Successful Clear ⬆️
+**Team stat.** Commits immediately. Automatically credits the opposing team with a Failed Ride.
+
+### Failed Clear ⬇️
+**Team stat.** Commits immediately. Automatically credits the opposing team with a Successful Ride.
 
 ---
 
-## 7. Quarter & Game Management
+## 7. Timeouts
+
+**Allowance per team:**
+- **First half** (Q1 + Q2 combined): 2 timeouts
+- **Second half** (Q3 + Q4 combined): 2 timeouts (fresh — unused first-half timeouts do not carry over)
+- **Each OT period**: 1 timeout (does not carry between OT periods or from regulation)
+
+The remaining count for each team is shown on the team select buttons in the Track screen. Once a team has used all their timeouts for the period, logging another will still work technically but will be reflected in the stats.
+
+---
+
+## 8. Quarter & Game Management
 
 ### Ending a quarter
-At the bottom of the **Track** screen, tap **End Q# →**. A confirmation screen shows a quick stat summary for the current quarter. Tap the confirm button to lock the quarter.
 
-After a quarter is ended:
-- The app moves to the **Stats** tab showing the just-completed quarter.
-- The current quarter advances automatically.
-- Locked quarters are grayed out in the quarter-filter bar; the live quarter shows a green **●** dot.
+Tap **End Q# →** at the bottom of the Track screen. A confirmation screen shows a stat summary for the current quarter. Tap the confirm button to lock it.
+
+After a quarter ends:
+- Stats for the completed quarter are locked
+- The current quarter advances automatically
+- Completed quarters show in gray in the quarter filter; the current quarter shows with a green **●** dot
 
 ### Quarter 4 — Final or Overtime
-When you end Q4, the app checks the score:
-- **Score is not tied** → the game is finalized. A **Final** banner replaces the live scoreboard.
-- **Score is tied** → overtime begins (OT1, OT2, … as needed).
+
+When ending Q4, the app checks the score:
+- **Not tied** → the game is finalized. A **Final** banner replaces the live scoreboard.
+- **Tied** → overtime begins (OT1, OT2, etc.)
 
 ### Overtime (sudden death)
-In overtime, the **first goal wins**. As soon as a goal is recorded in an overtime period, the game is automatically finalized — no need to manually end the quarter.
+
+The first team to score in overtime wins. The app automatically finalizes the game as soon as an OT goal is logged — no need to manually end the quarter.
 
 ---
 
-## 8. Editing and Deleting Entries
+## 9. Editing and Deleting Entries
 
 ### Editing an entry
 1. Go to the **Event Log** tab in the Scorekeeper.
-2. Tap the **✏️** button on any entry group.
-3. The tracking flow restarts pre-filled with the original data. Make your changes and complete the flow as normal.
-4. The edited entry replaces the original in its original position in the log (the quarter and chronological order are preserved).
+2. Tap **✏️** on any entry group.
+3. The tracking flow restarts with the original values. Make your changes and complete the flow.
+4. The edited entry replaces the original in its original chronological position. The quarter is preserved.
 
-> Tap **cancel edit** in the yellow banner at the top of the Track screen to abort without saving changes.
+Tap **cancel edit** in the yellow banner at the top of the Track screen to abort.
 
 ### Deleting an entry
-1. In the **Event Log** tab, tap the **✕** button on an entry group.
-2. Confirm deletion in the modal that appears.
-3. All entries in that group are removed (e.g., deleting a goal also removes the linked assist and EMO flag).
+1. In the **Event Log** tab, tap **✕** on an entry group.
+2. Confirm deletion.
+3. All linked entries in the group are removed (e.g., deleting a goal also removes the assist, EMO flag, and time).
 
 ### Undo last entry
-Immediately after any new entry, an **undo** button appears in the banner at the top of the Track screen. This removes the entire entry group with one tap and no confirmation dialog.
+Immediately after any new entry, an **undo** button appears in the banner. Tapping it removes the entire entry group instantly with no confirmation.
 
 ---
 
-## 9. Stats Views
+## 10. Stats Views
 
-Stats are available in both the Scorekeeper (tabs at the top) and the Live View. A **quarter filter** at the top lets you view stats for all quarters combined or drill into a single quarter.
+Stats are available in both the Scorekeeper (**Stats** and **Event Log** tabs) and the Live View. A **quarter filter** at the top lets you view all quarters combined or any individual quarter. The live quarter shows a green **●** dot.
 
 ### Summary tab
-Two-column grid of team totals for every tracked stat. See [Stat Definitions](#11-stat-definitions) for the full list.
+A two-column grid showing team totals for every tracked stat side by side. See [Stat Definitions](#12-stat-definitions) for the full list.
 
 ### Players tab
-A sortable table of individual player stats. Tap any column header to sort by that stat (descending). Players are grouped by team. Team-only stats (clears, rides) are not included in this table.
+A sortable table of individual player stats. Tap any column header to sort by that stat (descending). Players are grouped by team with a colored team header row. Team-only stats (clears, rides, MDD, EMO fail) are not shown in this table.
 
 ### Timeline tab
-A reverse-chronological list of every goal scored, showing:
-- **Time remaining** in the quarter (if recorded)
-- **Quarter**
+A reverse-chronological list of goals and timeouts, showing:
+- **Time remaining** (if recorded) and **quarter**
 - **Team**
-- **Scorer** and **EMO** flag if applicable
-- **Assist** (if recorded)
-- **Running score** after each goal
+- **Scorer** (goals) or "⏸ Timeout"
+- **Assist** if applicable
+- **Running score** at that moment in the game
 
-### Event Log tab
-A full reverse-chronological feed of every event, grouped by play (e.g., a goal entry also shows the linked assist and EMO in the same group). Available only in the Scorekeeper — use the Live View for a read-only stats summary.
+The title shows the count of goals and timeouts in the current filter.
 
----
-
-## 10. Live View
-
-Navigate to `/games/:id/view` or tap **View** on a game card from the main screen. The Live View is:
-
-- **Read-only** — no editing controls are shown
-- **Realtime** — updates automatically as the scorekeeper enters stats; no page refresh needed
-- **Shareable** — send the URL to coaches, parents, or anyone who wants to follow along
-
-The header shows a green **● Live** badge during the game and a **Final** badge once the game is complete.
-
-The same **Summary**, **Players**, and **Timeline** tabs are available, with the same quarter filter.
+### Event Log tab *(Scorekeeper only)*
+A full reverse-chronological feed of every event, grouped by play. Shows edit (✏️) and delete (✕) controls. Quarter dividers appear in the "All" view.
 
 ---
 
-## 11. Stat Definitions
+## 11. Live View
 
-| Abbreviation | Full name | How it's recorded |
+Open via **View** on any game card, or navigate directly to `/games/:id/view`.
+
+- **Read-only** — no editing controls
+- **Realtime** — updates automatically as the scorekeeper enters stats; no refresh needed
+- **Shareable** — send the URL to coaches, parents, or anyone following the game
+
+The header shows **● Live** or **Final**. For live games, the latest recorded time remaining is shown above the score (e.g., *8:54 remaining · Q2*) — this is the most authoritative clock reference available from the scorebook.
+
+The same **Summary**, **Players**, and **Timeline** tabs are available with the same quarter filter.
+
+---
+
+## 12. Stat Definitions
+
+### Scoring
+
+| Abbrev | Name | Description |
 |---|---|---|
 | **G** | Goals | Goals scored |
-| **EMO** | Extra-man opportunity goals | Goals scored while on a man-up (flagged during goal entry) |
-| **Sh** | Shots | All shots on goal (goals + saves + missed shots) |
-| **Shot %** | Shot percentage | Goals ÷ Shots |
-| **Sv** | Saves | Shots stopped by the goalie (credited to the *opposing* team's goalie) |
-| **Save %** | Save percentage | Saves ÷ Opposing shots faced |
+| **EMO** | Successful EMO | Goals scored while on a man-up power play |
+| **FEMO** | Failed EMO | Man-up opportunities that ended without a goal; equals opponent's MDD stops (auto-computed) |
+| **EMO %** | EMO percentage | Successful EMO ÷ (Successful + Failed EMO) |
+
+### Defense
+
+| Abbrev | Name | Description |
+|---|---|---|
+| **MDD** | Successful MDD | Man-down defensive stops — logged when the defense successfully kills a penalty without conceding |
+| **FMDD** | Failed MDD | Man-down situations that resulted in a goal; equals opponent's EMO goals (auto-computed) |
+| **MDD %** | MDD percentage | Successful MDD ÷ (Successful + Failed MDD) |
+
+### Shooting
+
+| Abbrev | Name | Description |
+|---|---|---|
+| **Sh** | Total shots | All shot attempts (saved, blocked, post, missed) — does not include goals |
+| **Shot %** | Shot percentage | Goals ÷ Total shots |
+| **SOG** | Shots on goal | Shots that challenged the goalie: goals + saves + post/crossbar hits (player stat) |
+| **SOG %** | SOG percentage | Goals ÷ SOG |
+| **Blk** | Blocked shots | Shots blocked by a field player (credited to the blocker) |
+| **Sv** | Saves | Shots stopped by the goalie (credited to the defending team's goalie) |
+| **Save %** | Save percentage | Saves ÷ Opponent's SOG |
+
+### Possession & transition
+
+| Abbrev | Name | Description |
+|---|---|---|
 | **GB** | Ground balls | Loose ball pickups |
 | **FW** | Faceoff wins | Faceoffs won |
 | **TO** | Turnovers | Turnovers committed |
-| **FTO** | Forced turnovers | Turnovers caused (the player who applied pressure) |
-| **Tech** | Technical fouls | Non-releasable fouls (no time served) |
-| **PF Min** | Personal foul minutes | Total penalty minutes from personal fouls |
-| **A** | Assists | Pass directly leading to a goal |
-| **Clr** | Successful clears | Team cleared the ball from the defensive half |
-| **FCl** | Failed clears | Team failed to clear the ball |
+| **FTO** | Forced turnovers | Turnovers caused by applied pressure (credited to the forcing player) |
+
+### Clearing & riding
+
+| Abbrev | Name | Description |
+|---|---|---|
+| **Clr** | Successful clears | Team cleared from the defensive half |
+| **FCl** | Failed clears | Team failed to clear |
 | **Clearing %** | Clearing percentage | Successful clears ÷ (Successful + Failed clears) |
-| **SRide** | Successful rides | Opponent's failed clears (credited automatically) |
-| **FRide** | Failed rides | Opponent's successful clears (credited automatically) |
+| **SRide** | Successful rides | Opponent's failed clears (auto-computed) |
+| **FRide** | Failed rides | Opponent's successful clears (auto-computed) |
+
+### Penalties
+
+| Abbrev | Name | Description |
+|---|---|---|
+| **Tech** | Technical fouls | Non-releasable fouls |
+| **PF Min** | Personal foul minutes | Total penalty minutes from personal fouls |
+
+### Other
+
+| Abbrev | Name | Description |
+|---|---|---|
+| **A** | Assists | Pass directly leading to a goal |
 
 ---
 
 ## Tips
 
-- **Fastest workflow:** keep the Track screen open the whole game. Use the quarter-filter on the Stats tab to review just the current quarter without losing your place.
-- **Missed a stat?** Use the Event Log to go back and edit or delete any entry at any time, even from prior quarters.
-- **Two devices:** open the Scorekeeper on a phone or tablet on the sideline, and open the Live View on a laptop or second screen for a coaching staff overview.
-- **Faceoff setup:** select the faceoff player, tap **Faceoff W** — that's it. No need to record the other player's turnover separately; faceoff losers do not receive a turnover.
-- **Assisted goals:** the assist is linked to the goal in the same entry group. If you forget to add an assist, use ✏️ edit in the Event Log to add it after the fact.
+- **Fastest workflow:** keep the Track screen open the whole game. Flip to Stats to check a quarter, then come right back.
+- **Jersey colors guide your eye:** home team is the white-bordered button, away is solid color — same as what you see on the field.
+- **Time wheel:** opens positioned at the last recorded time. Scroll down from there for anything that happened after.
+- **Missed a stat?** Edit from the Event Log at any time, even from a completed quarter. Edits preserve the original quarter and chronological position.
+- **MDD Stop:** log this every time the defense kills a penalty without conceding — it directly drives MDD % and EMO Fail for the opponent.
+- **Blocked shots:** pick the field player who made the block, not the goalie. The goalie's stops are recorded via the Shot → Saved path.
+- **Two devices:** run the Scorekeeper on a phone at the table, and open the Live View on a laptop or iPad on the bench for the coaching staff.
+- **Faceoff:** select the winning player and tap Faceoff W. The losing player does not receive a turnover.
