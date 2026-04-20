@@ -134,7 +134,7 @@ function entryDisplayInfo(entry) {
 
 // ── Styles ─────────────────────────────────────────────────────────────────
 const S = {
-  app: { fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto", padding: "0 16px 40px", background: "#fff", minHeight: "100vh" },
+  app: { fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto", padding: "0 16px 40px", background: "#fff" },
   nav: { display: "flex", borderBottom: "1px solid #e5e5e5", marginBottom: 20 },
   navBtn: (active, disabled) => ({ flex: 1, padding: "10px 4px", fontSize: 13, fontWeight: 500, border: "none", background: "transparent", cursor: disabled ? "default" : "pointer", color: active ? "#111" : "#888", borderBottom: active ? "2px solid #111" : "2px solid transparent", opacity: disabled ? 0.35 : 1 }),
   setupGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 },

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import { qLabel } from "../components/LaxStats";
 
 const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
@@ -135,7 +136,7 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
         )}
 
         {/* Footer row */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {info?.gameOver ? (
               <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "3px 9px", letterSpacing: "0.04em", textTransform: "uppercase" }}>Final</span>
@@ -148,12 +149,12 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
             )}
             <span style={{ fontSize: 11, color: "#bbb" }}>{formatDate(game.created_at)}</span>
           </div>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <button style={{ padding: "5px 10px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
+          <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+            <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
               onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
-            <button style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: "#111", border: "none", borderRadius: 8, cursor: "pointer", color: "#fff" }}
+            <button style={{ padding: "7px 15px", fontSize: 13, fontWeight: 600, background: "#111", border: "none", borderRadius: 8, cursor: "pointer", color: "#fff" }}
               onClick={() => navigate(`/games/${game.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
-            <button style={{ padding: "5px 8px", fontSize: 13, background: "transparent", border: "1px solid #f0a0a0", borderRadius: 8, cursor: "pointer", color: "#c0392b", lineHeight: 1 }}
+            <button style={{ padding: "7px 9px", fontSize: 14, background: "transparent", border: "1px solid #f0a0a0", borderRadius: 8, cursor: "pointer", color: "#c0392b", lineHeight: 1 }}
               onClick={() => onDeleteStage(deleteStage === 0 ? 1 : null)}>🗑</button>
           </div>
         </div>
@@ -183,19 +184,24 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
 }
 
 // ── Games Tab ─────────────────────────────────────────────────────────────────
-function GamesTab({ onNewGame, creating }) {
+function GamesTab({ onNewGame, creating, user, isAdmin }) {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleteStages, setDeleteStages] = useState({});
 
-  useEffect(() => { loadGames(); }, []);
+  useEffect(() => { if (user) loadGames(); }, [user, isAdmin]);
 
   async function loadGames() {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from("games").select("id, created_at, name, state").order("created_at", { ascending: false });
+    let query = supabase
+      .from("games")
+      .select("id, created_at, name, state")
+      .order("created_at", { ascending: false });
+    // Admins see all games; regular users see only their own
+    if (!isAdmin) query = query.eq("user_id", user.id);
+    const { data, error: err } = await query;
     if (err) setError(err.message);
     else setGames(data || []);
     setLoading(false);
@@ -403,16 +409,26 @@ function RostersTab({ showNewInit = false }) {
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function GameList() {
   const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   const [tab, setTab] = useState("games");
   const [creating, setCreating] = useState(false);
 
   async function handleNewGame() {
     setCreating(true);
     const name = `Game — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
-    const { data, error: err } = await supabase.from("games").insert({ name, state: null }).select().single();
+    const { data, error: err } = await supabase
+      .from("games")
+      .insert({ name, state: null, user_id: user.id })
+      .select()
+      .single();
     setCreating(false);
     if (err) return;
     navigate(`/games/${data.id}/score`);
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    navigate("/login");
   }
 
   return (
@@ -430,9 +446,21 @@ export default function GameList() {
       }}>
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%, transparent 40%, rgba(0,0,0,0.6) 100%)", pointerEvents: "none" }} />
         <div style={{ position: "relative", maxWidth: 560, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 4 }}>
-            <span style={{ fontSize: 36, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>LaxStats</span>
-            <span style={{ fontSize: 22 }}>🥍</span>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+              <span style={{ fontSize: 36, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>LaxStats</span>
+              <span style={{ fontSize: 22 }}>🥍</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+              {isAdmin && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#d4820a", background: "rgba(212,130,10,0.15)", borderRadius: 6, padding: "2px 7px", letterSpacing: "0.08em", textTransform: "uppercase" }}>Admin</span>
+              )}
+              <button onClick={handleSignOut} style={{
+                padding: "5px 12px", fontSize: 12, fontWeight: 500,
+                background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.7)",
+                border: "1px solid rgba(255,255,255,0.18)", borderRadius: 8, cursor: "pointer",
+              }}>Sign out</button>
+            </div>
           </div>
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 28 }}>
             Stat Tracker
@@ -464,7 +492,7 @@ export default function GameList() {
         </div>
 
         {tab === "games"
-          ? <GamesTab onNewGame={handleNewGame} creating={creating} />
+          ? <GamesTab onNewGame={handleNewGame} creating={creating} user={user} isAdmin={isAdmin} />
           : <RostersTab />}
       </div>
     </div>
