@@ -4,6 +4,7 @@ import GameList from "./pages/GameList";
 import Scorekeeper from "./pages/Scorekeeper";
 import ViewGame from "./pages/ViewGame";
 import Login from "./pages/Login";
+import Admin from "./pages/Admin";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -18,6 +19,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<PrivateRoute><GameList /></PrivateRoute>} />
       <Route path="/games/:id/score" element={<PrivateRoute><Scorekeeper /></PrivateRoute>} />
+      <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
       {/* Live view is intentionally public — UUID is the share token */}
       <Route path="/games/:id/view" element={<ViewGame />} />
     </Routes>

@@ -184,24 +184,22 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
 }
 
 // ── Games Tab ─────────────────────────────────────────────────────────────────
-function GamesTab({ onNewGame, creating, user, isAdmin }) {
+function GamesTab({ onNewGame, creating, user }) {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleteStages, setDeleteStages] = useState({});
 
-  useEffect(() => { if (user) loadGames(); }, [user, isAdmin]);
+  useEffect(() => { if (user) loadGames(); }, [user]);
 
   async function loadGames() {
     setLoading(true);
     setError(null);
-    let query = supabase
+    const { data, error: err } = await supabase
       .from("games")
       .select("id, created_at, name, state")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    // Admins see all games; regular users see only their own
-    if (!isAdmin) query = query.eq("user_id", user.id);
-    const { data, error: err } = await query;
     if (err) setError(err.message);
     else setGames(data || []);
     setLoading(false);
@@ -213,6 +211,11 @@ function GamesTab({ onNewGame, creating, user, isAdmin }) {
     else setGames(prev => prev.filter(g => g.id !== id));
     setDeleteStages(prev => { const n = { ...prev }; delete n[id]; return n; });
   }
+
+  const liveGames    = games.filter(g => { const i = getGameInfo(g); return i?.started && !i?.gameOver; });
+  const pendingGames = games.filter(g => { const i = getGameInfo(g); return !i?.started; });
+  const finalGames   = games.filter(g => { const i = getGameInfo(g); return i?.gameOver; });
+  const [showFinal, setShowFinal] = useState(false);
 
   if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
   if (error) return <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "12px 16px", color: "#c0392b", fontSize: 13, marginBottom: 16 }}>{error}</div>;
@@ -227,21 +230,40 @@ function GamesTab({ onNewGame, creating, user, isAdmin }) {
     </div>
   );
 
+  function card(game) {
+    return (
+      <GameCard key={game.id} game={game}
+        deleteStage={deleteStages[game.id] ?? 0}
+        onDeleteStage={(stage) => setDeleteStages(prev => stage === null ? (({ [game.id]: _, ...rest }) => rest)(prev) : { ...prev, [game.id]: stage })}
+        onDelete={() => handleDelete(game.id)}
+      />
+    );
+  }
+
   return (
     <div>
-      {games.map(game => (
-        <GameCard key={game.id} game={game}
-          deleteStage={deleteStages[game.id] ?? 0}
-          onDeleteStage={(stage) => setDeleteStages(prev => stage === null ? (({ [game.id]: _, ...rest }) => rest)(prev) : { ...prev, [game.id]: stage })}
-          onDelete={() => handleDelete(game.id)}
-        />
-      ))}
+      {liveGames.map(card)}
+      {pendingGames.map(card)}
+      {finalGames.length > 0 && (
+        <>
+          <button onClick={() => setShowFinal(v => !v)} style={{
+            width: "100%", padding: "10px 14px", marginTop: 4, marginBottom: showFinal ? 10 : 4,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: "#f5f5f5", border: "1px solid #e8e8e8", borderRadius: 10,
+            cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#555",
+          }}>
+            <span>{finalGames.length} completed game{finalGames.length !== 1 ? "s" : ""}</span>
+            <span style={{ fontSize: 12, color: "#aaa", transform: showFinal ? "rotate(90deg)" : "none", transition: "transform 0.15s", display: "inline-block" }}>›</span>
+          </button>
+          {showFinal && finalGames.map(card)}
+        </>
+      )}
     </div>
   );
 }
 
 // ── Roster Editor ─────────────────────────────────────────────────────────────
-function RosterEditor({ initial, onSave, onDelete, onCancel, isNew }) {
+export function RosterEditor({ initial, onSave, onDelete, onCancel, isNew }) {
   const [name, setName] = useState(initial?.name || "");
   const [roster, setRoster] = useState(initial?.roster || "");
   const [color, setColor] = useState(initial?.color || PRESET_COLORS[0]);
@@ -306,8 +328,104 @@ function RosterEditor({ initial, onSave, onDelete, onCancel, isNew }) {
   );
 }
 
+// ── Share Panel ───────────────────────────────────────────────────────────────
+function SharePanel({ rosterId }) {
+  const [shares, setShares] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [username, setUsername] = useState("");
+  const [searchResult, setSearchResult] = useState(null);
+  const [searchError, setSearchError] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [removingId, setRemovingId] = useState(null);
+
+  useEffect(() => {
+    supabase.rpc("get_roster_shares", { p_roster_id: rosterId })
+      .then(({ data }) => { setShares(data || []); setLoaded(true); });
+  }, [rosterId]);
+
+  async function handleSearch() {
+    setSearching(true); setSearchResult(null); setSearchError(null);
+    const { data, error: err } = await supabase.rpc("find_user_by_username", { p_username: username.trim() });
+    if (err || !data?.length) setSearchError("User not found.");
+    else if (shares.some(s => s.shared_with_user_id === data[0].id)) setSearchError("Already shared with this user.");
+    else setSearchResult(data[0]);
+    setSearching(false);
+  }
+
+  async function handleAdd() {
+    if (!searchResult) return;
+    setAdding(true);
+    const { error: err } = await supabase.from("roster_shares").insert({ roster_id: rosterId, shared_with_user_id: searchResult.id });
+    if (!err) {
+      setShares(prev => [...prev, { share_id: null, shared_with_user_id: searchResult.id, display_name: searchResult.display_name }]);
+      setSearchResult(null); setUsername("");
+      // Reload to get real share_id
+      supabase.rpc("get_roster_shares", { p_roster_id: rosterId }).then(({ data }) => setShares(data || []));
+    }
+    setAdding(false);
+  }
+
+  async function handleRemove(shareId) {
+    setRemovingId(shareId);
+    await supabase.from("roster_shares").delete().eq("id", shareId);
+    setShares(prev => prev.filter(s => s.share_id !== shareId));
+    setRemovingId(null);
+  }
+
+  if (!loaded) return <div style={{ fontSize: 12, color: "#aaa", paddingTop: 12 }}>Loading shares…</div>;
+
+  return (
+    <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e8e8e8" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Sharing</div>
+
+      {shares.length > 0 && (
+        <ul style={{ listStyle: "none", padding: 0, margin: "0 0 10px" }}>
+          {shares.map(s => (
+            <li key={s.share_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f5f5f5" }}>
+              <span style={{ fontSize: 13, color: "#444" }}>{s.display_name}</span>
+              <button onClick={() => handleRemove(s.share_id)} disabled={removingId === s.share_id}
+                style={{ fontSize: 11, color: "#c0392b", background: "none", border: "1px solid #f0a0a0", borderRadius: 6, cursor: "pointer", padding: "2px 8px" }}>
+                {removingId === s.share_id ? "…" : "Remove"}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+        <input
+          style={{ flex: 1, padding: "7px 10px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", boxSizing: "border-box" }}
+          placeholder="Username or email"
+          value={username}
+          autoCapitalize="off" autoCorrect="off"
+          onChange={e => { setUsername(e.target.value); setSearchResult(null); setSearchError(null); }}
+          onKeyDown={e => e.key === "Enter" && username.trim() && handleSearch()}
+        />
+        <button onClick={handleSearch} disabled={!username.trim() || searching}
+          style={{ padding: "7px 12px", fontSize: 13, fontWeight: 600, background: username.trim() && !searching ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
+          {searching ? "…" : "Find"}
+        </button>
+      </div>
+
+      {searchError && <div style={{ fontSize: 12, color: "#c0392b", marginBottom: 6 }}>{searchError}</div>}
+
+      {searchResult && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", background: "#f5f5f5", borderRadius: 8 }}>
+          <span style={{ fontSize: 13, color: "#111" }}>{searchResult.display_name}</span>
+          <button onClick={handleAdd} disabled={adding}
+            style={{ fontSize: 12, fontWeight: 600, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #b5e0c0", borderRadius: 6, cursor: "pointer", padding: "3px 10px" }}>
+            {adding ? "…" : "Share"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Rosters Tab ───────────────────────────────────────────────────────────────
 function RostersTab({ showNewInit = false }) {
+  const { user } = useAuth();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -318,14 +436,17 @@ function RostersTab({ showNewInit = false }) {
 
   async function loadTeams() {
     setLoading(true);
-    const { data, error: err } = await supabase.from("saved_teams").select("id, name, roster, color").order("name");
+    const { data, error: err } = await supabase.from("saved_teams").select("id, name, roster, color, user_id").order("name");
     if (err) setError(err.message);
     else setTeams(data || []);
     setLoading(false);
   }
 
+  const myTeams = teams.filter(t => t.user_id === user?.id);
+  const sharedTeams = teams.filter(t => t.user_id !== user?.id);
+
   async function handleCreate(fields) {
-    const { data, error: err } = await supabase.from("saved_teams").insert(fields).select().single();
+    const { data, error: err } = await supabase.from("saved_teams").insert({ ...fields, user_id: user.id }).select().single();
     if (err) { setError(err.message); return; }
     setTeams(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
     setShowNew(false);
@@ -345,12 +466,49 @@ function RostersTab({ showNewInit = false }) {
     setExpandedId(null);
   }
 
+  function TeamRow({ team, isOwned }) {
+    const open = expandedId === team.id;
+    const count = playerCount(team.roster);
+    return (
+      <li style={{ border: "1px solid #e8e8e8", borderRadius: 14, marginBottom: 10, overflow: "hidden", background: "#fff", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer" }}
+          onClick={() => setExpandedId(open ? null : team.id)}>
+          <div style={{ width: 32, height: 32, borderRadius: "50%", background: team.color, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <span style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{team.name}</span>
+              {!isOwned && <span style={{ fontSize: 10, fontWeight: 700, color: "#1a6bab", background: "#eef4fb", borderRadius: 6, padding: "2px 6px", letterSpacing: "0.05em" }}>Shared</span>}
+            </div>
+            <div style={{ fontSize: 12, color: "#aaa", marginTop: 1 }}>{count} player{count !== 1 ? "s" : ""}</div>
+          </div>
+          <div style={{ fontSize: 14, color: "#ccc", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</div>
+        </div>
+        {open && (
+          <div style={{ padding: "0 16px 16px", borderTop: "1px solid #f0f0f0" }}>
+            {isOwned ? (
+              <>
+                <RosterEditor initial={team}
+                  onSave={(fields) => handleUpdate(team.id, fields)}
+                  onDelete={() => handleDelete(team.id)} />
+                <SharePanel rosterId={team.id} />
+              </>
+            ) : (
+              <div style={{ padding: "12px 0" }}>
+                <div style={{ fontSize: 12, color: "#aaa", marginBottom: 8 }}>Shared with you — view only</div>
+                <div style={{ fontFamily: "monospace", fontSize: 12, color: "#555", whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{team.roster}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </li>
+    );
+  }
+
   if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
 
   return (
     <div>
-      {/* Tab-level action row */}
-      {!showNew && teams.length > 0 && (
+      {!showNew && myTeams.length > 0 && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
           <button onClick={() => setShowNew(true)}
             style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer" }}>
@@ -368,39 +526,27 @@ function RostersTab({ showNewInit = false }) {
         </div>
       )}
 
-      {teams.length === 0 && !showNew ? (
+      {myTeams.length === 0 && !showNew && sharedTeams.length === 0 ? (
         <div style={{ textAlign: "center", padding: "64px 20px" }}>
           <div style={{ fontSize: 14, color: "#888", marginBottom: 20 }}>No saved teams yet.</div>
           <button style={{ padding: "11px 24px", fontSize: 14, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 12, cursor: "pointer" }}
             onClick={() => setShowNew(true)}>+ New Team</button>
         </div>
       ) : (
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {teams.map(team => {
-            const open = expandedId === team.id;
-            const count = playerCount(team.roster);
-            return (
-              <li key={team.id} style={{ border: "1px solid #e8e8e8", borderRadius: 14, marginBottom: 10, overflow: "hidden", background: "#fff", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer" }}
-                  onClick={() => setExpandedId(open ? null : team.id)}>
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: team.color, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{team.name}</div>
-                    <div style={{ fontSize: 12, color: "#aaa", marginTop: 1 }}>{count} player{count !== 1 ? "s" : ""}</div>
-                  </div>
-                  <div style={{ fontSize: 14, color: "#ccc", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</div>
-                </div>
-                {open && (
-                  <div style={{ padding: "0 16px 16px", borderTop: "1px solid #f0f0f0" }}>
-                    <RosterEditor initial={team}
-                      onSave={(fields) => handleUpdate(team.id, fields)}
-                      onDelete={() => handleDelete(team.id)} />
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            {myTeams.map(team => <TeamRow key={team.id} team={team} isOwned />)}
+          </ul>
+
+          {sharedTeams.length > 0 && (
+            <>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em", margin: "18px 0 10px" }}>Shared with me</div>
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {sharedTeams.map(team => <TeamRow key={team.id} team={team} isOwned={false} />)}
+              </ul>
+            </>
+          )}
+        </>
       )}
     </div>
   );
@@ -451,9 +597,14 @@ export default function GameList() {
               <span style={{ fontSize: 36, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>LaxStats</span>
               <span style={{ fontSize: 22 }}>🥍</span>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
               {isAdmin && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#d4820a", background: "rgba(212,130,10,0.15)", borderRadius: 6, padding: "2px 7px", letterSpacing: "0.08em", textTransform: "uppercase" }}>Admin</span>
+                <button onClick={() => navigate("/admin")} style={{
+                  padding: "4px 10px", fontSize: 11, fontWeight: 700,
+                  color: "#d4820a", background: "rgba(212,130,10,0.15)",
+                  border: "1px solid rgba(212,130,10,0.3)", borderRadius: 6, cursor: "pointer",
+                  letterSpacing: "0.06em", textTransform: "uppercase",
+                }}>Admin →</button>
               )}
               <button onClick={handleSignOut} style={{
                 padding: "5px 12px", fontSize: 12, fontWeight: 500,
@@ -491,9 +642,8 @@ export default function GameList() {
           ))}
         </div>
 
-        {tab === "games"
-          ? <GamesTab onNewGame={handleNewGame} creating={creating} user={user} isAdmin={isAdmin} />
-          : <RostersTab />}
+        {tab === "games" && <GamesTab onNewGame={handleNewGame} creating={creating} user={user} />}
+        {tab === "rosters" && <RostersTab />}
       </div>
     </div>
   );

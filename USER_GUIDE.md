@@ -6,28 +6,45 @@ LaxStats is an electronic scorebook for men's lacrosse. It replaces the clipboar
 
 ## Table of Contents
 
-1. [Main Screen](#1-main-screen)
-2. [Roster Management](#2-roster-management)
-3. [Creating and Managing Games](#3-creating-and-managing-games)
-4. [Scorekeeper — Setup](#4-scorekeeper--setup)
-5. [Scorekeeper — Tracking Events](#5-scorekeeper--tracking-events)
-6. [Event Reference](#6-event-reference)
-7. [Timeouts](#7-timeouts)
-8. [Quarter & Game Management](#8-quarter--game-management)
-9. [Editing and Deleting Entries](#9-editing-and-deleting-entries)
-10. [Stats Views](#10-stats-views)
-11. [Live View](#11-live-view)
-12. [Stat Definitions](#12-stat-definitions)
+1. [Accounts & Login](#1-accounts--login)
+2. [Main Screen](#2-main-screen)
+3. [Roster Management](#3-roster-management)
+4. [Creating and Managing Games](#4-creating-and-managing-games)
+5. [Scorekeeper — Setup](#5-scorekeeper--setup)
+6. [Scorekeeper — Tracking Events](#6-scorekeeper--tracking-events)
+7. [Event Reference](#7-event-reference)
+8. [Timeouts](#8-timeouts)
+9. [Quarter & Game Management](#9-quarter--game-management)
+10. [Editing and Deleting Entries](#10-editing-and-deleting-entries)
+11. [Stats Views](#11-stats-views)
+12. [Live View](#12-live-view)
+13. [Admin Panel](#13-admin-panel)
+14. [Stat Definitions](#14-stat-definitions)
 
 ---
 
-## 1. Main Screen
+## 1. Accounts & Login
+
+LaxStats requires an account. All games and rosters you create are private to your account.
+
+### Signing in
+Enter your **username** and **password** on the login screen and tap **Sign in**. If you have a real email address registered, you can enter that instead — the app detects the `@` and uses it as-is.
+
+### Creating an account
+Tap **Sign up** on the login screen, choose a username and password (minimum 6 characters), and tap **Create account**. Alternatively, an admin can create an account for you from the Admin panel.
+
+### Signing out
+Tap **Sign out** in the top-right of the main screen.
+
+---
+
+## 2. Main Screen
 
 The main screen has two tabs: **Games** and **Rosters**.
 
 ### Games tab
 
-Lists all games newest first. Each card shows:
+Lists your games, newest first. Each card shows:
 
 - **Team names and score** once tracking has begun
 - **Status pill:**
@@ -38,13 +55,15 @@ Lists all games newest first. Each card shows:
 - **View** button — opens the read-only Live View
 - **🗑** — delete the game (requires two confirmations)
 
+Live and pending games are shown at the top. Completed games are hidden under a collapsible **N completed games** toggle.
+
 ### Rosters tab
 
-Manage saved team rosters. See [Roster Management](#2-roster-management).
+Manage saved team rosters. See [Roster Management](#3-roster-management).
 
 ---
 
-## 2. Roster Management
+## 3. Roster Management
 
 Saved rosters let you enter a team once and load it into any future game in a single tap.
 
@@ -62,14 +81,28 @@ Saved rosters let you enter a team once and load it into any future game in a si
 The `#` is optional. Players must have unique numbers — the app will show a red error and block saving if any number appears more than once.
 
 ### Editing a saved team
-Tap any team row to expand it, make changes, and tap **Save changes**.
+Tap any team row to expand it, make changes, and tap **Save changes**. Only the roster's creator can edit it.
 
 ### Deleting a saved team
 Expand the team row, tap **Delete**, then **Confirm delete**. This only removes the saved roster and does not affect any game that already used it.
 
+### Sharing a roster
+You can share a roster with another user so they can load it into their games.
+
+1. Expand the team row you want to share.
+2. In the **Sharing** section at the bottom, type the other user's username and tap **Find**.
+3. Confirm the username shown and tap **Share**.
+
+Shared users can **load** the roster into their games via the **Load saved…** dropdown but cannot edit or delete it. Only the roster's creator can add or remove shares.
+
+To remove a share, open the same Sharing section and tap **Remove** next to the user's name.
+
+### Rosters shared with you
+Rosters shared with you appear under a **Shared with me** heading at the bottom of the Rosters tab. They display a **Shared** badge and are read-only. They are available in the **Load saved…** dropdown in game setup.
+
 ---
 
-## 3. Creating and Managing Games
+## 4. Creating and Managing Games
 
 ### Creating a game
 Tap **＋ New Game** on the main screen. A new game record is created and you land on the Scorekeeper setup screen. The game shows as **● Pending** on the main screen until tracking is started.
@@ -86,13 +119,13 @@ Deletion removes the game and all its stats from the database. There is no recov
 
 ---
 
-## 4. Scorekeeper — Setup
+## 5. Scorekeeper — Setup
 
 ### Home and Away
 The left team card is always **Home** and the right card is **Away**. This matters for button styling in the tracking UI — home team buttons are white with a colored border (white jerseys), away team buttons are solid color (colored jerseys). This makes it fast to match what you see on the field to what you tap on screen.
 
 ### Loading a saved team
-If you have saved rosters, a **Load saved…** dropdown appears at the top of each team card. Selecting a team fills the name, color, and roster — all fields remain editable after loading.
+If you have saved rosters (including ones shared with you), a **Load saved…** dropdown appears at the top of each team card. Selecting a team fills the name, color, and roster — all fields remain editable after loading.
 
 ### Roster entry
 Type players into the text area, one per line (`#number Name`). A live preview below shows how many players were parsed and lists the first five. Validation rules:
@@ -110,7 +143,7 @@ Once both rosters pass validation, tap **Start Tracking →**. The game status c
 
 ---
 
-## 5. Scorekeeper — Tracking Events
+## 6. Scorekeeper — Tracking Events
 
 The **Track** tab is the core of the app. Every stat entry follows a guided step flow:
 
@@ -145,7 +178,7 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 
 ---
 
-## 6. Event Reference
+## 7. Event Reference
 
 ### Goal 🥍
 **Who:** The player who scored.
@@ -193,7 +226,7 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 
 **Follow-up:** Time remaining in the quarter. You can also tap **Log without time** if the exact time isn't available.
 
-See [Timeouts](#7-timeouts) for rules on how many each team gets.
+See [Timeouts](#8-timeouts) for rules on how many each team gets.
 
 ### Successful Clear ⬆️
 **Team stat.** Commits immediately. Automatically credits the opposing team with a Failed Ride.
@@ -203,7 +236,7 @@ See [Timeouts](#7-timeouts) for rules on how many each team gets.
 
 ---
 
-## 7. Timeouts
+## 8. Timeouts
 
 **Allowance per team:**
 - **First half** (Q1 + Q2 combined): 2 timeouts
@@ -214,7 +247,7 @@ The remaining count for each team is shown on the team select buttons in the Tra
 
 ---
 
-## 8. Quarter & Game Management
+## 9. Quarter & Game Management
 
 ### Ending a quarter
 
@@ -237,7 +270,7 @@ The first team to score in overtime wins. The app automatically finalizes the ga
 
 ---
 
-## 9. Editing and Deleting Entries
+## 10. Editing and Deleting Entries
 
 ### Editing an entry
 1. Go to the **Event Log** tab in the Scorekeeper.
@@ -257,12 +290,12 @@ Immediately after any new entry, an **undo** button appears in the banner. Tappi
 
 ---
 
-## 10. Stats Views
+## 11. Stats Views
 
 Stats are available in both the Scorekeeper (**Stats** and **Event Log** tabs) and the Live View. A **quarter filter** at the top lets you view all quarters combined or any individual quarter. The live quarter shows a green **●** dot.
 
 ### Summary tab
-A two-column grid showing team totals for every tracked stat side by side. See [Stat Definitions](#12-stat-definitions) for the full list.
+A two-column grid showing team totals for every tracked stat side by side. See [Stat Definitions](#14-stat-definitions) for the full list.
 
 ### Players tab
 A sortable table of individual player stats. Tap any column header to sort by that stat (descending). Players are grouped by team with a colored team header row. Team-only stats (clears, rides, MDD, EMO fail) are not shown in this table.
@@ -282,13 +315,14 @@ A full reverse-chronological feed of every event, grouped by play. Shows edit (�
 
 ---
 
-## 11. Live View
+## 12. Live View
 
 Open via **View** on any game card, or navigate directly to `/games/:id/view`.
 
 - **Read-only** — no editing controls
 - **Realtime** — updates automatically as the scorekeeper enters stats; no refresh needed
 - **Shareable** — send the URL to coaches, parents, or anyone following the game
+- **No account required** — anyone with the link can view
 
 The header shows **● Live** or **Final**. For live games, the latest recorded time remaining is shown above the score (e.g., *8:54 remaining · Q2*) — this is the most authoritative clock reference available from the scorebook.
 
@@ -296,7 +330,26 @@ The same **Summary**, **Players**, and **Timeline** tabs are available with the 
 
 ---
 
-## 12. Stat Definitions
+## 13. Admin Panel
+
+Admin accounts have access to `/admin`. If you are an admin, an **Admin →** button appears in the top-right of the main screen.
+
+### All Games tab
+Shows every game across all users. Live games are shown at the top; Pending and Final games are in collapsible sections. Each row shows the owner's username, score, and status. **View** and **Score** buttons open the same screens as the regular game list.
+
+### Users tab
+- **Create User** — enter a username and password to create a new account. The new user can sign in immediately.
+- Each user row shows their username, admin status, and game count.
+- Tap a user row to expand and see their individual games with scores and status.
+- **Make admin / Revoke admin** — toggle admin privileges for any user except yourself.
+- **🗑** — delete a user account (two-stage confirmation, same as game delete). You cannot delete your own account.
+
+### Rosters tab
+Shows all saved rosters across all users, grouped by owner. Tap an owner to expand their rosters; tap a roster to edit it inline. Admins can edit any roster's name, color, and player list regardless of ownership.
+
+---
+
+## 14. Stat Definitions
 
 ### Scoring
 
@@ -371,3 +424,4 @@ The same **Summary**, **Players**, and **Timeline** tabs are available with the 
 - **Blocked shots:** pick the field player who made the block, not the goalie. The goalie's stops are recorded via the Shot → Saved path.
 - **Two devices:** run the Scorekeeper on a phone at the table, and open the Live View on a laptop or iPad on the bench for the coaching staff.
 - **Faceoff:** select the winning player and tap Faceoff W. The losing player does not receive a turnover.
+- **Shared rosters:** if another user has shared a roster with you, it appears in your **Load saved…** dropdown in game setup and under **Shared with me** in the Rosters tab.

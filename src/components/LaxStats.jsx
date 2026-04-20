@@ -590,8 +590,10 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
 
   // ── Saved teams (for setup screen loader) ───────────────────────
   const [savedTeams, setSavedTeams] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
   useEffect(() => {
-    supabase.from("saved_teams").select("id, name, roster, color").order("name")
+    supabase.auth.getSession().then(({ data: { session } }) => setCurrentUserId(session?.user?.id ?? null));
+    supabase.from("saved_teams").select("id, name, roster, color, user_id").order("name")
       .then(({ data }) => { if (data) setSavedTeams(data); });
   }, []);
 
@@ -853,7 +855,7 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
                       }}>
                       <option value="" disabled>Load saved…</option>
                       {savedTeams.map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
+                        <option key={t.id} value={t.id}>{t.name}{currentUserId && t.user_id !== currentUserId ? " (shared)" : ""}</option>
                       ))}
                     </select>
                   )}
