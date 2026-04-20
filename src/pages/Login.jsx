@@ -5,7 +5,8 @@ import { supabase } from "../lib/supabase";
 const FAKE_DOMAIN = "@laxstats.app";
 
 function toEmail(username) {
-  return username.trim().toLowerCase() + FAKE_DOMAIN;
+  const u = username.trim().toLowerCase();
+  return u.includes("@") ? u : u + FAKE_DOMAIN;
 }
 
 export default function Login() {
