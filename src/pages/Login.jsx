@@ -2,29 +2,35 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
+const FAKE_DOMAIN = "@laxstats.app";
+
+function toEmail(username) {
+  return username.trim().toLowerCase() + FAKE_DOMAIN;
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [confirmMsg, setConfirmMsg] = useState(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
-    setConfirmMsg(null);
     setLoading(true);
+
+    const email = toEmail(username);
 
     if (mode === "signin") {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-      if (err) setError(err.message);
+      if (err) setError("Invalid username or password.");
       else navigate("/");
     } else {
       const { error: err } = await supabase.auth.signUp({ email, password });
       if (err) setError(err.message);
-      else setConfirmMsg("Check your email for a confirmation link, then sign in.");
+      else navigate("/");
     }
 
     setLoading(false);
@@ -65,25 +71,21 @@ export default function Login() {
             </div>
           )}
 
-          {confirmMsg && (
-            <div style={{ background: "#f0faf3", border: "1px solid #b5e0c0", borderRadius: 9, padding: "10px 13px", color: "#2a7a3b", fontSize: 13, marginBottom: 16 }}>
-              {confirmMsg}
-            </div>
-          )}
-
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-                Email
+                Username
               </label>
               <input
-                type="email"
+                type="text"
                 style={inputStyle}
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder="username"
                 required
-                autoComplete="email"
+                autoComplete="username"
+                autoCapitalize="off"
+                autoCorrect="off"
               />
             </div>
 
@@ -125,8 +127,8 @@ export default function Login() {
           <div style={{ marginTop: 18, textAlign: "center", fontSize: 13, color: "#888" }}>
             {mode === "signin" ? (
               <>
-                Don't have an account?{" "}
-                <button onClick={() => { setMode("signup"); setError(null); setConfirmMsg(null); }}
+                Need an account?{" "}
+                <button onClick={() => { setMode("signup"); setError(null); }}
                   style={{ background: "none", border: "none", color: "#1a6bab", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 13 }}>
                   Sign up
                 </button>
@@ -134,7 +136,7 @@ export default function Login() {
             ) : (
               <>
                 Already have an account?{" "}
-                <button onClick={() => { setMode("signin"); setError(null); setConfirmMsg(null); }}
+                <button onClick={() => { setMode("signin"); setError(null); }}
                   style={{ background: "none", border: "none", color: "#1a6bab", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 13 }}>
                   Sign in
                 </button>
