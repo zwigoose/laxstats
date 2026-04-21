@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [1.2.1] — 2026-04-21
+
+### Fixed
+- Admin roster sharing panel used direct table operations blocked by RLS for non-owners; replaced with `admin_add_roster_share` and `admin_remove_roster_share` security-definer RPCs so share add/remove works for any roster regardless of ownership
+
+---
+
 ## [1.2.0] — 2026-04-21
 
 ### Added
