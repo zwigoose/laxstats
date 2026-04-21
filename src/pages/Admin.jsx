@@ -36,8 +36,8 @@ function getLatestTime(state) {
   const q = state.currentQuarter;
   const toS = t => { const [m, s] = t.split(":").map(Number); return m * 60 + s; };
   const timed = (state.log || [])
-    .filter(e => e.quarter === q && (e.goalTime || e.timeoutTime))
-    .map(e => ({ str: e.goalTime || e.timeoutTime, secs: toS(e.goalTime || e.timeoutTime) }));
+    .filter(e => e.quarter === q && (e.goalTime || e.timeoutTime || e.penaltyTime))
+    .map(e => { const str = e.goalTime || e.timeoutTime || e.penaltyTime; return { str, secs: toS(str) }; });
   if (!timed.length) return null;
   return timed.reduce((min, t) => t.secs < min.secs ? t : min).str;
 }
@@ -62,7 +62,16 @@ function AllGamesTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    const channel = supabase
+      .channel("admin-all-games")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games" }, (payload) => {
+        setGames(prev => prev.map(g => g.id === payload.new.id ? { ...g, ...payload.new } : g));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   async function loadData() {
     setLoading(true);
