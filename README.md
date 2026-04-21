@@ -78,9 +78,9 @@ Rides, MDD Fail, EMO Fail, and SOG are all calculated automatically — you neve
 
 Admin accounts have access to `/admin`, a separate management panel with:
 
-- **All Games** — view and score every game across all users
-- **Users** — create and delete accounts, promote or revoke admin status, and see each user's game history
-- **Rosters** — view and edit any roster across all users
+- **All Games** — view, score, and create games on behalf of any user; reassign game ownership; live score and clock updates in real time
+- **Users** — create and delete accounts, promote or revoke admin status, and see each user's game history with direct links to score or view each game
+- **Rosters** — view, edit, and create rosters on behalf of any user; reassign roster ownership; manage sharing for any roster
 
 ---
 

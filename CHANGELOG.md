@@ -5,6 +5,24 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [1.2.0] — 2026-04-21
+
+### Added
+- **Admin: create game for user** — "New Game for User" button in All Games tab; select any user from a dropdown and create a game on their behalf; navigates directly to the new game's setup screen
+- **Admin: create roster for user** — "New Roster for User" button in Rosters tab; select an owner, then fill in the roster details
+- **Admin: game ownership reassignment** — ⚙ button on each game row reveals a user dropdown to transfer the game to a different owner
+- **Admin: roster ownership reassignment** — Owner field in each roster's edit panel to transfer it to a different user
+- **Admin: roster sharing management** — full sharing panel (add/remove shares by username) available for any roster in the admin Rosters tab
+- **Admin: game links in Users tab** — each game in a user's expanded list now has View and Score/Setup buttons
+- **Admin All Games: real-time clock updates** — Live pill updates as the scorekeeper enters timed events, without requiring a page refresh
+
+### Fixed
+- Admin All Games: pending games showed a "Score" button instead of "Setup"
+- Admin All Games Live pill: `penaltyTime` was not considered when computing the latest recorded clock time
+- Direct navigation to `/games/:id/view` returned 404 for unauthenticated users; fixed with a Vercel SPA rewrite rule (`vercel.json`)
+
+---
+
 ## [1.1.0] — 2026-04-20
 
 ### Added

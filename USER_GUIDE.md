@@ -353,17 +353,27 @@ The same **Summary**, **Players**, and **Timeline** tabs are available with the 
 Admin accounts have access to `/admin`. If you are an admin, an **Admin →** button appears in the top-right of the main screen.
 
 ### All Games tab
-Shows every game across all users. Live games are shown at the top; Pending and Final games are in collapsible sections. Each row shows the owner's username, score, and status. **View** and **Score** buttons open the same screens as the regular game list.
+Shows every game across all users. Live games are shown at the top; Pending and Final games are in collapsible sections. Each row shows the owner's username, score, status, and live clock (updated in real time for live games).
+
+- **View** — opens the read-only Live View
+- **Score / Setup** — opens the Scorekeeper (Setup for pending games, Score for live/final)
+- **⚙** — expand to reassign the game to a different owner
+- **+ New Game for User** — select any user from a dropdown and create a game on their behalf; lands on that game's setup screen immediately
 
 ### Users tab
 - **Create User** — enter a username and password to create a new account. The new user can sign in immediately.
 - Each user row shows their username, admin status, and game count.
-- Tap a user row to expand and see their individual games with scores and status.
+- Tap a user row to expand and see their individual games with scores, status, and **View** / **Score/Setup** buttons.
 - **Make admin / Revoke admin** — toggle admin privileges for any user except yourself.
 - **🗑** — delete a user account (two-stage confirmation, same as game delete). You cannot delete your own account.
 
 ### Rosters tab
-Shows all saved rosters across all users, grouped by owner. Tap an owner to expand their rosters; tap a roster to edit it inline. Admins can edit any roster's name, color, and player list regardless of ownership.
+Shows all saved rosters across all users, grouped by owner. Tap an owner to expand their rosters; tap a roster to edit it inline.
+
+- **Edit** — change the roster's name, color, or player list (same editor as the user-facing Rosters tab)
+- **Owner** — reassign the roster to any other user
+- **Sharing** — add or remove share access for any user, same as the roster owner would do themselves
+- **+ New Roster for User** — select an owner, then fill in the roster details; the new roster is created under that user's account
 
 ---
 
