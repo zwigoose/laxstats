@@ -109,6 +109,90 @@ export function buildTeamTotals(entries) {
 export function qLabel(q) { return q <= 4 ? `Q${q}` : `OT${q - 4}`; }
 export function isOT(q) { return q > 4; }
 
+// ── Penalty time math helpers ─────────────────────────────────────────────────
+export function toSecs(t) { const [m, s] = t.split(":").map(Number); return m * 60 + s; }
+const qLenSecs = q => q <= 4 ? 720 : 240;
+function absElapsedSecs(quarter, remainSecs) {
+  let base = 0;
+  for (let i = 1; i < quarter; i++) base += qLenSecs(i);
+  return base + (qLenSecs(quarter) - remainSecs);
+}
+function absSecsToQtrTime(absSeconds) {
+  let q = 1, elapsed = 0;
+  while (q <= 20) {
+    const ql = qLenSecs(q);
+    if (absSeconds <= elapsed + ql) return { q, remainSecs: Math.max(0, elapsed + ql - absSeconds) };
+    elapsed += ql;
+    q++;
+  }
+  return { q: 20, remainSecs: 0 };
+}
+function penaltyDurSecs(e) { return e.event === "penalty_tech" ? 30 : (e.penaltyMin || 1) * 60; }
+
+// Derives all penalty serving windows from the log, handling:
+//   Consecutive fouls  — same player, same team, same dead-ball time → NR-first ordering, chained release
+//   Simultaneous fouls — different teams, same dead-ball time → overlapping window is forced NR for both
+// Returns an array of windows: { entry, absStart, absEnd, nrEnd }
+//   nrEnd = absEnd  → fully NR (either explicit or forced by simultaneous)
+//   nrEnd = absStart → fully releasable
+//   absStart < nrEnd < absEnd → split: [absStart,nrEnd) NR + [nrEnd,absEnd) releasable
+function computePenaltyWindows(log) {
+  const penalties = log.filter(e => e.penaltyTime && (e.event === "penalty_tech" || e.event === "penalty_min"));
+  // Group by dead-ball cycle: same quarter + same penaltyTime
+  const cycles = new Map();
+  for (const p of penalties) {
+    const key = `${p.quarter}:${p.penaltyTime}`;
+    if (!cycles.has(key)) cycles.set(key, []);
+    cycles.get(key).push(p);
+  }
+  const allWindows = [];
+  for (const cyclePens of cycles.values()) {
+    const absPen = absElapsedSecs(cyclePens[0].quarter, toSecs(cyclePens[0].penaltyTime));
+    // Build windows per team
+    const teamWindows = [0, 1].map(ti => {
+      const wins = [];
+      const byPlayer = new Map();
+      for (const p of cyclePens.filter(p => p.teamIdx === ti)) {
+        const pid = p.player?.num ?? p.id; // jersey # is unique per team; no id on player objects
+        if (!byPlayer.has(pid)) byPlayer.set(pid, []);
+        byPlayer.get(pid).push(p);
+      }
+      for (const [, playerPens] of byPlayer) {
+        // NR-first ordering for consecutive fouls on same player
+        const sorted = [...playerPens].sort((a, b) => {
+          if (!!a.nonReleasable !== !!b.nonReleasable) return a.nonReleasable ? -1 : 1;
+          return penaltyDurSecs(b) - penaltyDurSecs(a);
+        });
+        let cur = absPen;
+        for (const p of sorted) {
+          const dur = penaltyDurSecs(p);
+          // forcedNREnd starts at absStart (no forced NR yet); updated by simultaneous detection below
+          wins.push({ entry: p, absStart: cur, absEnd: cur + dur, isNRBase: !!p.nonReleasable, forcedNREnd: cur });
+          cur += dur;
+        }
+      }
+      return wins;
+    });
+    // Simultaneous: cross-team window overlaps → force NR up to the overlap end
+    for (const wA of teamWindows[0]) {
+      for (const wB of teamWindows[1]) {
+        const oStart = Math.max(wA.absStart, wB.absStart);
+        const oEnd   = Math.min(wA.absEnd,   wB.absEnd);
+        if (oEnd > oStart) {
+          if (!wA.isNRBase) wA.forcedNREnd = Math.max(wA.forcedNREnd, oEnd);
+          if (!wB.isNRBase) wB.forcedNREnd = Math.max(wB.forcedNREnd, oEnd);
+        }
+      }
+    }
+    // Resolve nrEnd for each window
+    for (const w of [...teamWindows[0], ...teamWindows[1]]) {
+      w.nrEnd = w.isNRBase ? w.absEnd : w.forcedNREnd;
+      allWindows.push(w);
+    }
+  }
+  return allWindows;
+}
+
 // Returns [timeoutsLeftTeam0, timeoutsLeftTeam1] for the current timeout period.
 // Q1+Q2 = first half (2 each), Q3+Q4 = second half (2 each), each OT quarter = 1 each.
 // Unused timeouts do not carry between periods.
@@ -227,8 +311,8 @@ const S = {
 };
 
 // ── TimeWheel ───────────────────────────────────────────────────────────────
-function TimeWheel({ maxMinutes, selectedMin, selectedSec, onMinChange, onSecChange, ceilingSecs }) {
-  const isValid = (m, s) => ceilingSecs == null || (m * 60 + s) < ceilingSecs;
+function TimeWheel({ maxMinutes, selectedMin, selectedSec, onMinChange, onSecChange, ceilingSecs, ceilingInclusive = false }) {
+  const isValid = (m, s) => ceilingSecs == null || (ceilingInclusive ? (m * 60 + s) <= ceilingSecs : (m * 60 + s) < ceilingSecs);
   const mins = Array.from({ length: maxMinutes + 1 }, (_, i) => maxMinutes - i);
   const secs = Array.from({ length: 60 }, (_, i) => 59 - i);
   const minScrollRef = useRef(null);
@@ -272,7 +356,7 @@ function TimeWheel({ maxMinutes, selectedMin, selectedSec, onMinChange, onSecCha
         <div style={S.wheelLabel}>Min</div>
         <div style={S.wheelScroll} ref={minScrollRef}>
           {mins.map(m => {
-            const ok = ceilingSecs == null || (m * 60) < ceilingSecs;
+            const ok = ceilingSecs == null || (ceilingInclusive ? (m * 60) <= ceilingSecs : (m * 60) < ceilingSecs);
             return <div key={m} style={{ ...S.wheelItem(selectedMin === m), opacity: ok ? 1 : 0.25, pointerEvents: ok ? "auto" : "none" }} onClick={() => ok && handleMinChange(m)}>{m}</div>;
           })}
         </div>
@@ -305,9 +389,9 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
   // Step machine:
   // team | event | player
   // ask_save | save_player | ask_post | ask_blocked | blocked_player
-  // ask_assist | assist_player | ask_emo | ask_goal_time
+  // ask_assist | assist_player | ask_goal_time
   // ask_forced_to_player
-  // ask_penalty_type | ask_penalty_min
+  // ask_penalty_type | ask_penalty_min | ask_penalty_nr | ask_penalty_time
   // endqtr | confirm_delete
   const [step, setStep] = useState("team");
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -315,6 +399,7 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [pendingEntries, setPendingEntries] = useState([]);
   const [penaltyType, setPenaltyType] = useState(null);
+  const [penaltyNR, setPenaltyNR] = useState(false);
   const [goalTimeMin, setGoalTimeMin] = useState(null);
   const [goalTimeSec, setGoalTimeSec] = useState(null);
 
@@ -430,7 +515,7 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
     return order.map(gid => groups[gid]);
   }, [log, statsQtr]);
 
-  // All goals in chronological order for timeline
+  // All goals, timeouts, and penalties in chronological order for timeline
   const scoringTimeline = useMemo(() => {
     const source = statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr));
     const groups = {};
@@ -441,12 +526,14 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
     });
     return order
       .map(gid => groups[gid])
-      .filter(g => g.some(e => e.event === "goal" || e.event === "timeout"))
+      .filter(g => g.some(e => e.event === "goal" || e.event === "timeout" || e.event === "penalty_tech" || e.event === "penalty_min"))
       .map(g => {
-        const goal = g.find(e => e.event === "goal");
+        const goal    = g.find(e => e.event === "goal");
         const timeout = g.find(e => e.event === "timeout");
-        if (goal) return { type: "goal", goal, assist: g.find(e => e.event === "assist") };
-        return { type: "timeout", timeout };
+        const penalty = g.find(e => e.event === "penalty_tech" || e.event === "penalty_min");
+        if (goal)    return { type: "goal",    goal,    assist: g.find(e => e.event === "assist") };
+        if (timeout) return { type: "timeout", timeout };
+        return { type: "penalty", penalty };
       });
   }, [log, statsQtr]);
 
@@ -505,6 +592,7 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
     setSelectedPlayer(null);
     setPendingEntries([]);
     setPenaltyType(null);
+    setPenaltyNR(false);
     setGoalTimeMin(null);
     setGoalTimeSec(null);
     setEditingGroupId(null);
@@ -716,23 +804,49 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
     }
   }
 
-  // Goal flow: assist → EMO → time
-  function handleAssistNo() { setStep("ask_emo"); }
+  // Goal flow: assist → time (EMO auto-detected from penalty box at goal time)
+  function handleAssistNo() { setGoalTimeMin(null); setGoalTimeSec(null); setStep("ask_goal_time"); }
   function handleAssistYes() { setStep("assist_player"); }
   function handleAssistPlayerSelected(assister) {
     setPendingEntries(prev => [...prev, mkEntry(selectedTeam, "assist", assister)]);
-    setStep("ask_emo");
-  }
-  function handleEmoNo() { setStep("ask_goal_time"); }
-  function handleEmoYes() {
-    setPendingEntries(prev => prev.map(e => e.event === "goal" ? { ...e, emo: true } : e));
+    setGoalTimeMin(null); setGoalTimeSec(null);
     setStep("ask_goal_time");
   }
   function handleGoalTime(t) {
-    const entries = pendingEntries.map(e => e.event === "goal" ? { ...e, goalTime: t } : e);
-    const g = entries.find(e => e.event === "goal");
+    // Auto-detect EMO: is the defending team net shorthanded at goal time?
+    const absGoal = absElapsedSecs(currentQuarter, toSecs(t));
+
+    // Goals already in the log that may have released releasable windows before this goal
+    const priorGoals = log
+      .filter(g => g.event === "goal" && g.goalTime)
+      .map(g => ({ teamIdx: g.teamIdx, absTime: absElapsedSecs(g.quarter, toSecs(g.goalTime)) }));
+
+    function isReleasedByPriorGoal(penTeamIdx, absStart, absEnd) {
+      return priorGoals.some(g => g.teamIdx !== penTeamIdx && g.absTime >= absStart && g.absTime < absEnd);
+    }
+
+    const windows = computePenaltyWindows(log);
+    let scoringInBox = 0, defendingInBox = 0;
+    for (const w of windows) {
+      if (absGoal < w.absStart || absGoal >= w.absEnd) continue;
+      if (absGoal < w.nrEnd) {
+        // NR phase: in box, cannot be released
+        if (w.entry.teamIdx === selectedTeam) scoringInBox++;
+        else defendingInBox++;
+      } else {
+        // Releasable phase: in box unless already goal-released by a prior goal in [nrEnd, absGoal)
+        const released = isReleasedByPriorGoal(w.entry.teamIdx, w.nrEnd, absGoal);
+        if (!released) {
+          if (w.entry.teamIdx === selectedTeam) scoringInBox++;
+          else defendingInBox++;
+        }
+      }
+    }
+
+    const isEmo = defendingInBox > scoringInBox;
+    const entries = pendingEntries.map(e => e.event === "goal" ? { ...e, goalTime: t, emo: isEmo || undefined } : e);
     const assister = entries.find(e => e.event === "assist");
-    commitEntries(entries, `Goal${g?.emo ? " (EMO)" : ""} — #${selectedPlayer.num} ${selectedPlayer.name}${assister ? ` (assist #${assister.player?.num})` : ""}`);
+    commitEntries(entries, `Goal${isEmo ? " (EMO)" : ""} — #${selectedPlayer.num} ${selectedPlayer.name}${assister ? ` (assist #${assister.player?.num})` : ""}`);
   }
 
   // Shot flow: save?
@@ -758,13 +872,41 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
     commitEntries(entries, `Forced TO — #${selectedPlayer.num} ${selectedPlayer.name} → TO by #${victim.num} ${victim.name}`);
   }
 
-  // Penalty flow
+  // Penalty flow — consecutive and simultaneous relationships are auto-derived from the log
   function handlePenaltyTech() {
-    commitEntries([mkEntry(selectedTeam, "penalty_tech", selectedPlayer)], `Technical foul — #${selectedPlayer.num} ${selectedPlayer.name}`);
+    setPenaltyType("tech");
+    setPendingEntries([mkEntry(selectedTeam, "penalty_tech", selectedPlayer)]);
+    setGoalTimeMin(null); setGoalTimeSec(null);
+    setStep("ask_penalty_time");
   }
-  function handlePenaltyPersonal() { setPenaltyType("personal"); setStep("ask_penalty_min"); }
+  function handlePenaltyPersonal() {
+    setPenaltyType("personal");
+    setPenaltyNR(false);
+    setStep("ask_penalty_min");
+  }
   function handlePenaltyMin(mins) {
-    commitEntries([mkEntry(selectedTeam, "penalty_min", selectedPlayer, { penaltyMin: mins })], `Personal foul (${mins}min) — #${selectedPlayer.num} ${selectedPlayer.name}`);
+    setPendingEntries([mkEntry(selectedTeam, "penalty_min", selectedPlayer, { penaltyMin: mins })]);
+    setStep("ask_penalty_nr");
+  }
+  function handlePenaltyNR(isNR) {
+    setPenaltyNR(isNR);
+    setGoalTimeMin(null); setGoalTimeSec(null);
+    setStep("ask_penalty_time");
+  }
+  function handlePenaltyTime(t) {
+    const entries = pendingEntries.map(e =>
+      (e.event === "penalty_tech" || e.event === "penalty_min") ? {
+        ...e,
+        penaltyTime: t,
+        ...(penaltyNR ? { nonReleasable: true } : {}),
+      } : e
+    );
+    const e0 = entries[0];
+    const nrTag = penaltyNR ? " NR" : "";
+    const label = e0.event === "penalty_tech"
+      ? `Technical foul — #${selectedPlayer.num} ${selectedPlayer.name}`
+      : `Personal foul (${e0.penaltyMin}min${nrTag}) — #${selectedPlayer.num} ${selectedPlayer.name}`;
+    commitEntries(entries, label);
   }
 
   function handleEndQuarter() {
@@ -793,19 +935,132 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
     return getGroupById(gid).find(e => e.teamIdx === ti && !e.teamStat)?.player || null;
   }
 
-  const toSecs = t => { const [m, s] = t.split(":").map(Number); return m * 60 + s; };
-
   // Global time ceiling: the lowest "time remaining" recorded in the current quarter
-  // across ALL timed events (goals, timeouts). Any new timed entry must be strictly less.
+  // across ALL timed events (goals, timeouts, penalties). Any new timed entry must be strictly less.
   const timeCeilingSecs = useMemo(() => {
     const timedEntries = log.filter(e =>
       e.quarter === currentQuarter &&
-      (e.goalTime || e.timeoutTime) &&
+      (e.goalTime || e.timeoutTime || e.penaltyTime) &&
       (editingGroupId === null || e.groupId !== editingGroupId)
     );
     if (!timedEntries.length) return null;
-    return Math.min(...timedEntries.map(e => toSecs(e.goalTime || e.timeoutTime)));
+    return Math.min(...timedEntries.map(e => toSecs(e.goalTime || e.timeoutTime || e.penaltyTime)));
   }, [log, currentQuarter, editingGroupId]);
+
+  // Penalty box: active penalties only, with time-based and goal-based expiry
+  const penaltyBoxEntries = useMemo(() => {
+    const fmt = secs => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+
+    const absCurrentTime = timeCeilingSecs !== null
+      ? absElapsedSecs(currentQuarter, timeCeilingSecs)
+      : absElapsedSecs(currentQuarter, qLenSecs(currentQuarter));
+
+    const loggedGoals = log
+      .filter(g => g.event === "goal" && g.goalTime)
+      .map(g => ({ teamIdx: g.teamIdx, absTime: absElapsedSecs(g.quarter, toSecs(g.goalTime)) }));
+
+    function wasGoalReleased(penTeamIdx, absStart, absEnd) {
+      return loggedGoals.some(g => g.teamIdx !== penTeamIdx && g.absTime >= absStart && g.absTime < absEnd);
+    }
+
+    const windows = computePenaltyWindows(log);
+
+    // Chain release: if a releasable window is goal-released, every subsequent window
+    // in the same player's consecutive chain is also released immediately.
+    const chainReleasedSet = new Set();
+    const byPlayerKey = new Map();
+    for (const w of windows) {
+      const key = `${w.entry.teamIdx}:${w.entry.player?.num ?? w.entry.id}`;
+      if (!byPlayerKey.has(key)) byPlayerKey.set(key, []);
+      byPlayerKey.get(key).push(w);
+    }
+    for (const chain of byPlayerKey.values()) {
+      // Sort by absStart so we process windows in serving order
+      chain.sort((a, b) => a.absStart - b.absStart);
+      // Only propagate chain release to windows that directly follow (absStart === prevAbsEnd),
+      // which is the hallmark of consecutive fouls from the same dead-ball cycle.
+      // Independent penalties from separate cycles start at their own absPen, not at a prior window's end.
+      let chainActive = false;
+      let prevAbsEnd = null;
+      for (const w of chain) {
+        const directlyFollows = prevAbsEnd !== null && w.absStart === prevAbsEnd;
+        if (chainActive && directlyFollows) {
+          chainReleasedSet.add(w);
+        } else {
+          chainActive = false;
+          if (!w.isNRBase && wasGoalReleased(w.entry.teamIdx, w.nrEnd, w.absEnd)) {
+            chainActive = true;
+          }
+        }
+        prevAbsEnd = w.absEnd;
+      }
+    }
+
+    const rows = [];
+
+    for (const w of windows) {
+      if (chainReleasedSet.has(w)) continue;
+      const { entry: e, absStart, absEnd, nrEnd } = w;
+      const hasNRPhase  = nrEnd > absStart;
+      const hasRelPhase = nrEnd < absEnd;
+
+      // Is there a window for the same player that starts before this one and is still active?
+      const prevWindowActive = windows.some(other => {
+        if (other === w) return false;
+        if (other.entry.player?.num !== e.player?.num) return false;
+        if (other.entry.teamIdx !== e.teamIdx) return false;
+        if (other.absStart >= absStart) return false;
+        if (chainReleasedSet.has(other)) return false;                 // chain-released = not active
+        if (absCurrentTime >= other.absEnd) return false;              // time-expired
+        if (other.nrEnd <= other.absStart) return !wasGoalReleased(e.teamIdx, other.absStart, other.absEnd);
+        if (absCurrentTime < other.nrEnd) return true;
+        if (other.nrEnd < other.absEnd) return !wasGoalReleased(e.teamIdx, other.nrEnd, other.absEnd);
+        return true;
+      });
+
+      if (hasNRPhase) {
+        const nrExpired = absCurrentTime >= nrEnd;
+        if (!nrExpired) {
+          const { q, remainSecs } = absSecsToQtrTime(nrEnd);
+          rows.push({
+            color: teams[e.teamIdx]?.color, num: e.player?.num, teamIdx: e.teamIdx,
+            nonReleasable: true,
+            releaseQ: q, crossQuarter: q !== e.quarter, releaseTime: fmt(remainSecs),
+            isNested: prevWindowActive,
+          });
+        }
+        if (hasRelPhase) {
+          const relExpired = absCurrentTime >= absEnd;
+          const relReleased = wasGoalReleased(e.teamIdx, nrEnd, absEnd);
+          const nrPhaseStillActive = absCurrentTime < nrEnd;
+          if (!relExpired && !relReleased) {
+            const { q, remainSecs } = absSecsToQtrTime(absEnd);
+            rows.push({
+              color: teams[e.teamIdx]?.color, num: e.player?.num, teamIdx: e.teamIdx,
+              nonReleasable: false,
+              releaseQ: q, crossQuarter: q !== e.quarter, releaseTime: fmt(remainSecs),
+              isNested: prevWindowActive || nrPhaseStillActive,
+            });
+          }
+        }
+      } else {
+        // Fully releasable window (no NR phase)
+        const expired = absCurrentTime >= absEnd;
+        const released = wasGoalReleased(e.teamIdx, absStart, absEnd);
+        if (!expired && !released) {
+          const { q, remainSecs } = absSecsToQtrTime(absEnd);
+          rows.push({
+            color: teams[e.teamIdx]?.color, num: e.player?.num, teamIdx: e.teamIdx,
+            nonReleasable: false,
+            releaseQ: q, crossQuarter: q !== e.quarter, releaseTime: fmt(remainSecs),
+            isNested: prevWindowActive,
+          });
+        }
+      }
+    }
+
+    return rows;
+  }, [log, currentQuarter, teams, timeCeilingSecs]);
 
   // Pending bubble helper — build context summary line
   function pendingContext() {
@@ -1027,6 +1282,46 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
                   </button>
                 ))}
               </div>
+              {/* Penalty box */}
+              {penaltyBoxEntries.length > 0 && (
+                <div style={{ marginTop: 16, border: "1px solid #e8e8e8", borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", padding: "8px 14px", background: "#f9f9f9", borderBottom: "1px solid #e8e8e8" }}>
+                    Penalty Box
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: "#fafafa" }}>
+                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Team</th>
+                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Player</th>
+                        <th style={{ padding: "6px 14px", textAlign: "right", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Releases at</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {penaltyBoxEntries.map((entry, i) => (
+                        <tr key={i} style={{ borderBottom: i < penaltyBoxEntries.length - 1 ? "1px solid #f5f5f5" : "none", background: entry.isNested ? "#fafafa" : "#fff" }}>
+                          <td style={{ padding: entry.isNested ? "5px 14px 5px 26px" : "8px 14px" }}>
+                            {entry.isNested
+                              ? <span style={{ fontSize: 11, color: "#bbb", marginRight: 4 }}>└</span>
+                              : <div style={{ width: 14, height: 14, borderRadius: "50%", background: entry.color }} />
+                            }
+                          </td>
+                          <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", fontWeight: entry.isNested ? 400 : 600, color: entry.isNested ? "#888" : "#111", fontSize: entry.isNested ? 12 : 13 }}>
+                            #{entry.num}
+                          </td>
+                          <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", textAlign: "right", fontWeight: entry.isNested ? 500 : 700, fontVariantNumeric: "tabular-nums", color: entry.isNested ? "#aaa" : "#c0392b", fontSize: entry.isNested ? 12 : 13 }}>
+                            {entry.nonReleasable && (
+                              <span style={{ marginRight: 5, fontSize: 9, fontWeight: 700, color: "#c0392b", background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 4, padding: "1px 4px", letterSpacing: "0.05em", verticalAlign: "middle" }}>NR</span>
+                            )}
+                            {entry.crossQuarter && <span style={{ fontSize: 10, fontWeight: 600, color: "#aaa", marginRight: 4 }}>{qLabel(entry.releaseQ)}</span>}
+                            {entry.releaseTime}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
               <button style={S.endQtrBtn(gameOver)} onClick={() => { if (!gameOver) setStep("endqtr"); }}>End {curQLabel} →</button>
               <div style={{ textAlign: "center", marginTop: 10 }}>
                 <button style={S.tabBtn(false)} onClick={() => setScreen("stats")}>View stats →</button>
@@ -1158,36 +1453,10 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
             </div>
           )}
 
-          {/* Goal: ask EMO */}
-          {step === "ask_emo" && (
-            <div>
-              <button style={S.backBtn} onClick={() => { const hasAssist = pendingEntries.some(e => e.event === "assist"); setStep(hasAssist ? "assist_player" : "ask_assist"); }}>← Back</button>
-              <div style={S.pendingBubble(teamColors[selectedTeam])}>
-                {pendingContext()}
-              </div>
-              {editingGroupId && (() => {
-                const prevEmo = getGroupById(editingGroupId).find(e => e.event === "goal")?.emo;
-                return <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
-                  Currently: {prevEmo ? "EMO goal" : "Not an EMO goal"}
-                </div>;
-              })()}
-              <div style={S.questionCard}>
-                <div style={S.questionText}>Extra Man Opportunity (EMO)?</div>
-                <div style={S.questionSub}>Was this scored on the power play?</div>
-              </div>
-              <div style={S.yesNoRow}>
-                {(() => { const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "goal")?.emo : undefined; return [
-                  <button key="n" style={{ ...S.btnNo, border: prev === false ? "2px solid #111" : "1px solid #ddd", fontWeight: prev === false ? 600 : 400 }} onClick={handleEmoNo}>No{prev === false ? " ✓" : ""}</button>,
-                  <button key="y" style={{ ...S.btnYes, background: prev === true ? "#333" : "#111" }} onClick={handleEmoYes}>{prev === true ? "Yes — EMO ✓" : "Yes — EMO"}</button>,
-                ]; })()}
-              </div>
-            </div>
-          )}
-
           {/* Goal: time remaining */}
           {step === "ask_goal_time" && (
             <div>
-              <button style={S.backBtn} onClick={() => setStep("ask_emo")}>← Back</button>
+              <button style={S.backBtn} onClick={() => { const hasAssist = pendingEntries.some(e => e.event === "assist"); setStep(hasAssist ? "assist_player" : "ask_assist"); }}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 {pendingContext()}
               </div>
@@ -1372,6 +1641,47 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
                 {[1,2,3].map(m => { const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "penalty_min")?.penaltyMin : null;
                   return <button key={m} style={{ ...S.btnYes, background: prev === m ? "#333" : "#111", border: prev === m ? "2px solid #555" : "none" }} onClick={() => handlePenaltyMin(m)}>{m} min{prev === m ? " ✓" : ""}</button>; })}
               </div>
+            </div>
+          )}
+
+          {/* Penalty: non-releasable? */}
+          {step === "ask_penalty_nr" && (
+            <div>
+              <button style={S.backBtn} onClick={() => setStep("ask_penalty_min")}>← Back</button>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 Personal foul ({pendingEntries[0]?.penaltyMin}min) — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
+              <div style={S.questionCard}>
+                <div style={S.questionText}>Non-releasable?</div>
+                <div style={S.questionSub}>NR penalties are served in full — no early release on a goal</div>
+              </div>
+              <div style={S.yesNoRow}>
+                <button style={S.btnNo} onClick={() => handlePenaltyNR(false)}>No — releasable</button>
+                <button style={S.btnYes} onClick={() => handlePenaltyNR(true)}>Yes — NR</button>
+              </div>
+            </div>
+          )}
+
+          {/* Penalty: time remaining — allows same time as latest event (for same dead-ball cycle) */}
+          {step === "ask_penalty_time" && (
+            <div>
+              <button style={S.backBtn} onClick={() => penaltyType === "tech" ? setStep("ask_penalty_type") : setStep("ask_penalty_nr")}>← Back</button>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>
+                {penaltyType === "tech" ? "🟨 Technical foul" : `🟥 Personal foul (${pendingEntries[0]?.penaltyMin}min${penaltyNR ? " NR" : ""})`} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
+              </div>
+              <div style={S.questionCard}>
+                <div style={S.questionText}>Time remaining?</div>
+                <div style={S.questionSub}>Penalties from the same dead-ball cycle can share a time</div>
+              </div>
+              <div style={{ padding: "0 4px" }}>
+                {timeCeilingSecs !== null && <div style={{ fontSize: 12, color: "#888", textAlign: "center", marginTop: 4 }}>At or before {Math.floor(timeCeilingSecs/60)}:{String(timeCeilingSecs%60).padStart(2,"0")} remaining</div>}
+                {goalTimeMin !== null && goalTimeSec !== null && <div style={{ fontSize: 24, fontWeight: 500, textAlign: "center", marginTop: 8 }}>{goalTimeMin}:{String(goalTimeSec).padStart(2,"0")}</div>}
+              </div>
+              <TimeWheel maxMinutes={isOT(currentQuarter) ? 4 : 12} selectedMin={goalTimeMin} selectedSec={goalTimeSec}
+                onMinChange={setGoalTimeMin} onSecChange={setGoalTimeSec} ceilingSecs={timeCeilingSecs} ceilingInclusive={true} />
+              <button style={{ ...S.timeConfirmBtn, background: (goalTimeMin !== null && goalTimeSec !== null) ? "#111" : "#ccc", cursor: (goalTimeMin !== null && goalTimeSec !== null) ? "pointer" : "not-allowed" }}
+                disabled={goalTimeMin === null || goalTimeSec === null}
+                onClick={() => handlePenaltyTime(`${goalTimeMin}:${String(goalTimeSec).padStart(2,"0")}`)}>
+                Confirm time
+              </button>
             </div>
           )}
 
@@ -1577,15 +1887,20 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
                 </div>
           )}
 
-          {/* Timeline — goals only with timestamps */}
+          {/* Timeline — goals, timeouts, and penalties with timestamps */}
           {statsTab === "timeline" && (
             scoringTimeline.length === 0
               ? <div style={S.emptyState}>No events recorded yet</div>
               : <div style={S.tableWrap}>
                   {(() => {
-                    const goalCount = scoringTimeline.filter(e => e.type === "goal").length;
-                    const toCount   = scoringTimeline.filter(e => e.type === "timeout").length;
-                    const meta = [goalCount && `${goalCount} goal${goalCount !== 1 ? "s" : ""}`, toCount && `${toCount} timeout${toCount !== 1 ? "s" : ""}`].filter(Boolean).join(", ");
+                    const goalCount    = scoringTimeline.filter(e => e.type === "goal").length;
+                    const toCount      = scoringTimeline.filter(e => e.type === "timeout").length;
+                    const penCount     = scoringTimeline.filter(e => e.type === "penalty").length;
+                    const meta = [
+                      goalCount  && `${goalCount} goal${goalCount !== 1 ? "s" : ""}`,
+                      toCount    && `${toCount} timeout${toCount !== 1 ? "s" : ""}`,
+                      penCount   && `${penCount} penalty${penCount !== 1 ? "s" : ""}`,
+                    ].filter(Boolean).join(", ");
                     return <div style={S.tableTitle}><span>Timeline</span><span style={{ fontWeight: 400, fontSize: 11 }}>{meta}</span></div>;
                   })()}
                   <table style={S.table}>
@@ -1615,6 +1930,31 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
                                 </td>
                                 <td style={S.tdLeft}><span style={{ color: teamColors[to.teamIdx], fontWeight: 500 }}>{teams[to.teamIdx]?.name}</span></td>
                                 <td style={{ ...S.tdLeft, color: "#888", fontStyle: "italic" }} colSpan={2}>⏸ Timeout</td>
+                                <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                                  <span style={{ color: teamColors[0] }}>{entry.scoreSnap[0]}</span>
+                                  <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
+                                  <span style={{ color: teamColors[1] }}>{entry.scoreSnap[1]}</span>
+                                </td>
+                              </tr>
+                            );
+                          }
+                          if (entry.type === "penalty") {
+                            const p = entry.penalty;
+                            const isTech = p.event === "penalty_tech";
+                            const desc = isTech
+                              ? "🟨 Technical foul"
+                              : `🟥 Personal foul (${p.penaltyMin}min${p.nonReleasable ? " NR" : ""})`;
+                            return (
+                              <tr key={`p-${gi}`} style={{ background: "#fdf8f8" }}>
+                                <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
+                                  {p.penaltyTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{p.penaltyTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
+                                  <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(p.quarter)}</span>
+                                </td>
+                                <td style={S.tdLeft}><span style={{ color: teamColors[p.teamIdx], fontWeight: 500 }}>{teams[p.teamIdx]?.name}</span></td>
+                                <td style={S.tdLeft} colSpan={2}>
+                                  <span style={{ color: "#555" }}>{desc}</span>
+                                  <span style={{ color: "#888", marginLeft: 6 }}>— #{p.player?.num} {p.player?.name}</span>
+                                </td>
                                 <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
                                   <span style={{ color: teamColors[0] }}>{entry.scoreSnap[0]}</span>
                                   <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>

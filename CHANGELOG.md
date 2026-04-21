@@ -5,6 +5,25 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [1.1.0] — 2026-04-20
+
+### Added
+- **Penalty box** — active penalties displayed on the Track screen (above the End Q# button) with release time, NR badge, and cross-quarter label when a penalty carries into the next period
+- **Consecutive foul support** — two penalties on the same player from the same dead-ball cycle are automatically chained; the second penalty is shown indented beneath the first and starts serving immediately when the first expires or is goal-released
+- **Simultaneous foul support** — penalties from opposing teams logged at the same dead-ball time have their overlapping window automatically forced NR for both players
+- **Non-releasable flag** — personal fouls can be marked NR during entry; NR penalties serve their full duration regardless of goals scored
+- **Penalties in Timeline** — Stats → Timeline now includes penalty entries alongside goals and timeouts, with foul type, NR status, player, and score snapshot
+- **Time entry for penalties** — penalty time wheel uses an inclusive ceiling so multiple penalties from the same dead-ball stoppage can share an identical timestamp
+
+### Changed
+- Penalty entry flow simplified: Tech or Personal → minutes (personal only) → NR? (personal only) → time remaining. Consecutive and simultaneous relationships are derived automatically from the log — no manual classification required
+- Penalty box repositioned above the End Q# button so it is always visible without scrolling
+
+### Fixed
+- Penalties from independent dead-ball cycles were incorrectly chain-released when a prior penalty on the same player was goal-released; chain release now only propagates to windows that directly follow (consecutive fouls), not to unrelated later penalties
+
+---
+
 ## [1.0.0] — 2026-04-20
 
 First stable release. Adds full multi-user support with authentication, per-user data isolation, roster sharing, and an admin panel for platform management.

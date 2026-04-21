@@ -215,8 +215,26 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 **Who:** The player who committed the foul.
 
 **Follow-ups:**
-1. **Type** — Technical foul (no time served) or Personal foul (time served).
+1. **Type** — Technical foul (30 sec) or Personal foul.
 2. **Minutes** (personal only) — 1, 2, or 3 minutes.
+3. **Non-releasable?** (personal only) — if the referee signals NR, the player serves the full penalty regardless of goals scored.
+4. **Time remaining** — time left in the quarter when the referee called the foul. Multiple penalties from the same dead-ball stoppage can share the same time.
+
+The app automatically handles the serving order for **consecutive fouls** (two penalties on the same player from the same dead-ball cycle — the player serves them back-to-back) and **simultaneous fouls** (one penalty per team from the same dead-ball cycle — the overlapping window is forced NR for both).
+
+### Penalty Box
+
+While any penalties are active, a **Penalty Box** table appears on the Track screen above the **End Q#** button. Each row shows:
+
+- **Team color dot** (or a └ indent for a consecutive second penalty)
+- **Player number**
+- **Release time** — the time remaining at which the player exits. A **NR** badge means the penalty is non-releasable. A quarter label (e.g. *Q3*) appears if the penalty carries into the next quarter.
+
+A player serving two consecutive penalties is shown as two rows — the first (primary) and the second indented beneath it. The second row becomes active as soon as the first expires or is goal-released.
+
+When a goal is scored and releases a releasable penalty, any consecutive penalty waiting behind it is also released simultaneously.
+
+---
 
 ### MDD Stop 🛡️
 **Team stat.** Log when the defense successfully holds off an EMO without allowing a goal. Commits immediately for the selected team. Automatically credits the opposing team with a Failed EMO.
@@ -301,14 +319,14 @@ A two-column grid showing team totals for every tracked stat side by side. See [
 A sortable table of individual player stats. Tap any column header to sort by that stat (descending). Players are grouped by team with a colored team header row. Team-only stats (clears, rides, MDD, EMO fail) are not shown in this table.
 
 ### Timeline tab
-A reverse-chronological list of goals and timeouts, showing:
+A reverse-chronological list of goals, timeouts, and penalties, showing:
 - **Time remaining** (if recorded) and **quarter**
 - **Team**
-- **Scorer** (goals) or "⏸ Timeout"
+- **Scorer** (goals), "⏸ Timeout", or foul description (penalties)
 - **Assist** if applicable
 - **Running score** at that moment in the game
 
-The title shows the count of goals and timeouts in the current filter.
+The title shows the count of goals, timeouts, and penalties in the current filter.
 
 ### Event Log tab *(Scorekeeper only)*
 A full reverse-chronological feed of every event, grouped by play. Shows edit (✏️) and delete (✕) controls. Quarter dividers appear in the "All" view.
@@ -403,8 +421,8 @@ Shows all saved rosters across all users, grouped by owner. Tap an owner to expa
 
 | Abbrev | Name | Description |
 |---|---|---|
-| **Tech** | Technical fouls | Non-releasable fouls |
-| **PF Min** | Personal foul minutes | Total penalty minutes from personal fouls |
+| **Tech** | Technical fouls | 30-second releasable fouls |
+| **PF Min** | Personal foul minutes | Total penalty minutes from personal fouls (1–3 min each; may be non-releasable) |
 
 ### Other
 
