@@ -137,6 +137,7 @@ function AdminGameRow({ game, userMap, users, onReassigned }) {
 
 // ── All Games Tab ─────────────────────────────────────────────────────────────
 function AllGamesTab() {
+  const navigate = useNavigate();
   const [games, setGames] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -187,11 +188,8 @@ function AllGamesTab() {
     const name = `Game — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
     const { data: gameId, error: err } = await supabase.rpc("admin_create_game", { p_user_id: createForUserId, p_name: name });
     if (err) { setError(err.message); setCreating(false); return; }
-    const { data: gameData } = await supabase.from("games").select("id, name, created_at, state, user_id").eq("id", gameId).single();
-    if (gameData) setGames(prev => [gameData, ...prev]);
-    setShowCreateGame(false);
-    setCreateForUserId("");
     setCreating(false);
+    navigate(`/games/${gameId}/score`);
   }
 
   function handleGameReassigned(gameId, newUserId) {
