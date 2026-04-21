@@ -329,7 +329,7 @@ export function RosterEditor({ initial, onSave, onDelete, onCancel, isNew }) {
 }
 
 // ── Share Panel ───────────────────────────────────────────────────────────────
-function SharePanel({ rosterId }) {
+export function SharePanel({ rosterId }) {
   const [shares, setShares] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [username, setUsername] = useState("");

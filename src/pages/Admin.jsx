@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { qLabel } from "../components/LaxStats";
-import { RosterEditor } from "./GameList";
+import { RosterEditor, SharePanel } from "./GameList";
 
 const FAKE_DOMAIN = "@laxstats.app";
 function toEmail(username) {
@@ -54,13 +54,98 @@ function getGameInfo(game) {
   return { t0, t1, score0, score1, gameOver: s.gameOver, started, currentQuarter, latestTime };
 }
 
+// ── Game Row (module-level so useState works) ─────────────────────────────────
+function AdminGameRow({ game, userMap, users, onReassigned }) {
+  const navigate = useNavigate();
+  const info = getGameInfo(game);
+  const owner = userMap[game.user_id];
+  const c0 = info?.t0?.color || "#444";
+  const c1 = info?.t1?.color || "#888";
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [newOwnerId, setNewOwnerId] = useState(game.user_id || "");
+  const [reassigning, setReassigning] = useState(false);
+  const [reassignError, setReassignError] = useState(null);
+
+  async function handleReassign() {
+    if (!newOwnerId || newOwnerId === game.user_id) return;
+    setReassigning(true);
+    setReassignError(null);
+    const { error: err } = await supabase.rpc("admin_reassign_game", { p_game_id: game.id, p_user_id: newOwnerId });
+    if (err) setReassignError(err.message);
+    else { onReassigned(game.id, newOwnerId); setAdminOpen(false); }
+    setReassigning(false);
+  }
+
+  return (
+    <div style={{ borderRadius: 14, overflow: "hidden", marginBottom: 10, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", border: "1px solid #e8e8e8", background: "#fff" }}>
+      <div style={{ height: 4, background: info ? `linear-gradient(90deg, ${c0} 50%, ${c1} 50%)` : "#e0e0e0" }} />
+      <div style={{ padding: "12px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
+            {info ? `${info.t0.name} vs ${info.t1.name}` : game.name}
+          </div>
+          {info && (
+            <div style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "#111" }}>
+              <span style={{ color: c0 }}>{info.score0}</span>
+              <span style={{ color: "#ccc", margin: "0 4px" }}>—</span>
+              <span style={{ color: c1 }}>{info.score1}</span>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {info?.gameOver ? (
+              <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "2px 8px" }}>Final</span>
+            ) : info?.started ? (
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "2px 8px" }}>● Live{info.latestTime ? ` · ${info.latestTime} ${qLabel(info.currentQuarter)}` : ""}</span>
+            ) : (
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "2px 8px" }}>Pending</span>
+            )}
+            {owner && <span style={{ fontSize: 11, color: "#aaa" }}>{displayName(owner.email)}</span>}
+            <span style={{ fontSize: 11, color: "#ccc" }}>{formatDate(game.created_at)}</span>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button style={{ padding: "5px 10px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}
+              onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
+            <button style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: "#111", border: "none", borderRadius: 7, cursor: "pointer", color: "#fff" }}
+              onClick={() => navigate(`/games/${game.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
+            <button title="Reassign owner" style={{ padding: "5px 9px", fontSize: 12, background: adminOpen ? "#f0f0f0" : "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#888" }}
+              onClick={() => setAdminOpen(v => !v)}>⚙</button>
+          </div>
+        </div>
+      </div>
+      {adminOpen && (
+        <div style={{ borderTop: "1px solid #f0f0f0", padding: "10px 16px 12px", background: "#fafafa" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Reassign owner</div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <select value={newOwnerId} onChange={e => setNewOwnerId(e.target.value)}
+              style={{ flex: 1, padding: "6px 8px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff" }}>
+              <option value="">Select user…</option>
+              {users.map(u => <option key={u.id} value={u.id}>{displayName(u.email)}</option>)}
+            </select>
+            <button onClick={handleReassign} disabled={!newOwnerId || newOwnerId === game.user_id || reassigning}
+              style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: (newOwnerId && newOwnerId !== game.user_id && !reassigning) ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
+              {reassigning ? "…" : "Save"}
+            </button>
+          </div>
+          {reassignError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{reassignError}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── All Games Tab ─────────────────────────────────────────────────────────────
 function AllGamesTab() {
-  const navigate = useNavigate();
   const [games, setGames] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showPending, setShowPending] = useState(false);
+  const [showFinal, setShowFinal] = useState(false);
+  const [showCreateGame, setShowCreateGame] = useState(false);
+  const [createForUserId, setCreateForUserId] = useState("");
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -95,56 +180,22 @@ function AllGamesTab() {
   const liveGames    = games.filter(g => { const i = getGameInfo(g); return i?.started && !i?.gameOver; });
   const pendingGames = games.filter(g => { const i = getGameInfo(g); return !i?.started; });
   const finalGames   = games.filter(g => { const i = getGameInfo(g); return i?.gameOver; });
-  const [showPending, setShowPending] = useState(false);
-  const [showFinal, setShowFinal] = useState(false);
 
-  if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
-  if (error) return <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "12px 16px", color: "#c0392b", fontSize: 13, marginBottom: 16 }}>{error}</div>;
-  if (games.length === 0) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>No games yet.</div>;
+  async function handleCreateGame() {
+    if (!createForUserId) return;
+    setCreating(true);
+    const name = `Game — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+    const { data: gameId, error: err } = await supabase.rpc("admin_create_game", { p_user_id: createForUserId, p_name: name });
+    if (err) { setError(err.message); setCreating(false); return; }
+    const { data: gameData } = await supabase.from("games").select("id, name, created_at, state, user_id").eq("id", gameId).single();
+    if (gameData) setGames(prev => [gameData, ...prev]);
+    setShowCreateGame(false);
+    setCreateForUserId("");
+    setCreating(false);
+  }
 
-  function GameRow({ game }) {
-    const info = getGameInfo(game);
-    const owner = userMap[game.user_id];
-    const c0 = info?.t0?.color || "#444";
-    const c1 = info?.t1?.color || "#888";
-    return (
-      <div style={{ borderRadius: 14, overflow: "hidden", marginBottom: 10, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", border: "1px solid #e8e8e8", background: "#fff" }}>
-        <div style={{ height: 4, background: info ? `linear-gradient(90deg, ${c0} 50%, ${c1} 50%)` : "#e0e0e0" }} />
-        <div style={{ padding: "12px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
-              {info ? `${info.t0.name} vs ${info.t1.name}` : game.name}
-            </div>
-            {info && (
-              <div style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "#111" }}>
-                <span style={{ color: c0 }}>{info.score0}</span>
-                <span style={{ color: "#ccc", margin: "0 4px" }}>—</span>
-                <span style={{ color: c1 }}>{info.score1}</span>
-              </div>
-            )}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {info?.gameOver ? (
-                <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "2px 8px" }}>Final</span>
-              ) : info?.started ? (
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "2px 8px" }}>● Live{info.latestTime ? ` · ${info.latestTime} ${qLabel(info.currentQuarter)}` : ""}</span>
-              ) : (
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "2px 8px" }}>Pending</span>
-              )}
-              {owner && <span style={{ fontSize: 11, color: "#aaa" }}>{displayName(owner.email)}</span>}
-              <span style={{ fontSize: 11, color: "#ccc" }}>{formatDate(game.created_at)}</span>
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button style={{ padding: "5px 10px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}
-                onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
-              <button style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: "#111", border: "none", borderRadius: 7, cursor: "pointer", color: "#fff" }}
-                onClick={() => navigate(`/games/${game.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  function handleGameReassigned(gameId, newUserId) {
+    setGames(prev => prev.map(g => g.id === gameId ? { ...g, user_id: newUserId } : g));
   }
 
   function SectionToggle({ label, count, open, onToggle }) {
@@ -162,18 +213,51 @@ function AllGamesTab() {
     );
   }
 
+  if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
+  if (error) return <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "12px 16px", color: "#c0392b", fontSize: 13, marginBottom: 16 }}>{error}</div>;
+
   return (
     <div>
-      {liveGames.length === 0 && (
+      {/* Create game for user */}
+      <div style={{ marginBottom: 14 }}>
+        {!showCreateGame ? (
+          <button onClick={() => setShowCreateGame(true)}
+            style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer" }}>
+            + New Game for User
+          </button>
+        ) : (
+          <div style={{ border: "1px solid #e0e0e0", borderRadius: 14, padding: 16, background: "#fafafa" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>New Game</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <select value={createForUserId} onChange={e => setCreateForUserId(e.target.value)}
+                style={{ flex: 1, padding: "8px 10px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff" }}>
+                <option value="">Select user…</option>
+                {users.map(u => <option key={u.id} value={u.id}>{displayName(u.email)}</option>)}
+              </select>
+              <button onClick={handleCreateGame} disabled={!createForUserId || creating}
+                style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, background: createForUserId && !creating ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
+                {creating ? "Creating…" : "Create"}
+              </button>
+              <button onClick={() => { setShowCreateGame(false); setCreateForUserId(""); }}
+                style={{ padding: "8px 12px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555", flexShrink: 0 }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {games.length === 0 && <div style={{ textAlign: "center", padding: "24px 0 12px", color: "#aaa", fontSize: 14 }}>No games yet.</div>}
+      {liveGames.length === 0 && games.length > 0 && (
         <div style={{ textAlign: "center", padding: "24px 0 12px", color: "#aaa", fontSize: 14 }}>No live games.</div>
       )}
-      {liveGames.map(game => <GameRow key={game.id} game={game} />)}
+      {liveGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} />)}
 
       <SectionToggle label="pending game" count={pendingGames.length} open={showPending} onToggle={() => setShowPending(v => !v)} />
-      {showPending && pendingGames.map(game => <GameRow key={game.id} game={game} />)}
+      {showPending && pendingGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} />)}
 
       <SectionToggle label="completed game" count={finalGames.length} open={showFinal} onToggle={() => setShowFinal(v => !v)} />
-      {showFinal && finalGames.map(game => <GameRow key={game.id} game={game} />)}
+      {showFinal && finalGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} />)}
     </div>
   );
 }
@@ -422,21 +506,59 @@ function UsersTab() {
   );
 }
 
+// ── Owner Select ──────────────────────────────────────────────────────────────
+function OwnerSelect({ currentUserId, users, onSave }) {
+  const [selectedId, setSelectedId] = useState(currentUserId || "");
+  const [saving, setSaving] = useState(false);
+  async function handleSave() {
+    if (!selectedId || selectedId === currentUserId) return;
+    setSaving(true);
+    await onSave(selectedId);
+    setSaving(false);
+  }
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
+        style={{ flex: 1, padding: "6px 8px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff" }}>
+        <option value="">Select user…</option>
+        {users.map(u => <option key={u.id} value={u.id}>{displayName(u.email)}</option>)}
+      </select>
+      <button onClick={handleSave} disabled={!selectedId || selectedId === currentUserId || saving}
+        style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: (selectedId && selectedId !== currentUserId && !saving) ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
+        {saving ? "…" : "Save"}
+      </button>
+    </div>
+  );
+}
+
 // ── Rosters Admin Tab ─────────────────────────────────────────────────────────
 function RostersAdminTab() {
   const [rosters, setRosters] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedOwner, setExpandedOwner] = useState(null);
   const [editingRosterId, setEditingRosterId] = useState(null);
+  const [showNew, setShowNew] = useState(false);
+  const [newForUserId, setNewForUserId] = useState("");
 
   useEffect(() => {
-    supabase.rpc("admin_get_all_rosters").then(({ data, error: err }) => {
-      if (err) setError(err.message);
-      else setRosters(data || []);
+    Promise.all([
+      supabase.rpc("admin_get_all_rosters"),
+      supabase.rpc("admin_get_users"),
+    ]).then(([rostersRes, usersRes]) => {
+      if (rostersRes.error) setError(rostersRes.error.message);
+      else setRosters(rostersRes.data || []);
+      setUsers(usersRes.data || []);
       setLoading(false);
     });
   }, []);
+
+  const userMap = useMemo(() => {
+    const m = {};
+    users.forEach(u => { m[u.id] = u; });
+    return m;
+  }, [users]);
 
   const byOwner = useMemo(() => {
     const map = {};
@@ -453,6 +575,24 @@ function RostersAdminTab() {
     return roster.split("\n").map(l => l.trim()).filter(Boolean).length;
   }
 
+  async function handleCreate(fields) {
+    if (!newForUserId) return;
+    const { data, error: err } = await supabase.rpc("admin_create_roster", {
+      p_user_id: newForUserId,
+      p_name: fields.name,
+      p_roster: fields.roster,
+      p_color: fields.color,
+    });
+    if (err) { setError(err.message); return; }
+    // Reload full rosters list to get owner_name populated correctly
+    const { data: fresh } = await supabase.rpc("admin_get_all_rosters");
+    if (fresh) setRosters(fresh);
+    setShowNew(false);
+    setNewForUserId("");
+    // Expand the owner section for the new roster's user
+    setExpandedOwner(newForUserId);
+  }
+
   async function handleUpdate(rosterId, fields) {
     const { error: err } = await supabase.from("saved_teams").update(fields).eq("id", rosterId);
     if (err) { setError(err.message); return; }
@@ -460,12 +600,56 @@ function RostersAdminTab() {
     setEditingRosterId(null);
   }
 
+  async function handleReassignRoster(rosterId, newUserId) {
+    const { error: err } = await supabase.rpc("admin_reassign_roster", { p_roster_id: rosterId, p_user_id: newUserId });
+    if (err) { setError(err.message); return; }
+    // Reload to update owner_name display
+    const { data: fresh } = await supabase.rpc("admin_get_all_rosters");
+    if (fresh) setRosters(fresh);
+    setEditingRosterId(null);
+  }
+
   if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
   if (error) return <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "12px 16px", color: "#c0392b", fontSize: 13 }}>{error}</div>;
-  if (rosters.length === 0) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>No rosters yet.</div>;
 
   return (
     <div>
+      {/* Create roster for user */}
+      <div style={{ marginBottom: 14 }}>
+        {!showNew ? (
+          <button onClick={() => setShowNew(true)}
+            style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer" }}>
+            + New Roster for User
+          </button>
+        ) : (
+          <div style={{ border: "1px solid #e0e0e0", borderRadius: 14, padding: 16, background: "#fafafa" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>New Roster</div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Owner</label>
+              <select value={newForUserId} onChange={e => setNewForUserId(e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", boxSizing: "border-box" }}>
+                <option value="">Select user…</option>
+                {users.map(u => <option key={u.id} value={u.id}>{displayName(u.email)}</option>)}
+              </select>
+            </div>
+            {newForUserId && (
+              <RosterEditor isNew
+                onSave={handleCreate}
+                onCancel={() => { setShowNew(false); setNewForUserId(""); }}
+              />
+            )}
+            {!newForUserId && (
+              <button onClick={() => { setShowNew(false); setNewForUserId(""); }}
+                style={{ padding: "8px 14px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555" }}>
+                Cancel
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {rosters.length === 0 && <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>No rosters yet.</div>}
+
       {byOwner.map(([ownerId, { owner_name, rosters: ownerRosters }]) => {
         const open = expandedOwner === ownerId;
         return (
@@ -501,6 +685,19 @@ function RostersAdminTab() {
                               onSave={(fields) => handleUpdate(r.id, fields)}
                               onCancel={() => setEditingRosterId(null)}
                             />
+
+                            {/* Owner reassignment */}
+                            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e8e8e8" }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Owner</div>
+                              <OwnerSelect
+                                currentUserId={r.user_id}
+                                users={users}
+                                onSave={(newUserId) => handleReassignRoster(r.id, newUserId)}
+                              />
+                            </div>
+
+                            {/* Sharing */}
+                            <SharePanel rosterId={r.id} />
                           </div>
                         )}
                       </li>
