@@ -187,6 +187,7 @@ export default function ViewGame() {
           ? <span style={S.finalBadge}>Final</span>
           : <span style={S.liveBadge}>● Live</span>
         }
+        <button style={S.copyBtn} onClick={() => navigate(`/games/${id}/pressbox`)}>Press Box ↗</button>
         <button style={copied ? S.copyBtnDone : S.copyBtn} onClick={copyUrl}>
           {copied ? "✓ Copied" : "Copy link"}
         </button>
@@ -286,30 +287,38 @@ export default function ViewGame() {
             {statsTab === "summary" && (
               <div style={S.summaryGrid}>
                 {[
-                  { label: "Goals", key: "goal" },
+                  { heading: "Scoring" },
+                  { label: "Goals", key: "goal" }, { label: "Assists", key: "assist" },
                   { label: "Successful EMO", key: "emo_goal" }, { label: "Failed EMO", key: "emo_fail" },
                   { label: "EMO %", custom: emoPct },
+                  { heading: "Defense" },
                   { label: "Successful MDD", key: "mdd_success" }, { label: "Failed MDD", key: "mdd_fail" },
                   { label: "MDD %", custom: mddPct },
+                  { label: "Saves", key: "shot_saved" }, { label: "Save %", custom: savePct },
+                  { label: "Forced TOs", key: "forced_to" },
+                  { heading: "Shooting" },
                   { label: "Total Shots", key: "shot" }, { label: "Shot %", custom: shotPct },
                   { label: "Shots on Goal", key: "sog" }, { label: "SOG %", custom: sogPct },
                   { label: "Blocked Shots", key: "shot_blocked" },
-                  { label: "Saves", key: "shot_saved" }, { label: "Save %", custom: savePct },
+                  { heading: "Possession" },
                   { label: "Ground Balls", key: "ground_ball" }, { label: "Faceoffs Won", key: "faceoff_win" },
-                  { label: "Turnovers", key: "turnover" }, { label: "Forced TOs", key: "forced_to" },
+                  { label: "Turnovers", key: "turnover" },
+                  { heading: "Clearing" },
                   { label: "Successful Clears", key: "clear" }, { label: "Failed Clears", key: "failed_clear" },
                   { label: "Clearing %", custom: clearPct },
                   { label: "Successful Rides", key: "successful_ride" }, { label: "Failed Rides", key: "failed_ride" },
+                  { heading: "Penalties" },
                   { label: "Technicals", key: "penalty_tech" }, { label: "PF Minutes", key: "penalty_min" },
-                  { label: "Assists", key: "assist" },
-                ].map(({ label, key, custom }) => (
-                  <div key={label} style={S.summaryCard}>
-                    <div style={S.summaryLabel}>{label}</div>
+                ].map((item) => item.heading ? (
+                  <div key={item.heading} style={{ gridColumn: "1 / -1", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#bbb", padding: "8px 2px 2px" }}>{item.heading}</div>
+                ) : (
+                  <div key={item.label} style={S.summaryCard}>
+                    <div style={S.summaryLabel}>{item.label}</div>
                     {[0, 1].map(ti => (
                       <div key={ti} style={S.summaryRow}>
                         <div style={{ fontSize: 12, color: teamColors[ti] }}>{teams[ti].name}</div>
                         <div style={{ fontSize: 20, fontWeight: 500, color: teamColors[ti] }}>
-                          {custom ? custom(ti) : (teamTotals[ti][key] || 0)}
+                          {item.custom ? item.custom(ti) : (teamTotals[ti][item.key] || 0)}
                         </div>
                       </div>
                     ))}

@@ -5,12 +5,30 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
-## [1.3.0] — 2026-04-21
+## [1.5.0] — 2026-04-22
 
 ### Added
+- **Press Box view** (`/games/:id/pressbox`) — public, full-width two-column dashboard for press box / announcer use (no login required):
+  - **Score banner** — large live score with current quarter and clock
+  - **Score by Quarter** — full-width table of per-quarter and total scores, sits between the banner and the quarter filter
+  - **Team Stats** — complete stat breakdown grouped by section (Scoring, Defense, Shooting, Possession, Clearing, Penalties) with both teams side-by-side; updates in real time
+  - **Player Stats** — sortable table per team; team toggle buttons (Home / Away) in the section header, colored with each team's color; defaults to the home team
+  - **Event Log** — full read-only event log with sub-chips (assists, saves, blocks, times); scrollable once it exceeds ~480 px; NR penalties shown with a red highlighted chip
+  - **Timeline** — goals, timeouts, and penalties in reverse chronological order with assist detail and running score; sits below the event log in the right column
+  - Quarter filter affects all sections simultaneously; layout fills full browser width
+- **Press Box button** on Live View (`/view`) header — navigates to the press box for the same game
+- **Press Box button** on each game card in the Games list — direct access for logged-in users
 - **Shot flow redesign** — after selecting the shooter, a single screen presents all four outcomes as vertical buttons (Missed, Saved, Blocked, Off the post); replaces the old sequential save/post/blocked Q&A
 - **Last-goalie featured button** — in the save picker, the last known goalie (or current edit value) appears as a full-width button above the player grid for one-tap re-selection; the full grid remains below for substitutions
 - **Penalties in Live View Timeline** — `/games/:id/view` Stats → Timeline now shows technical and personal fouls alongside goals and timeouts, with foul type, NR flag, player number, and score snapshot; penalty count included in the Timeline summary line
+
+### Changed
+- **Stats reorganized** across all stat views (Scorekeeper Summary, Live View Summary, Press Box Team Stats):
+  - Assists moved into **Scoring** (was in Other)
+  - Saves and Save % moved into **Defense** (were in Shooting)
+  - Forced TOs moved into **Defense** (was in Possession)
+  - Section headings (Scoring / Defense / Shooting / Possession / Clearing / Penalties) added to Scorekeeper and Live View Summary grids
+- **Penalty NR question** rephrased to "Releasable or non-releasable?" with **Releasable** as the primary (black) button, since it is the more common outcome; Non-Releasable is the secondary outlined button
 
 ### Fixed
 - Live View clock display now updates when a penalty is the only timed event logged in a quarter (penaltyTime was not being considered)

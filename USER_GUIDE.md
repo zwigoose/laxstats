@@ -18,8 +18,9 @@ LaxStats is an electronic scorebook for men's lacrosse. It replaces the clipboar
 10. [Editing and Deleting Entries](#10-editing-and-deleting-entries)
 11. [Stats Views](#11-stats-views)
 12. [Live View](#12-live-view)
-13. [Admin Panel](#13-admin-panel)
-14. [Stat Definitions](#14-stat-definitions)
+13. [Press Box](#13-press-box)
+14. [Admin Panel](#14-admin-panel)
+15. [Stat Definitions](#15-stat-definitions)
 
 ---
 
@@ -53,6 +54,7 @@ Lists your games, newest first. Each card shows:
   - **Final** (gray) — game is complete
 - **Setup** button (pending games) or **Score** button (live/final games) — opens the Scorekeeper
 - **View** button — opens the read-only Live View
+- **Press Box** button — opens the full press box dashboard
 - **🗑** — delete the game (requires two confirmations)
 
 Live and pending games are shown at the top. Completed games are hidden under a collapsible **N completed games** toggle.
@@ -191,11 +193,11 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 ### Shot 🎯
 **Who:** The player who shot.
 
-**Follow-ups (in order):**
-1. **Saved?** — Yes: pick the goalie. Credits the goalie with a Save and counts as a Shot on Goal (SOG) for the shooter.
-2. **Post or crossbar?** — If not saved: did it hit the frame? Yes: counts as SOG for the shooter.
-3. **Blocked?** — If not saved and not a post: was it blocked by a field player? Yes: pick the blocking player from the opposing roster. Credits the blocker with a Block. Not a SOG.
-4. If none of the above: logs as a missed/wide shot.
+**Follow-up:** After selecting the shooter, choose one outcome:
+- **Missed / wide** — logs the shot, no SOG.
+- **Saved** — pick the goalie from the defending roster. Credits the goalie with a Save and counts as a SOG for the shooter. The last known goalie appears as a full-width button at the top of the grid for quick re-selection; the full roster is below for substitutions.
+- **Blocked** — pick the blocking field player from the opposing roster. Credits the blocker with a Block. Not a SOG.
+- **Off the post / crossbar** — counts as a SOG for the shooter.
 
 ### Ground Ball 🪣
 **Who:** The player who picked it up. Commits immediately after player selection.
@@ -217,7 +219,7 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 **Follow-ups:**
 1. **Type** — Technical foul (30 sec) or Personal foul.
 2. **Minutes** (personal only) — 1, 2, or 3 minutes.
-3. **Non-releasable?** (personal only) — if the referee signals NR, the player serves the full penalty regardless of goals scored.
+3. **Releasable or non-releasable?** (personal only) — tap **Releasable** for a standard penalty (released when the opposing team scores) or **Non-Releasable** if the referee signals NR (player serves the full duration regardless of goals).
 4. **Time remaining** — time left in the quarter when the referee called the foul. Multiple penalties from the same dead-ball stoppage can share the same time.
 
 The app automatically handles the serving order for **consecutive fouls** (two penalties on the same player from the same dead-ball cycle — the player serves them back-to-back) and **simultaneous fouls** (one penalty per team from the same dead-ball cycle — the overlapping window is forced NR for both).
@@ -313,7 +315,7 @@ Immediately after any new entry, an **undo** button appears in the banner. Tappi
 Stats are available in both the Scorekeeper (**Stats** and **Event Log** tabs) and the Live View. A **quarter filter** at the top lets you view all quarters combined or any individual quarter. The live quarter shows a green **●** dot.
 
 ### Summary tab
-A two-column grid showing team totals for every tracked stat side by side. See [Stat Definitions](#14-stat-definitions) for the full list.
+A two-column grid showing team totals for every tracked stat side by side, organized into sections: **Scoring**, **Defense**, **Shooting**, **Possession**, **Clearing**, and **Penalties**. See [Stat Definitions](#15-stat-definitions) for the full list.
 
 ### Players tab
 A sortable table of individual player stats. Tap any column header to sort by that stat (descending). Players are grouped by team with a colored team header row. Team-only stats (clears, rides, MDD, EMO fail) are not shown in this table.
@@ -344,11 +346,36 @@ Open via **View** on any game card, or navigate directly to `/games/:id/view`.
 
 The header shows **● Live** or **Final**. For live games, the latest recorded time remaining is shown above the score (e.g., *8:54 remaining · Q2*) — this is the most authoritative clock reference available from the scorebook.
 
-The same **Summary**, **Players**, and **Timeline** tabs are available with the same quarter filter.
+The same **Summary**, **Players**, and **Timeline** tabs are available with the same quarter filter. A **Press Box ↗** button in the header links to the full press box dashboard for the same game.
 
 ---
 
-## 13. Admin Panel
+## 13. Press Box
+
+Open via **Press Box** on any game card, the Live View header, or navigate directly to `/games/:id/pressbox`.
+
+- **Read-only** — no editing controls
+- **Realtime** — updates live as the scorekeeper enters stats
+- **No account required** — anyone with the link can view
+- **Designed for tablets and laptops** — fills the full screen width in a two-column layout
+
+The press box shows everything at once without tabs:
+
+**Left column:**
+- Score banner with large live score and current clock
+- Score by Quarter table (full width, above the columns)
+- Team Stats — full breakdown by section (Scoring, Defense, Shooting, Possession, Clearing, Penalties) with both teams side-by-side
+
+**Right column:**
+- Player Stats — sortable table; use the **Home / Away** toggle buttons in the header to switch between teams
+- Event Log — all events newest first, scrollable; NR penalties are highlighted in red
+- Timeline — goals, timeouts, and penalties in reverse chronological order with running score
+
+A **quarter filter** above the two columns affects all sections simultaneously.
+
+---
+
+## 14. Admin Panel
 
 Admin accounts have access to `/admin`. If you are an admin, an **Admin →** button appears in the top-right of the main screen.
 
@@ -377,13 +404,14 @@ Shows all saved rosters across all users, grouped by owner. Tap an owner to expa
 
 ---
 
-## 14. Stat Definitions
+## 15. Stat Definitions
 
 ### Scoring
 
 | Abbrev | Name | Description |
 |---|---|---|
 | **G** | Goals | Goals scored |
+| **A** | Assists | Pass directly leading to a goal |
 | **EMO** | Successful EMO | Goals scored while on a man-up power play |
 | **FEMO** | Failed EMO | Man-up opportunities that ended without a goal; equals opponent's MDD stops (auto-computed) |
 | **EMO %** | EMO percentage | Successful EMO ÷ (Successful + Failed EMO) |
@@ -395,6 +423,9 @@ Shows all saved rosters across all users, grouped by owner. Tap an owner to expa
 | **MDD** | Successful MDD | Man-down defensive stops — logged when the defense successfully kills a penalty without conceding |
 | **FMDD** | Failed MDD | Man-down situations that resulted in a goal; equals opponent's EMO goals (auto-computed) |
 | **MDD %** | MDD percentage | Successful MDD ÷ (Successful + Failed MDD) |
+| **Sv** | Saves | Shots stopped by the goalie (credited to the defending team's goalie) |
+| **Save %** | Save percentage | Saves ÷ Opponent's SOG |
+| **FTO** | Forced turnovers | Turnovers caused by applied pressure (credited to the forcing player) |
 
 ### Shooting
 
@@ -405,17 +436,14 @@ Shows all saved rosters across all users, grouped by owner. Tap an owner to expa
 | **SOG** | Shots on goal | Shots that challenged the goalie: goals + saves + post/crossbar hits (player stat) |
 | **SOG %** | SOG percentage | Goals ÷ SOG |
 | **Blk** | Blocked shots | Shots blocked by a field player (credited to the blocker) |
-| **Sv** | Saves | Shots stopped by the goalie (credited to the defending team's goalie) |
-| **Save %** | Save percentage | Saves ÷ Opponent's SOG |
 
-### Possession & transition
+### Possession
 
 | Abbrev | Name | Description |
 |---|---|---|
 | **GB** | Ground balls | Loose ball pickups |
 | **FW** | Faceoff wins | Faceoffs won |
 | **TO** | Turnovers | Turnovers committed |
-| **FTO** | Forced turnovers | Turnovers caused by applied pressure (credited to the forcing player) |
 
 ### Clearing & riding
 
@@ -433,12 +461,6 @@ Shows all saved rosters across all users, grouped by owner. Tap an owner to expa
 |---|---|---|
 | **Tech** | Technical fouls | 30-second releasable fouls |
 | **PF Min** | Personal foul minutes | Total penalty minutes from personal fouls (1–3 min each; may be non-releasable) |
-
-### Other
-
-| Abbrev | Name | Description |
-|---|---|---|
-| **A** | Assists | Pass directly leading to a goal |
 
 ---
 

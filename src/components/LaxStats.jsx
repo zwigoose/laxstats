@@ -206,7 +206,7 @@ function getTimeoutsLeft(log, currentQuarter) {
   );
 }
 
-function entryDisplayInfo(entry) {
+export function entryDisplayInfo(entry) {
   let icon = EVENTS.find(e => e.id === entry.event)?.icon || "•";
   let label = EVENTS.find(e => e.id === entry.event)?.label || entry.event;
   if (entry.event === "shot_saved") { icon = "🧤"; label = "Save"; }
@@ -1632,12 +1632,12 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
               <button style={S.backBtn} onClick={() => setStep("ask_penalty_min")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 Personal foul ({pendingEntries[0]?.penaltyMin}min) — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
               <div style={S.questionCard}>
-                <div style={S.questionText}>Non-releasable?</div>
+                <div style={S.questionText}>Releasable or non-releasable?</div>
                 <div style={S.questionSub}>NR penalties are served in full — no early release on a goal</div>
               </div>
               <div style={S.yesNoRow}>
-                <button style={S.btnNo} onClick={() => handlePenaltyNR(false)}>No — releasable</button>
-                <button style={S.btnYes} onClick={() => handlePenaltyNR(true)}>Yes — NR</button>
+                <button style={S.btnYes} onClick={() => handlePenaltyNR(false)}>Releasable</button>
+                <button style={S.btnNo} onClick={() => handlePenaltyNR(true)}>Non-Releasable</button>
               </div>
             </div>
           )}
@@ -1807,29 +1807,37 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
           {statsTab === "summary" && (
             <div style={S.summaryGrid}>
               {[
-                { label: "Goals", key: "goal" },
+                { heading: "Scoring" },
+                { label: "Goals", key: "goal" }, { label: "Assists", key: "assist" },
                 { label: "Successful EMO", key: "emo_goal" }, { label: "Failed EMO", key: "emo_fail" },
                 { label: "EMO %", custom: emoPct },
+                { heading: "Defense" },
                 { label: "Successful MDD", key: "mdd_success" }, { label: "Failed MDD", key: "mdd_fail" },
                 { label: "MDD %", custom: mddPct },
+                { label: "Saves", key: "shot_saved" }, { label: "Save %", custom: savePct },
+                { label: "Forced TOs", key: "forced_to" },
+                { heading: "Shooting" },
                 { label: "Total Shots", key: "shot" }, { label: "Shot %", custom: shotPct },
                 { label: "Shots on Goal", key: "sog" }, { label: "SOG %", custom: sogPct },
                 { label: "Blocked Shots", key: "shot_blocked" },
-                { label: "Saves", key: "shot_saved" }, { label: "Save %", custom: savePct },
+                { heading: "Possession" },
                 { label: "Ground Balls", key: "ground_ball" }, { label: "Faceoffs Won", key: "faceoff_win" },
-                { label: "Turnovers", key: "turnover" }, { label: "Forced TOs", key: "forced_to" },
+                { label: "Turnovers", key: "turnover" },
+                { heading: "Clearing" },
                 { label: "Successful Clears", key: "clear" }, { label: "Failed Clears", key: "failed_clear" },
                 { label: "Clearing %", custom: clearPct },
                 { label: "Successful Rides", key: "successful_ride" }, { label: "Failed Rides", key: "failed_ride" },
-                { label: "Technicals", key: "penalty_tech" },
-                { label: "PF Minutes", key: "penalty_min" }, { label: "Assists", key: "assist" },
-              ].map(({ label, key, custom }) => (
-                <div key={label} style={S.summaryCard}>
-                  <div style={S.summaryLabel}>{label}</div>
+                { heading: "Penalties" },
+                { label: "Technicals", key: "penalty_tech" }, { label: "PF Minutes", key: "penalty_min" },
+              ].map((item) => item.heading ? (
+                <div key={item.heading} style={{ gridColumn: "1 / -1", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#bbb", padding: "8px 2px 2px" }}>{item.heading}</div>
+              ) : (
+                <div key={item.label} style={S.summaryCard}>
+                  <div style={S.summaryLabel}>{item.label}</div>
                   {[0,1].map(ti => (
                     <div key={ti} style={S.summaryRow}>
                       <div style={{ fontSize: 12, color: teamColors[ti] }}>{teams[ti].name}</div>
-                      <div style={{ fontSize: 20, fontWeight: 500, color: teamColors[ti] }}>{custom ? custom(ti) : (teamTotals[ti][key] || 0)}</div>
+                      <div style={{ fontSize: 20, fontWeight: 500, color: teamColors[ti] }}>{item.custom ? item.custom(ti) : (teamTotals[ti][item.key] || 0)}</div>
                     </div>
                   ))}
                 </div>

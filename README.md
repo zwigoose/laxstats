@@ -34,8 +34,8 @@ The **Track** tab walks you through every stat entry step by step. Tap the team,
 
 The most common flows:
 
-- **Goal:** team → player → assist? → EMO? → time remaining?
-- **Shot:** team → player → saved? → (if no) post/crossbar? → (if no) blocked? → pick blocker / just log
+- **Goal:** team → player → assist? → time remaining?
+- **Shot:** team → player → outcome (Missed / Saved / Blocked / Off the post) → pick goalie or blocker if applicable
 - **Timeout:** team → time remaining?
 
 Use the **undo** button after any entry to remove it immediately. For older corrections, go to the **Event Log** tab to edit or delete any entry at any time.
@@ -56,19 +56,20 @@ The **Stats** tab has three views — **Summary** (team totals), **Players** (so
 
 Anyone can follow the game live at `/games/:id/view` or by tapping **View** on a game card. The Live View updates in real time as you enter stats. The latest recorded time remaining is shown above the score so viewers have the most current clock reference available. No account is required to view.
 
+For a richer view, the **Press Box** (`/games/:id/pressbox`) is a full-width dashboard showing the score, score by quarter, team stats, player stats, event log, and timeline all on one page — designed for an announcer or press box on a tablet or laptop. Also public, no account required.
+
 ---
 
 ## Stats tracked
 
 | Category | Stats |
 |---|---|
-| Scoring | Goals, Successful EMO, Failed EMO, EMO % |
-| Defense | Successful MDD, Failed MDD, MDD % |
-| Shooting | Total Shots, Shot %, Shots on Goal (SOG), SOG %, Blocked Shots, Saves, Save % |
-| Possession | Ground Balls, Faceoff Wins, Turnovers, Forced TOs |
+| Scoring | Goals, Assists, Successful EMO, Failed EMO, EMO % |
+| Defense | Successful MDD, Failed MDD, MDD %, Saves, Save %, Forced TOs |
+| Shooting | Total Shots, Shot %, Shots on Goal (SOG), SOG %, Blocked Shots |
+| Possession | Ground Balls, Faceoff Wins, Turnovers |
 | Clearing | Successful Clears, Failed Clears, Clearing %, Successful Rides, Failed Rides |
 | Penalties | Technical Fouls, Personal Foul Minutes |
-| Other | Assists, Timeouts |
 
 Rides, MDD Fail, EMO Fail, and SOG are all calculated automatically — you never enter them directly.
 

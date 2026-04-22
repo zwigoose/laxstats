@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import GameList from "./pages/GameList";
 import Scorekeeper from "./pages/Scorekeeper";
 import ViewGame from "./pages/ViewGame";
+import Pressbox from "./pages/Pressbox";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
 
@@ -20,8 +21,9 @@ function AppRoutes() {
       <Route path="/" element={<PrivateRoute><GameList /></PrivateRoute>} />
       <Route path="/games/:id/score" element={<PrivateRoute><Scorekeeper /></PrivateRoute>} />
       <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
-      {/* Live view is intentionally public — UUID is the share token */}
+      {/* Live view and press box are intentionally public — UUID is the share token */}
       <Route path="/games/:id/view" element={<ViewGame />} />
+      <Route path="/games/:id/pressbox" element={<Pressbox />} />
     </Routes>
   );
 }
