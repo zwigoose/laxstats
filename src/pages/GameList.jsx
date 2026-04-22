@@ -185,6 +185,89 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
   );
 }
 
+// ── Live Card (public, no edit/delete) ───────────────────────────────────────
+function LiveCard({ game, isOwner }) {
+  const navigate = useNavigate();
+  const info = getGameInfo(game);
+  const c0 = info?.t0?.color || "#444";
+  const c1 = info?.t1?.color || "#888";
+
+  return (
+    <div style={{ borderRadius: 16, overflow: "hidden", marginBottom: 12, boxShadow: "0 2px 12px rgba(0,0,0,0.07)", border: "1px solid #e8e8e8", background: "#fff" }}>
+      <div style={{ height: 5, background: info ? `linear-gradient(90deg, ${c0} 50%, ${c1} 50%)` : "#e0e0e0" }} />
+      <div style={{ padding: "14px 16px 12px" }}>
+        {info && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{ fontSize: 30, fontWeight: 700, color: c0, lineHeight: 1 }}>{info.t0.name}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+              <span style={{ fontSize: 30, fontWeight: 700, color: info.score0 >= info.score1 ? c0 : "#bbb", lineHeight: 1, minWidth: 28, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{info.score0}</span>
+              <span style={{ fontSize: 18, color: "#ccc", fontWeight: 300 }}>—</span>
+              <span style={{ fontSize: 30, fontWeight: 700, color: info.score1 >= info.score0 ? c1 : "#bbb", lineHeight: 1, minWidth: 28, textAlign: "left", fontVariantNumeric: "tabular-nums" }}>{info.score1}</span>
+            </div>
+            <div style={{ textAlign: "right", fontSize: 30, fontWeight: 700, color: c1, lineHeight: 1 }}>{info.t1.name}</div>
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "3px 9px", letterSpacing: "0.04em" }}>
+            ● Live{info?.latestTime ? ` · ${info.latestTime} ${qLabel(info.currentQuarter)}` : ""}
+          </span>
+          <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+            <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
+              onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
+            <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
+              onClick={() => navigate(`/games/${game.id}/pressbox`)}>Press Box</button>
+            {isOwner && (
+              <button style={{ padding: "7px 15px", fontSize: 13, fontWeight: 600, background: "#111", border: "none", borderRadius: 8, cursor: "pointer", color: "#fff" }}
+                onClick={() => navigate(`/games/${game.id}/score`)}>Score</button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Live Games Section (public) ───────────────────────────────────────────────
+function LiveGamesSection({ user }) {
+  const [liveGames, setLiveGames] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    load();
+    const channel = supabase.channel("live-games-home")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games" }, () => load())
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, []);
+
+  async function load() {
+    const { data } = await supabase
+      .from("games")
+      .select("id, created_at, name, state, user_id")
+      .not("state", "is", null)
+      .order("created_at", { ascending: false });
+    const live = (data || []).filter(g => {
+      const info = getGameInfo(g);
+      return info?.started && !info?.gameOver;
+    });
+    setLiveGames(live);
+    setLoaded(true);
+  }
+
+  if (!loaded || liveGames.length === 0) return null;
+
+  return (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 16px 4px" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
+        ● Live Now
+      </div>
+      {liveGames.map(game => (
+        <LiveCard key={game.id} game={game} isOwner={user?.id === game.user_id} />
+      ))}
+    </div>
+  );
+}
+
 // ── Games Tab ─────────────────────────────────────────────────────────────────
 function GamesTab({ onNewGame, creating, user }) {
   const [games, setGames] = useState([]);
@@ -557,7 +640,7 @@ function RostersTab({ showNewInit = false }) {
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function GameList() {
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const [tab, setTab] = useState("games");
   const [creating, setCreating] = useState(false);
 
@@ -599,54 +682,73 @@ export default function GameList() {
               <span style={{ fontSize: 36, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>LaxStats</span>
               <span style={{ fontSize: 22 }}>🥍</span>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-              {isAdmin && (
-                <button onClick={() => navigate("/admin")} style={{
-                  padding: "4px 10px", fontSize: 11, fontWeight: 700,
-                  color: "#d4820a", background: "rgba(212,130,10,0.15)",
-                  border: "1px solid rgba(212,130,10,0.3)", borderRadius: 6, cursor: "pointer",
-                  letterSpacing: "0.06em", textTransform: "uppercase",
-                }}>Admin →</button>
-              )}
-              <button onClick={handleSignOut} style={{
-                padding: "5px 12px", fontSize: 12, fontWeight: 500,
-                background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.7)",
-                border: "1px solid rgba(255,255,255,0.18)", borderRadius: 8, cursor: "pointer",
-              }}>Sign out</button>
-            </div>
+            {!authLoading && (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                {user ? (
+                  <>
+                    {isAdmin && (
+                      <button onClick={() => navigate("/admin")} style={{
+                        padding: "4px 10px", fontSize: 11, fontWeight: 700,
+                        color: "#d4820a", background: "rgba(212,130,10,0.15)",
+                        border: "1px solid rgba(212,130,10,0.3)", borderRadius: 6, cursor: "pointer",
+                        letterSpacing: "0.06em", textTransform: "uppercase",
+                      }}>Admin →</button>
+                    )}
+                    <button onClick={handleSignOut} style={{
+                      padding: "5px 12px", fontSize: 12, fontWeight: 500,
+                      background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.7)",
+                      border: "1px solid rgba(255,255,255,0.18)", borderRadius: 8, cursor: "pointer",
+                    }}>Sign out</button>
+                  </>
+                ) : (
+                  <button onClick={() => navigate("/login")} style={{
+                    padding: "7px 16px", fontSize: 13, fontWeight: 600,
+                    background: "#fff", color: "#111",
+                    border: "none", borderRadius: 10, cursor: "pointer",
+                  }}>Sign in →</button>
+                )}
+              </div>
+            )}
           </div>
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 28 }}>
             Stat Tracker
           </div>
-          <button onClick={handleNewGame} disabled={creating} style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            padding: "11px 22px", fontSize: 14, fontWeight: 700,
-            background: creating ? "rgba(255,255,255,0.15)" : "#fff",
-            color: creating ? "rgba(255,255,255,0.5)" : "#111",
-            border: "none", borderRadius: 12, cursor: creating ? "not-allowed" : "pointer",
-          }}>
-            {creating ? "Creating…" : "＋ New Game"}
-          </button>
+          {user && (
+            <button onClick={handleNewGame} disabled={creating} style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "11px 22px", fontSize: 14, fontWeight: 700,
+              background: creating ? "rgba(255,255,255,0.15)" : "#fff",
+              color: creating ? "rgba(255,255,255,0.5)" : "#111",
+              border: "none", borderRadius: 12, cursor: creating ? "not-allowed" : "pointer",
+            }}>
+              {creating ? "Creating…" : "＋ New Game"}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── Tabs ── */}
-      <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px" }}>
-        <div style={{ display: "flex", gap: 4, padding: "12px 0 0", marginBottom: 16, borderBottom: "1px solid #e8e8e8" }}>
-          {[["games", "Games"], ["rosters", "Rosters"]].map(([id, label]) => (
-            <button key={id} onClick={() => setTab(id)} style={{
-              padding: "8px 18px", fontSize: 14, fontWeight: tab === id ? 700 : 500,
-              border: "none", background: "transparent", cursor: "pointer",
-              color: tab === id ? "#111" : "#aaa",
-              borderBottom: tab === id ? "2px solid #111" : "2px solid transparent",
-              marginBottom: -1,
-            }}>{label}</button>
-          ))}
-        </div>
+      {/* ── Live Games (all users, public) ── */}
+      <LiveGamesSection user={user} />
 
-        {tab === "games" && <GamesTab onNewGame={handleNewGame} creating={creating} user={user} />}
-        {tab === "rosters" && <RostersTab />}
-      </div>
+      {/* ── My Games + Rosters tabs (authenticated only) ── */}
+      {user && (
+        <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px" }}>
+          <div style={{ display: "flex", gap: 4, padding: "12px 0 0", marginBottom: 16, borderBottom: "1px solid #e8e8e8" }}>
+            {[["games", "My Games"], ["rosters", "Rosters"]].map(([id, label]) => (
+              <button key={id} onClick={() => setTab(id)} style={{
+                padding: "8px 18px", fontSize: 14, fontWeight: tab === id ? 700 : 500,
+                border: "none", background: "transparent", cursor: "pointer",
+                color: tab === id ? "#111" : "#aaa",
+                borderBottom: tab === id ? "2px solid #111" : "2px solid transparent",
+                marginBottom: -1,
+              }}>{label}</button>
+            ))}
+          </div>
+
+          {tab === "games" && <GamesTab onNewGame={handleNewGame} creating={creating} user={user} />}
+          {tab === "rosters" && <RostersTab />}
+        </div>
+      )}
     </div>
   );
 }
