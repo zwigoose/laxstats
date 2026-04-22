@@ -5,6 +5,19 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [1.3.0] — 2026-04-21
+
+### Added
+- **Shot flow redesign** — after selecting the shooter, a single screen presents all four outcomes as vertical buttons (Missed, Saved, Blocked, Off the post); replaces the old sequential save/post/blocked Q&A
+- **Last-goalie featured button** — in the save picker, the last known goalie (or current edit value) appears as a full-width button above the player grid for one-tap re-selection; the full grid remains below for substitutions
+- **Penalties in Live View Timeline** — `/games/:id/view` Stats → Timeline now shows technical and personal fouls alongside goals and timeouts, with foul type, NR flag, player number, and score snapshot; penalty count included in the Timeline summary line
+
+### Fixed
+- Live View clock display now updates when a penalty is the only timed event logged in a quarter (penaltyTime was not being considered)
+- Removed verbose console.log calls that serialized the full game state JSONB on every page load and realtime update, improving Live View load performance
+
+---
+
 ## [1.2.1] — 2026-04-21
 
 ### Fixed
