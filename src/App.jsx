@@ -32,11 +32,16 @@ function AppRoutes() {
 function Footer() {
   return (
     <footer style={{
+      position: "fixed",
+      bottom: 0,
+      left: 0,
+      right: 0,
       textAlign: "center",
-      padding: "20px 16px",
+      padding: "6px 16px",
       fontSize: 11,
       color: "#bbb",
       fontFamily: "system-ui, sans-serif",
+      pointerEvents: "none",
     }}>
       &copy; {new Date().getFullYear()} LaxStats &middot; v{version}
     </footer>
