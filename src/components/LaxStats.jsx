@@ -388,7 +388,7 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
 
   // Step machine:
   // team | event | player
-  // ask_save | save_player | ask_post | ask_blocked | blocked_player
+  // ask_shot_outcome | save_player | blocked_player
   // ask_assist | assist_player | ask_goal_time
   // ask_forced_to_player
   // ask_penalty_type | ask_penalty_min | ask_penalty_nr | ask_penalty_time
@@ -790,7 +790,7 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
     const ev = selectedEvent;
     if (ev.id === "shot") {
       setPendingEntries([mkEntry(selectedTeam, "shot", player)]);
-      setStep("ask_save");
+      setStep("ask_shot_outcome");
     } else if (ev.id === "goal") {
       setPendingEntries([mkEntry(selectedTeam, "shot", player), mkEntry(selectedTeam, "goal", player)]);
       setStep("ask_assist");
@@ -849,19 +849,22 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
     commitEntries(entries, `Goal${isEmo ? " (EMO)" : ""} — #${selectedPlayer.num} ${selectedPlayer.name}${assister ? ` (assist #${assister.player?.num})` : ""}`);
   }
 
-  // Shot flow: save?
-  function handleSaveNo() { setStep("ask_post"); }
-  function handleSaveYes() { setStep("save_player"); }
+  // Shot flow: outcome picker → optional player picker
+  function handleShotOutcome(outcome) {
+    if (outcome === "missed") {
+      commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
+    } else if (outcome === "post") {
+      commitEntries([...pendingEntries, mkEntry(selectedTeam, "shot_post", selectedPlayer)], `Shot off post — #${selectedPlayer.num} ${selectedPlayer.name}`);
+    } else if (outcome === "saved") {
+      setStep("save_player");
+    } else if (outcome === "blocked") {
+      setStep("blocked_player");
+    }
+  }
   function handleSavePlayerSelected(goalie) {
     setLastGoalie(prev => prev.map((g, i) => i === (1 - selectedTeam) ? goalie : g));
     commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_saved", goalie)], `Shot (saved) — #${selectedPlayer.num} ${selectedPlayer.name} · saved by #${goalie.num} ${goalie.name}`);
   }
-  function handlePostYes() {
-    commitEntries([...pendingEntries, mkEntry(selectedTeam, "shot_post", selectedPlayer)], `Shot off post — #${selectedPlayer.num} ${selectedPlayer.name}`);
-  }
-  function handlePostNo() { setStep("ask_blocked"); }
-  function handleBlockedYes() { setStep("blocked_player"); }
-  function handleBlockedNo() { commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`); }
   function handleBlockerSelected(blockingPlayer) {
     commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_blocked", blockingPlayer)], `Shot blocked — #${selectedPlayer.num} ${selectedPlayer.name} · blocked by #${blockingPlayer.num} ${blockingPlayer.name}`);
   }
@@ -1502,29 +1505,30 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
             </div>
           )}
 
-          {/* Shot: ask save */}
-          {step === "ask_save" && (
+          {/* Shot: outcome picker */}
+          {step === "ask_shot_outcome" && (
             <div>
               <button style={S.backBtn} onClick={() => setStep("player")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 🎯 Shot — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
               {editingGroupId && (() => {
-                const prevSaved = getGroupById(editingGroupId).some(e => e.event === "shot_saved");
-                const prevGoalie = getGroupById(editingGroupId).find(e => e.event === "shot_saved")?.player;
-                return <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
-                  Currently: {prevSaved ? `Saved by #${prevGoalie?.num} ${prevGoalie?.name}` : "Not saved"}
-                </div>;
+                const g = getGroupById(editingGroupId);
+                const prevSaved = g.some(e => e.event === "shot_saved");
+                const prevBlocked = g.some(e => e.event === "shot_blocked");
+                const prevPost = g.some(e => e.event === "shot_post");
+                const cur = prevSaved ? "Saved" : prevBlocked ? "Blocked" : prevPost ? "Off the post" : "Missed";
+                return <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>Currently: {cur}</div>;
               })()}
-              <div style={S.questionCard}>
-                <div style={S.questionText}>Was the shot saved?</div>
-                <div style={S.questionSub}>by {teams[1 - selectedTeam]?.name}'s goalie</div>
-              </div>
-              <div style={S.yesNoRow}>
-                {(() => { const prev = editingGroupId ? getGroupById(editingGroupId).some(e => e.event === "shot_saved") : false; const goalie = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "shot_saved")?.player : null; return [
-                  <button key="n" style={{ ...S.btnNo, border: (!prev && editingGroupId) ? "2px solid #111" : "1px solid #ddd", fontWeight: (!prev && editingGroupId) ? 600 : 400 }} onClick={handleSaveNo}>No{!prev && editingGroupId ? " ✓" : ""}</button>,
-                  <button key="y" style={{ ...S.btnYes, background: prev ? "#333" : "#111" }} onClick={handleSaveYes}>{prev && goalie ? `Yes — saved ✓ (#${goalie.num})` : "Yes — saved"}</button>,
-                ]; })()}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+                {[
+                  { outcome: "missed",  label: "Missed / wide" },
+                  { outcome: "saved",   label: `Saved — by ${teams[1 - selectedTeam]?.name}` },
+                  { outcome: "blocked", label: `Blocked — by ${teams[1 - selectedTeam]?.name}` },
+                  { outcome: "post",    label: "Off the post / crossbar (SOG)" },
+                ].map(({ outcome, label }) => (
+                  <button key={outcome} style={{ ...S.btnNo, textAlign: "left", padding: "14px 16px" }} onClick={() => handleShotOutcome(outcome)}>{label}</button>
+                ))}
               </div>
             </div>
           )}
@@ -1532,12 +1536,26 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
           {/* Shot: pick goalie */}
           {step === "save_player" && (
             <div>
-              <button style={S.backBtn} onClick={() => setStep("ask_save")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("ask_shot_outcome")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 🎯 Shot — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
               <div style={{ ...S.stepLabel, color: teamColors[1 - selectedTeam] }}>{teams[1 - selectedTeam]?.name} — Who made the save?</div>
-              {lastGoalie[1 - selectedTeam] && !editingGroupId && <div style={{ fontSize: 12, color: "#888", marginBottom: 10 }}>Last goalie pre-selected — tap to change</div>}
+              {(() => {
+                const lg = lastGoalie[1 - selectedTeam];
+                const prevGoalie = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "shot_saved")?.player : null;
+                const featuredGoalie = prevGoalie || lg;
+                const isHome = (1 - selectedTeam) === 0;
+                return featuredGoalie ? (
+                  <button
+                    style={{ ...S.playerBtn(true, teamColors[1 - selectedTeam], isHome), width: "100%", display: "flex", justifyContent: "center", gap: 8, padding: "12px 16px", marginBottom: 10, boxSizing: "border-box" }}
+                    onClick={() => handleSavePlayerSelected(featuredGoalie)}
+                  >
+                    <span style={S.playerNum(true, isHome, teamColors[1 - selectedTeam])}>#{featuredGoalie.num}</span>
+                    <span style={S.playerName(true, isHome, teamColors[1 - selectedTeam])}>{featuredGoalie.name}</span>
+                  </button>
+                ) : null;
+              })()}
               <div style={S.playerGrid}>
                 {parsedRosters[1 - selectedTeam]?.map((p, i) => {
                   const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "shot_saved")?.player : lastGoalie[1 - selectedTeam];
@@ -1549,46 +1567,10 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
             </div>
           )}
 
-          {/* Shot: post/crossbar? */}
-          {step === "ask_post" && (
-            <div>
-              <button style={S.backBtn} onClick={() => setStep("ask_save")}>← Back</button>
-              <div style={S.pendingBubble(teamColors[selectedTeam])}>
-                🎯 Shot — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
-              </div>
-              <div style={S.questionCard}>
-                <div style={S.questionText}>Did it hit the post or crossbar?</div>
-                <div style={S.questionSub}>Counts as a shot on goal (SOG)</div>
-              </div>
-              <div style={S.yesNoRow}>
-                <button style={S.btnNo} onClick={handlePostNo}>No</button>
-                <button style={S.btnYes} onClick={handlePostYes}>Yes — off the post</button>
-              </div>
-            </div>
-          )}
-
-          {/* Shot: blocked? */}
-          {step === "ask_blocked" && (
-            <div>
-              <button style={S.backBtn} onClick={() => setStep("ask_post")}>← Back</button>
-              <div style={S.pendingBubble(teamColors[selectedTeam])}>
-                🎯 Shot — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
-              </div>
-              <div style={S.questionCard}>
-                <div style={S.questionText}>Was it blocked?</div>
-                <div style={S.questionSub}>by a {teams[1 - selectedTeam]?.name} field player</div>
-              </div>
-              <div style={S.yesNoRow}>
-                <button style={S.btnNo} onClick={handleBlockedNo}>No — missed / wide</button>
-                <button style={S.btnYes} onClick={handleBlockedYes}>Yes — blocked</button>
-              </div>
-            </div>
-          )}
-
           {/* Shot: pick blocker */}
           {step === "blocked_player" && (
             <div>
-              <button style={S.backBtn} onClick={() => setStep("ask_blocked")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("ask_shot_outcome")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 🎯 Shot blocked — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>

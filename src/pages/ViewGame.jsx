@@ -11,8 +11,8 @@ function getLatestTime(log, currentQuarter) {
   if (!log?.length) return null;
   const toS = t => { const [m, s] = t.split(":").map(Number); return m * 60 + s; };
   const timed = log
-    .filter(e => e.quarter === currentQuarter && (e.goalTime || e.timeoutTime))
-    .map(e => ({ str: e.goalTime || e.timeoutTime, secs: toS(e.goalTime || e.timeoutTime) }));
+    .filter(e => e.quarter === currentQuarter && (e.goalTime || e.timeoutTime || e.penaltyTime))
+    .map(e => { const str = e.goalTime || e.timeoutTime || e.penaltyTime; return { str, secs: toS(str) }; });
   if (!timed.length) return null;
   return timed.reduce((min, t) => t.secs < min.secs ? t : min).str;
 }
@@ -80,13 +80,9 @@ export default function ViewGame() {
         table: "games",
         filter: `id=eq.${id}`,
       }, (payload) => {
-        console.log("[ViewGame] realtime UPDATE received:", payload);
-        console.log("[ViewGame] new state field:", payload.new?.state);
-        setGame(payload.new);
+            setGame(payload.new);
       })
-      .subscribe((status) => {
-        console.log("[ViewGame] realtime subscription status:", status);
-      });
+      .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [id]);
@@ -94,20 +90,16 @@ export default function ViewGame() {
   async function loadGame() {
     setLoading(true);
     setError(null);
-    console.log("[ViewGame] fetching game id:", id);
     const { data, error: err } = await supabase
       .from("games")
       .select("id, created_at, name, state")
       .eq("id", id)
       .single();
     if (err) {
-      console.error("[ViewGame] fetch error:", err);
       setError(err.message);
       setLoading(false);
       return;
     }
-    console.log("[ViewGame] fetched game:", data);
-    console.log("[ViewGame] state field:", data?.state);
     setGame(data);
     setLoading(false);
   }
@@ -170,12 +162,14 @@ export default function ViewGame() {
     });
     return order
       .map(gid => groups[gid])
-      .filter(g => g.some(e => e.event === "goal" || e.event === "timeout"))
+      .filter(g => g.some(e => e.event === "goal" || e.event === "timeout" || e.event === "penalty_tech" || e.event === "penalty_min"))
       .map(g => {
         const goal = g.find(e => e.event === "goal");
         const timeout = g.find(e => e.event === "timeout");
+        const penalty = g.find(e => e.event === "penalty_tech" || e.event === "penalty_min");
         if (goal) return { type: "goal", goal, assist: g.find(e => e.event === "assist") };
-        return { type: "timeout", timeout };
+        if (timeout) return { type: "timeout", timeout };
+        return { type: "penalty", penalty };
       });
   }, [log, statsQtr]);
 
@@ -381,7 +375,12 @@ export default function ViewGame() {
                     {(() => {
                       const goalCount = scoringTimeline.filter(e => e.type === "goal").length;
                       const toCount   = scoringTimeline.filter(e => e.type === "timeout").length;
-                      const meta = [goalCount && `${goalCount} goal${goalCount !== 1 ? "s" : ""}`, toCount && `${toCount} timeout${toCount !== 1 ? "s" : ""}`].filter(Boolean).join(", ");
+                      const penCount  = scoringTimeline.filter(e => e.type === "penalty").length;
+                      const meta = [
+                        goalCount && `${goalCount} goal${goalCount !== 1 ? "s" : ""}`,
+                        toCount   && `${toCount} timeout${toCount !== 1 ? "s" : ""}`,
+                        penCount  && `${penCount} penalty${penCount !== 1 ? "ies" : ""}`,
+                      ].filter(Boolean).join(", ");
                       return <div style={S.tableTitle}><span>Timeline</span><span style={{ fontWeight: 400, fontSize: 11 }}>{meta}</span></div>;
                     })()}
                     <table style={S.table}>
@@ -411,6 +410,34 @@ export default function ViewGame() {
                                   </td>
                                   <td style={S.tdLeft}><span style={{ color: teamColors[to.teamIdx], fontWeight: 500 }}>{teams[to.teamIdx]?.name}</span></td>
                                   <td style={{ ...S.tdLeft, color: "#888", fontStyle: "italic" }} colSpan={2}>⏸ Timeout</td>
+                                  <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                                    <span style={{ color: teamColors[0] }}>{entry.scoreSnap[0]}</span>
+                                    <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
+                                    <span style={{ color: teamColors[1] }}>{entry.scoreSnap[1]}</span>
+                                  </td>
+                                </tr>
+                              );
+                            }
+                            if (entry.type === "penalty") {
+                              const pen = entry.penalty;
+                              const isTech = pen.event === "penalty_tech";
+                              const nrTag = pen.nonReleasable ? " NR" : "";
+                              const penLabel = isTech
+                                ? `🟨 Technical foul`
+                                : `🟥 Personal foul (${pen.penaltyMin}min${nrTag})`;
+                              return (
+                                <tr key={`pen-${gi}`} style={{ background: "#fffbf5" }}>
+                                  <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
+                                    {pen.penaltyTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{pen.penaltyTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
+                                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(pen.quarter)}</span>
+                                  </td>
+                                  <td style={S.tdLeft}><span style={{ color: teamColors[pen.teamIdx], fontWeight: 500 }}>{teams[pen.teamIdx]?.name}</span></td>
+                                  <td style={S.tdLeft}>
+                                    <span style={{ color: "#888", fontStyle: "italic" }}>{penLabel}</span>
+                                  </td>
+                                  <td style={S.tdLeft}>
+                                    <span style={{ fontWeight: 500 }}>#{pen.player?.num} {pen.player?.name}</span>
+                                  </td>
                                   <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
                                     <span style={{ color: teamColors[0] }}>{entry.scoreSnap[0]}</span>
                                     <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
