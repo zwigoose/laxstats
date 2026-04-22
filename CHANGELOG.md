@@ -5,6 +5,25 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [1.6.0] — 2026-04-22
+
+### Added
+- **Public home page** — `/` now loads without login; unauthenticated visitors see a **Live Now** section showing all active games with View and Press Box links; a Sign In button appears in the hero; authenticated users see Live Now above their existing My Games and Rosters tabs, with a Score button on games they own; Live Now updates in real time
+- **Global footer** — `© 2026 LaxStats · v{version}` appears in the document flow at the bottom of all pages except Press Box and Scorekeeper (which manage their own full-viewport layouts)
+
+### Changed
+- **Press Box layout redesigned** for fixed-viewport use (no page scroll):
+  - Left half: single panel with a **Team Stats / Player Stats** toggle in the header; Player Stats retains the Home / Away team switch; panel scrolls internally
+  - Right half: **Event Log** (60%) stacked above **Timeline** (40%), each independently scrollable; proportions set with flex so they always fill the available height
+  - Score banner, Score by Quarter, and quarter filter remain full-width above the two-column grid
+  - All table cells condensed (tighter padding and font sizes) to fit more content in the fixed viewport
+- **`package.json` version** set to `1.5.0` (was `0.0.0` from scaffold default)
+
+### Fixed
+- Footer no longer overlays page content; removed `position: fixed` in favor of normal document flow so it sits below content rather than floating over it
+
+---
+
 ## [1.5.0] — 2026-04-22
 
 ### Added
