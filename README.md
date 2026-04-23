@@ -1,91 +1,62 @@
-# LaxStats 🥍
+# LaxStats
 
-An electronic scorebook for men's lacrosse — the kind of thing that used to live on a clipboard at the scorers table, now on your phone. One person runs it on the sideline while the game is happening; coaches, parents, and players can follow the score and stats live from anywhere.
-
----
-
-## Accounts
-
-LaxStats requires an account. Sign in with your username and password at the login screen. If you don't have an account, ask an admin to create one for you, or tap **Sign up** on the login screen.
-
-The app uses short usernames — no email address needed.
+LaxStats is a digital scorebook for men's lacrosse. It replaces the clipboard at the scorer's table — one person tracks the game on a phone or tablet as it happens, and anyone else can follow the score and stats live from their own device, anywhere, with no account required.
 
 ---
 
-## How to use this app
+## What it does
 
-### Before the season — save your rosters
+A paper scorebook records goals, assists, shots, ground balls, faceoffs, turnovers, penalties, clears, and timeouts — and then someone tallies the columns afterward. LaxStats does the same thing in real time. You enter what happens as it happens; the app computes all the derived stats (EMO %, save %, clearing %, rides, MDD, and so on) automatically and makes them available instantly to anyone with the link.
 
-Go to the **Rosters** tab and create a saved team for each team you track. Enter the team name, pick a color, and add players one per line (`#2 John Smith`). Saved rosters load into any game in one tap and don't need to be re-entered each time.
-
-You can share a saved roster with another user by entering their username in the roster's **Sharing** panel. Shared users can load the roster into their games but cannot edit it — only the creator can modify a roster.
-
-### Game day — create a game
-
-Tap **＋ New Game** from the main screen. You'll land on the setup screen. Use the **Load saved…** dropdown on each team card to pull in a saved roster (including any rosters shared with you), or type one in manually. Both teams need at least 10 players and no duplicate numbers before you can start.
-
-The left card is always **Home** (white jerseys) and the right card is **Away** (colored jerseys). The button colors in the tracking UI mirror this — white with a colored border for home, solid color for away — so your eye can match what you see on the field.
-
-Tap **Start Tracking →** when you're ready.
-
-### During the game — tracking events
-
-The **Track** tab walks you through every stat entry step by step. Tap the team, tap the event, tap the player, answer any follow-up questions. The app handles all the derived stats automatically — rides, MDD, EMO fail, SOG — so you only enter what actually happened.
-
-The most common flows:
-
-- **Goal:** team → player → assist? → time remaining?
-- **Shot:** team → player → outcome (Missed / Saved / Blocked / Off the post) → pick goalie or blocker if applicable
-- **Timeout:** team → time remaining?
-
-Use the **undo** button after any entry to remove it immediately. For older corrections, go to the **Event Log** tab to edit or delete any entry at any time.
-
-### Timeouts
-
-Each team gets **2 timeouts per half** (Q1+Q2, then Q3+Q4 separately). In overtime, each team gets **1 per OT period**. Unused timeouts don't carry over between periods. The remaining count is shown on each team's button in the Track screen.
-
-### Ending quarters and overtime
-
-Tap **End Q# →** at the bottom of the Track screen. After Q4, the app either finalizes the game (score not tied) or starts overtime. Overtime is sudden death — first goal ends the game automatically.
-
-### Viewing stats
-
-The **Stats** tab has three views — **Summary** (team totals), **Players** (sortable individual stats), and **Timeline** (goals and timeouts in order). Use the quarter buttons to filter to any single quarter.
-
-### Sharing
-
-Anyone can follow the game live at `/games/:id/view` or by tapping **View** on a game card. The Live View updates in real time as you enter stats. The latest recorded time remaining is shown above the score so viewers have the most current clock reference available. No account is required to view.
-
-For a richer view, the **Press Box** (`/games/:id/pressbox`) is a full-width dashboard showing the score, score by quarter, team stats, player stats, event log, and timeline all on one page — designed for an announcer or press box on a tablet or laptop. Also public, no account required.
+When the game is over, the full box score, player stats, and event timeline are preserved and viewable at any time.
 
 ---
 
-## Stats tracked
+## Who needs an account
 
-| Category | Stats |
-|---|---|
-| Scoring | Goals, Assists, Successful EMO, Failed EMO, EMO % |
-| Defense | Successful MDD, Failed MDD, MDD %, Saves, Save %, Forced TOs |
-| Shooting | Total Shots, Shot %, Shots on Goal (SOG), SOG %, Blocked Shots |
-| Possession | Ground Balls, Faceoff Wins, Turnovers |
-| Clearing | Successful Clears, Failed Clears, Clearing %, Successful Rides, Failed Rides |
-| Penalties | Technical Fouls, Personal Foul Minutes |
+**Scoring a game requires an account.** Accounts are created by an admin — contact whoever manages your LaxStats setup to get access.
 
-Rides, MDD Fail, EMO Fail, and SOG are all calculated automatically — you never enter them directly.
+**Viewing a game does not.** The Live View and Press Box for any game are public links — share them with coaches, parents, players, or anyone following along. No login, no app download.
 
 ---
 
-## Admin
+## Tracking a game
 
-Admin accounts have access to `/admin`, a separate management panel with:
+### Before the game
 
-- **All Games** — view, score, create, and delete games on behalf of any user; reassign game ownership; live score and clock updates in real time
-- **Users** — create and delete accounts, promote or revoke admin status, and see each user's game history with direct links to score or view each game
-- **Rosters** — view, edit, and create rosters on behalf of any user; reassign roster ownership; manage sharing for any roster
+Set up your two teams on the setup screen. You can type rosters in manually or load a saved roster from a previous game. Each team needs a name, a color, and at least 10 players with unique numbers. Set the game date, then tap **Start Tracking →**.
+
+### During the game
+
+The **Track** tab is a guided step flow:
+
+1. **Select the team** — two large buttons show the current score. Home (white jersey) is the white-bordered button; Away (colored jersey) is the solid-color button. Each button shows how many timeouts the team has remaining.
+2. **Select the event** — Goal, Shot, Ground Ball, Faceoff Win, Turnover, Forced TO, Penalty, MDD Stop, Timeout, Clear, or Failed Clear.
+3. **Select the player** — a number grid for the selected team. Same home/away styling so your eye matches the field.
+4. **Answer follow-ups** — the app walks you through anything else it needs: assist, shot outcome, goalie, foul type, minutes, releasable or NR, time remaining.
+
+Every entry is saved automatically. If you make a mistake, the **undo** button in the confirmation banner removes the last entry instantly. For older corrections, the **Event Log** tab lets you edit or delete any entry at any time.
+
+### Penalties
+
+When you log a penalty, you select the specific foul from a list (Pushing, Slashing, Cross Check, etc.) and the app infers whether it's a technical (30s) or personal. The **Penalty Box** panel appears on the Track screen whenever players are serving time, showing each player's release time and NR status. Consecutive and simultaneous fouls from the same dead-ball cycle are handled automatically.
+
+### Ending quarters
+
+Tap **End Q# →** at the bottom of the Track screen. After Q4 the app either finalizes the game or starts overtime. Overtime is sudden death — the game ends automatically on the first goal.
 
 ---
 
-## Full documentation
+## Sharing
 
-See [USER_GUIDE.md](./USER_GUIDE.md) for a complete reference.
-See [CHANGELOG.md](./CHANGELOG.md) for version history.
+- **Live View** — `/games/:id/view` — score, stats, and timeline updating in real time. Public.
+- **Press Box** — `/games/:id/pressbox` — full-width dashboard with score by quarter, team stats, player stats, event log, and timeline all on one screen. Designed for a tablet or laptop at the press table. Public.
+
+Both links update live as you score. Share them before the game starts so viewers are ready.
+
+---
+
+## Further reading
+
+- **[USER_GUIDE.md](./USER_GUIDE.md)** — complete reference for every feature, flow, and stat definition
+- **[CHANGELOG.md](./CHANGELOG.md)** — full version history
