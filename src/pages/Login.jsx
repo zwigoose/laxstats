@@ -54,10 +54,8 @@ export default function Login() {
       <div style={{ width: "100%", maxWidth: 380 }}>
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 30, fontWeight: 800, color: "#111", letterSpacing: "-0.02em" }}>LaxStats</span>
-            <span style={{ fontSize: 20 }}>🥍</span>
-          </div>
+          <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, objectFit: "contain", marginBottom: 8 }} />
+          <div style={{ fontSize: 30, fontWeight: 800, color: "#111", letterSpacing: "-0.02em" }}>LaxStats</div>
         </div>
 
         {/* Card */}

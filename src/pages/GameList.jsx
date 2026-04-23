@@ -48,8 +48,16 @@ const FIELD_SVG = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 880 480'
 const FIELD_BG = `url("data:image/svg+xml,${encodeURIComponent(FIELD_SVG)}")`;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+// Parse a date string safely — YYYY-MM-DD strings are treated as local noon
+// to prevent UTC midnight from rolling back to the previous day.
+function parseDate(str) {
+  return str.length === 10 ? new Date(str + "T12:00:00") : new Date(str);
+}
+function formatDate(str) {
+  return parseDate(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+function formatDateLong(str) {
+  return parseDate(str).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 function formatDateTime(iso) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
@@ -87,7 +95,9 @@ function getGameInfo(game) {
   const started = !!s.trackingStarted;
   const latestTime = getLatestTime(s);
   const currentQuarter = s.currentQuarter || 1;
-  return { t0, t1, score0, score1, gameOver: s.gameOver, started, latestTime, currentQuarter };
+  // gameDate: explicit date set during setup, else fall back to created_at date
+  const gameDate = s.gameDate || game.created_at.split("T")[0];
+  return { t0, t1, score0, score1, gameOver: s.gameOver, started, latestTime, currentQuarter, gameDate };
 }
 
 // ── Game Card ─────────────────────────────────────────────────────────────────
@@ -147,13 +157,13 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
             ) : (
               <span style={{ fontSize: 11, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "3px 9px", letterSpacing: "0.04em" }}>● Pending</span>
             )}
-            <span style={{ fontSize: 11, color: "#bbb" }}>{formatDate(game.created_at)}</span>
+            <span style={{ fontSize: 11, color: "#bbb" }}>{formatDate(info?.gameDate || game.created_at)}</span>
           </div>
           <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
             <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
               onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
             <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
-              onClick={() => navigate(`/games/${game.id}/pressbox`)}>Press Box</button>
+              onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
             <button style={{ padding: "7px 15px", fontSize: 13, fontWeight: 600, background: "#111", border: "none", borderRadius: 8, cursor: "pointer", color: "#fff" }}
               onClick={() => navigate(`/games/${game.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
             <button style={{ padding: "7px 9px", fontSize: 14, background: "transparent", border: "1px solid #f0a0a0", borderRadius: 8, cursor: "pointer", color: "#c0392b", lineHeight: 1 }}
@@ -215,7 +225,7 @@ function LiveCard({ game, isOwner }) {
             <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
               onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
             <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
-              onClick={() => navigate(`/games/${game.id}/pressbox`)}>Press Box</button>
+              onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
             {isOwner && (
               <button style={{ padding: "7px 15px", fontSize: 13, fontWeight: 600, background: "#111", border: "none", borderRadius: 8, cursor: "pointer", color: "#fff" }}
                 onClick={() => navigate(`/games/${game.id}/score`)}>Score</button>
@@ -268,6 +278,96 @@ function LiveGamesSection({ user }) {
   );
 }
 
+// ── Public Completed Games Section ───────────────────────────────────────────
+function PublicCompletedSection() {
+  const navigate = useNavigate();
+  const [byDate, setByDate] = useState({});
+  const [loaded, setLoaded] = useState(false);
+  const [openDates, setOpenDates] = useState({});
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    const { data } = await supabase
+      .from("games")
+      .select("id, created_at, name, state, user_id")
+      .not("state", "is", null)
+      .order("created_at", { ascending: false });
+    const completed = (data || []).filter(g => {
+      const info = getGameInfo(g);
+      return info?.gameOver;
+    });
+    const groups = {};
+    completed.forEach(g => {
+      const key = getGameInfo(g)?.gameDate || g.created_at.split("T")[0];
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(g);
+    });
+    setByDate(groups);
+    setLoaded(true);
+  }
+
+  if (!loaded || Object.keys(byDate).length === 0) return null;
+
+  const dateGroups = Object.entries(byDate).sort(([a], [b]) => b.localeCompare(a));
+
+  function toggleDate(key) {
+    setOpenDates(prev => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  return (
+    <div style={{ maxWidth: 560, margin: "0 auto", padding: "4px 16px 16px" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+        Completed Games
+      </div>
+      {dateGroups.map(([dateKey, games]) => (
+        <div key={dateKey} style={{ marginBottom: 4 }}>
+          <button onClick={() => toggleDate(dateKey)} style={{
+            width: "100%", padding: "9px 14px", display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: "#f5f5f5", border: "1px solid #e8e8e8", borderRadius: 10,
+            cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#555", marginBottom: openDates[dateKey] ? 8 : 0,
+          }}>
+            <span>{formatDateLong(dateKey)}</span>
+            <span style={{ fontSize: 12, color: "#aaa", transform: openDates[dateKey] ? "rotate(90deg)" : "none", transition: "transform 0.15s", display: "inline-block" }}>›</span>
+          </button>
+          {openDates[dateKey] && games.map(game => {
+            const info = getGameInfo(game);
+            const c0 = info?.t0?.color || "#444";
+            const c1 = info?.t1?.color || "#888";
+            return (
+              <div key={game.id} style={{ borderRadius: 16, overflow: "hidden", marginBottom: 10, boxShadow: "0 2px 12px rgba(0,0,0,0.07)", border: "1px solid #e8e8e8", background: "#fff" }}>
+                <div style={{ height: 5, background: `linear-gradient(90deg, ${c0} 50%, ${c1} 50%)` }} />
+                <div style={{ padding: "14px 16px 12px" }}>
+                  {info && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <div style={{ fontSize: 28, fontWeight: 700, color: c0, lineHeight: 1 }}>{info.t0.name}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 28, fontWeight: 700, color: info.score0 >= info.score1 ? c0 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{info.score0}</span>
+                        <span style={{ fontSize: 16, color: "#ccc", fontWeight: 300 }}>—</span>
+                        <span style={{ fontSize: 28, fontWeight: 700, color: info.score1 >= info.score0 ? c1 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{info.score1}</span>
+                      </div>
+                      <div style={{ textAlign: "right", fontSize: 28, fontWeight: 700, color: c1, lineHeight: 1 }}>{info.t1.name}</div>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "3px 9px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Final</span>
+                    <div style={{ display: "flex", gap: 7 }}>
+                      <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
+                        onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
+                      <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
+                        onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Games Tab ─────────────────────────────────────────────────────────────────
 function GamesTab({ onNewGame, creating, user }) {
   const [games, setGames] = useState([]);
@@ -307,7 +407,8 @@ function GamesTab({ onNewGame, creating, user }) {
 
   if (games.length === 0) return (
     <div style={{ textAlign: "center", padding: "64px 20px" }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>🥍</div>
+      <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, marginBottom: 8, objectFit: "contain" }} />
+      <div style={{ fontSize: 26, fontWeight: 800, color: "#111", letterSpacing: "-0.02em", marginBottom: 16 }}>LaxStats</div>
       <div style={{ fontSize: 16, fontWeight: 600, color: "#111", marginBottom: 6 }}>No games yet</div>
       <div style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>Create your first game to start tracking stats.</div>
       <button style={{ padding: "12px 28px", fontSize: 15, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 12, cursor: "pointer" }}
@@ -329,20 +430,36 @@ function GamesTab({ onNewGame, creating, user }) {
     <div>
       {liveGames.map(card)}
       {pendingGames.map(card)}
-      {finalGames.length > 0 && (
-        <>
-          <button onClick={() => setShowFinal(v => !v)} style={{
-            width: "100%", padding: "10px 14px", marginTop: 4, marginBottom: showFinal ? 10 : 4,
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            background: "#f5f5f5", border: "1px solid #e8e8e8", borderRadius: 10,
-            cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#555",
-          }}>
-            <span>{finalGames.length} completed game{finalGames.length !== 1 ? "s" : ""}</span>
-            <span style={{ fontSize: 12, color: "#aaa", transform: showFinal ? "rotate(90deg)" : "none", transition: "transform 0.15s", display: "inline-block" }}>›</span>
-          </button>
-          {showFinal && finalGames.map(card)}
-        </>
-      )}
+      {finalGames.length > 0 && (() => {
+        const byDate = {};
+        finalGames.forEach(g => {
+          const key = getGameInfo(g)?.gameDate || g.created_at.split("T")[0];
+          if (!byDate[key]) byDate[key] = [];
+          byDate[key].push(g);
+        });
+        const dateGroups = Object.entries(byDate).sort(([a], [b]) => b.localeCompare(a));
+        return (
+          <>
+            <button onClick={() => setShowFinal(v => !v)} style={{
+              width: "100%", padding: "10px 14px", marginTop: 4, marginBottom: showFinal ? 10 : 4,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: "#f5f5f5", border: "1px solid #e8e8e8", borderRadius: 10,
+              cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#555",
+            }}>
+              <span>{finalGames.length} completed game{finalGames.length !== 1 ? "s" : ""}</span>
+              <span style={{ fontSize: 12, color: "#aaa", transform: showFinal ? "rotate(90deg)" : "none", transition: "transform 0.15s", display: "inline-block" }}>›</span>
+            </button>
+            {showFinal && dateGroups.map(([dateKey, dateGames]) => (
+              <div key={dateKey}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em", margin: "4px 0 8px" }}>
+                  {formatDateLong(dateKey)}
+                </div>
+                {dateGames.map(card)}
+              </div>
+            ))}
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -659,7 +776,7 @@ export default function GameList() {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    navigate("/login");
+    navigate("/");
   }
 
   return (
@@ -671,16 +788,16 @@ export default function GameList() {
         backgroundImage: FIELD_BG,
         backgroundSize: "cover",
         backgroundPosition: "center",
-        padding: "40px 24px 32px",
+        padding: "16px 24px 20px",
         position: "relative",
         overflow: "hidden",
       }}>
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%, transparent 40%, rgba(0,0,0,0.6) 100%)", pointerEvents: "none" }} />
         <div style={{ position: "relative", maxWidth: 560, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
+              <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, objectFit: "contain" }} />
               <span style={{ fontSize: 36, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>LaxStats</span>
-              <span style={{ fontSize: 22 }}>🥍</span>
             </div>
             {!authLoading && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
@@ -729,6 +846,9 @@ export default function GameList() {
 
       {/* ── Live Games (all users, public) ── */}
       <LiveGamesSection user={user} />
+
+      {/* ── Completed games (public, unauth only — auth users see theirs in My Games) ── */}
+      {!authLoading && !user && <PublicCompletedSection />}
 
       {/* ── My Games + Rosters tabs (authenticated only) ── */}
       {user && (

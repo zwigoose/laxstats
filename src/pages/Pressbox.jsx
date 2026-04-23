@@ -206,11 +206,12 @@ export default function Dashboard() {
   });
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", height: "100vh", overflow: "hidden", background: "#fff", display: "flex", flexDirection: "column" }}>
+    <div style={{ fontFamily: "system-ui, sans-serif", height: "calc(100vh - var(--footer-h, 36px))", overflow: "hidden", background: "#fff", display: "flex", flexDirection: "column" }}>
 
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 20px", borderBottom: "1px solid #e5e5e5", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
         <button style={{ fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", whiteSpace: "nowrap" }} onClick={() => navigate("/")}>← Games</button>
+        <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 28, height: 28, objectFit: "contain" }} />
         <span style={{ fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{game?.name || "Game"}</span>
         {gameOver
           ? <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "3px 9px" }}>Final</span>

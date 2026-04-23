@@ -376,7 +376,7 @@ function TimeWheel({ maxMinutes, selectedMin, selectedSec, onMinChange, onSecCha
 }
 
 // ── Main Component ──────────────────────────────────────────────────────────
-export default function LaxStats({ initialState = null, onStateChange = null, onCancel = null }) {
+export default function LaxStats({ initialState = null, createdAt = null, onStateChange = null, onCancel = null }) {
   const [screen, setScreen] = useState("setup"); // setup | track | stats | log
   const [trackingStarted, setTrackingStarted] = useState(false);
   const [teams, setTeams] = useState([{ name: "Home", roster: "", color: "#1a6bab" }, { name: "Away", roster: "", color: "#b84e1a" }]);
@@ -385,6 +385,7 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
   const [currentQuarter, setCurrentQuarter] = useState(1);
   const [completedQuarters, setCompletedQuarters] = useState([]);
   const [gameOver, setGameOver] = useState(false);
+  const [gameDate, setGameDate] = useState(() => (createdAt ?? new Date().toISOString()).split("T")[0]);
 
   // Step machine:
   // team | event | player
@@ -443,6 +444,7 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
     setCompletedQuarters(initialState.completedQuarters ?? []);
     setGameOver(initialState.gameOver ?? false);
     setTrackingStarted(initialState.trackingStarted ?? false);
+    if (initialState.gameDate) setGameDate(initialState.gameDate);
     if (initialState._nextId) _nextId = initialState._nextId;
     setScreen(initialState.gameOver ? "stats" : initialState.trackingStarted ? "track" : "setup");
     resetEntry();
@@ -455,9 +457,9 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
   // Notify parent of state changes (for Supabase save)
   useEffect(() => {
     if (!onStateChange || !hydratedRef.current) return;
-    onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, trackingStarted, _nextId });
+    onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, _nextId });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted]);
+  }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate]);
 
   const teamColors = [teams[0].color, teams[1].color];
 
@@ -1096,6 +1098,21 @@ export default function LaxStats({ initialState = null, onStateChange = null, on
       {/* ══ SETUP ══ */}
       {screen === "setup" && (
         <div>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Game Date</div>
+            {trackingStarted ? (
+              <div style={{ fontSize: 14, color: "#111", padding: "8px 0" }}>
+                {new Date(gameDate + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+              </div>
+            ) : (
+              <input
+                type="date"
+                value={gameDate}
+                onChange={e => setGameDate(e.target.value)}
+                style={{ padding: "8px 10px", fontSize: 14, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", color: "#111", background: "#fff" }}
+              />
+            )}
+          </div>
           <div style={S.setupGrid}>
             {[0, 1].map(ti => (
               <div key={ti} style={S.setupCard(teams[ti].color)}>

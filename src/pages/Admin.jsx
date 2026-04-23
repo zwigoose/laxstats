@@ -55,7 +55,7 @@ function getGameInfo(game) {
 }
 
 // ── Game Row (module-level so useState works) ─────────────────────────────────
-function AdminGameRow({ game, userMap, users, onReassigned }) {
+function AdminGameRow({ game, userMap, users, onReassigned, onDeleted }) {
   const navigate = useNavigate();
   const info = getGameInfo(game);
   const owner = userMap[game.user_id];
@@ -65,6 +65,18 @@ function AdminGameRow({ game, userMap, users, onReassigned }) {
   const [newOwnerId, setNewOwnerId] = useState(game.user_id || "");
   const [reassigning, setReassigning] = useState(false);
   const [reassignError, setReassignError] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  async function handleDelete() {
+    if (!deleteConfirm) { setDeleteConfirm(true); return; }
+    setDeleting(true);
+    setDeleteError(null);
+    const { error: err } = await supabase.from("games").delete().eq("id", game.id);
+    if (err) { setDeleteError(err.message); setDeleting(false); }
+    else { onDeleted(game.id); }
+  }
 
   async function handleReassign() {
     if (!newOwnerId || newOwnerId === game.user_id) return;
@@ -102,7 +114,10 @@ function AdminGameRow({ game, userMap, users, onReassigned }) {
               <span style={{ fontSize: 11, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "2px 8px" }}>Pending</span>
             )}
             {owner && <span style={{ fontSize: 11, color: "#aaa" }}>{displayName(owner.email)}</span>}
-            <span style={{ fontSize: 11, color: "#ccc" }}>{formatDate(game.created_at)}</span>
+            <span style={{ fontSize: 11, color: "#ccc" }}>
+              Game: {formatDate((game.state?.gameDate) || game.created_at.split("T")[0])}
+              {" · "}Created: {formatDate(game.created_at)}
+            </span>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <button style={{ padding: "5px 10px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}
@@ -110,7 +125,7 @@ function AdminGameRow({ game, userMap, users, onReassigned }) {
             <button style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: "#111", border: "none", borderRadius: 7, cursor: "pointer", color: "#fff" }}
               onClick={() => navigate(`/games/${game.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
             <button title="Reassign owner" style={{ padding: "5px 9px", fontSize: 12, background: adminOpen ? "#f0f0f0" : "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#888" }}
-              onClick={() => setAdminOpen(v => !v)}>⚙</button>
+              onClick={() => { setAdminOpen(v => !v); setDeleteConfirm(false); setDeleteError(null); }}>⚙</button>
           </div>
         </div>
       </div>
@@ -129,6 +144,28 @@ function AdminGameRow({ game, userMap, users, onReassigned }) {
             </button>
           </div>
           {reassignError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{reassignError}</div>}
+          <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Danger zone</div>
+            {!deleteConfirm ? (
+              <button onClick={handleDelete}
+                style={{ padding: "6px 14px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #e0a0a0", borderRadius: 8, cursor: "pointer", color: "#c0392b" }}>
+                Delete game
+              </button>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 13, color: "#c0392b", fontWeight: 500 }}>Delete permanently?</span>
+                <button onClick={handleDelete} disabled={deleting}
+                  style={{ padding: "6px 14px", fontSize: 13, fontWeight: 700, background: deleting ? "#ccc" : "#c0392b", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                  {deleting ? "Deleting…" : "Yes, delete"}
+                </button>
+                <button onClick={() => { setDeleteConfirm(false); setDeleteError(null); }}
+                  style={{ padding: "6px 12px", fontSize: 13, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#888" }}>
+                  Cancel
+                </button>
+              </div>
+            )}
+            {deleteError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{deleteError}</div>}
+          </div>
         </div>
       )}
     </div>
@@ -196,6 +233,10 @@ function AllGamesTab() {
     setGames(prev => prev.map(g => g.id === gameId ? { ...g, user_id: newUserId } : g));
   }
 
+  function handleGameDeleted(gameId) {
+    setGames(prev => prev.filter(g => g.id !== gameId));
+  }
+
   function SectionToggle({ label, count, open, onToggle }) {
     if (count === 0) return null;
     return (
@@ -249,13 +290,13 @@ function AllGamesTab() {
       {liveGames.length === 0 && games.length > 0 && (
         <div style={{ textAlign: "center", padding: "24px 0 12px", color: "#aaa", fontSize: 14 }}>No live games.</div>
       )}
-      {liveGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} />)}
+      {liveGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} onDeleted={handleGameDeleted} />)}
 
       <SectionToggle label="pending game" count={pendingGames.length} open={showPending} onToggle={() => setShowPending(v => !v)} />
-      {showPending && pendingGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} />)}
+      {showPending && pendingGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} onDeleted={handleGameDeleted} />)}
 
       <SectionToggle label="completed game" count={finalGames.length} open={showFinal} onToggle={() => setShowFinal(v => !v)} />
-      {showFinal && finalGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} />)}
+      {showFinal && finalGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} onDeleted={handleGameDeleted} />)}
     </div>
   );
 }

@@ -182,12 +182,13 @@ export default function ViewGame() {
     <div style={S.page}>
       <div style={S.header}>
         <button style={S.backBtn} onClick={() => navigate("/")}>← Games</button>
+        <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 28, height: 28, objectFit: "contain" }} />
         <span style={S.headerTitle}>{game?.name || "Game"}</span>
         {gameOver
           ? <span style={S.finalBadge}>Final</span>
           : <span style={S.liveBadge}>● Live</span>
         }
-        <button style={S.copyBtn} onClick={() => navigate(`/games/${id}/pressbox`)}>Press Box ↗</button>
+        <button style={S.copyBtn} onClick={() => window.open(`/games/${id}/pressbox`, "_blank")}>Press Box ↗</button>
         <button style={copied ? S.copyBtnDone : S.copyBtn} onClick={copyUrl}>
           {copied ? "✓ Copied" : "Copy link"}
         </button>

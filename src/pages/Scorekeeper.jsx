@@ -95,6 +95,7 @@ export default function Scorekeeper() {
     <div>
       <div style={S.header}>
         <button style={S.backBtn} onClick={() => navigate("/")}>← Games</button>
+        <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 28, height: 28, objectFit: "contain" }} />
         <span style={S.headerTitle}>{game?.name || "Scorekeeper"}</span>
         <span style={S.saveStatus}>
           {saveStatus === "saving" && "Saving…"}
@@ -107,6 +108,7 @@ export default function Scorekeeper() {
       </div>
       <LaxStats
         initialState={game?.state}
+        createdAt={game?.created_at}
         onStateChange={handleStateChange}
         onCancel={async () => {
           await supabase.from("games").delete().eq("id", id);
