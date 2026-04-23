@@ -5,6 +5,25 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [1.8.0] — 2026-04-23
+
+### Added
+- **Specific foul selection** — penalty entry now presents a full alphabetical list of 13 named fouls instead of a generic "Technical / Personal" choice; the type (tech/personal) is inferred automatically. Foul name is stored on the log entry and displayed throughout: timeline, event log, penalty box, and scorekeeper summary
+- **Admin: delete game** — gear menu on each All Games row now includes a Danger Zone section with two-stage delete confirmation; row is removed immediately on success
+
+### Changed
+- **Penalty timeline display** — rows now show the specific foul name and duration (e.g. `🟨 Pushing (30s)`, `🟥 Slashing (2min NR)`) instead of generic "Technical foul" / "Personal foul" labels
+- **Timeline header** — removed the "N goals, N timeouts, N penalties" count from all timeline views (Scorekeeper, Live View, Press Box)
+- **Shot outcome buttons** — text centered (was left-aligned)
+- **Foul selection buttons** — foul name centered with a colored type badge (`🟨 Technical` / `🟥 Personal`) below it
+- **Undo button** — styled red with a pill background to stand out from the last-entry banner
+- **Timeouts remaining** — text on team select buttons increased from 11px to 13px with higher opacity for readability
+- **Penalty box home team indicator** — home team circle is now white with a colored border (matching the home team button style); away team remains a solid colored circle
+- **Shared `<GameTimeline>` component** — timeline rendering extracted into `src/components/GameTimeline.jsx`; Live View and Press Box both consume it so all future timeline changes happen in one place
+- **Sign out** — now navigates to `/` instead of `/login`
+
+---
+
 ## [1.7.0] — 2026-04-22
 
 ### Added

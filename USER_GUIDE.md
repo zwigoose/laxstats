@@ -217,7 +217,9 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 **Who:** The player who committed the foul.
 
 **Follow-ups:**
-1. **Type** — Technical foul (30 sec) or Personal foul.
+1. **Foul** — select the specific foul from the list. The app infers whether it is a technical (30 sec) or personal foul automatically.
+   - *Technicals:* Conduct, Holding, Illegal Procedure, Interference, Offsides, Pushing
+   - *Personals:* Cross Check, Illegal Body Check, Illegal Equipment, Slashing, Tripping, Unnecessary Roughness, Unsportsmanlike Conduct
 2. **Minutes** (personal only) — 1, 2, or 3 minutes.
 3. **Releasable or non-releasable?** (personal only) — tap **Releasable** for a standard penalty (released when the opposing team scores) or **Non-Releasable** if the referee signals NR (player serves the full duration regardless of goals).
 4. **Time remaining** — time left in the quarter when the referee called the foul. Multiple penalties from the same dead-ball stoppage can share the same time.
@@ -228,7 +230,7 @@ The app automatically handles the serving order for **consecutive fouls** (two p
 
 While any penalties are active, a **Penalty Box** table appears on the Track screen above the **End Q#** button. Each row shows:
 
-- **Team color dot** (or a └ indent for a consecutive second penalty)
+- **Team color indicator** — a solid circle for the away team; a white circle with a colored border for the home team (matching the jersey styling convention). Consecutive second penalties show a └ indent instead.
 - **Player number**
 - **Release time** — the time remaining at which the player exits. A **NR** badge means the penalty is non-releasable. A quarter label (e.g. *Q3*) appears if the penalty carries into the next quarter.
 
@@ -324,11 +326,9 @@ A sortable table of individual player stats. Tap any column header to sort by th
 A reverse-chronological list of goals, timeouts, and penalties, showing:
 - **Time remaining** (if recorded) and **quarter**
 - **Team**
-- **Scorer** (goals), "⏸ Timeout", or foul description (penalties)
+- **Scorer** (goals), "⏸ Timeout", or specific foul name and duration (penalties — e.g. `🟨 Pushing (30s)`, `🟥 Slashing (2min NR)`)
 - **Assist** if applicable
 - **Running score** at that moment in the game
-
-The title shows the count of goals, timeouts, and penalties in the current filter.
 
 ### Event Log tab *(Scorekeeper only)*
 A full reverse-chronological feed of every event, grouped by play. Shows edit (✏️) and delete (✕) controls. Quarter dividers appear in the "All" view.
@@ -384,7 +384,7 @@ Shows every game across all users. Live games are shown at the top; Pending and 
 
 - **View** — opens the read-only Live View
 - **Score / Setup** — opens the Scorekeeper (Setup for pending games, Score for live/final)
-- **⚙** — expand to reassign the game to a different owner
+- **⚙** — expand to reassign the game to a different owner, or permanently delete the game (two-stage confirmation)
 - **+ New Game for User** — select any user from a dropdown and create a game on their behalf; lands on that game's setup screen immediately
 
 ### Users tab

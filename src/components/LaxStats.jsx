@@ -21,6 +21,22 @@ export const STAT_LABELS ={ goal:"G", emo_goal:"EMO", emo_fail:"FEMO", mdd_succe
 
 const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
 
+const PENALTY_OPTIONS = [
+  { name: "Conduct",                 type: "tech" },
+  { name: "Cross Check",             type: "personal" },
+  { name: "Holding",                 type: "tech" },
+  { name: "Illegal Body Check",      type: "personal" },
+  { name: "Illegal Equipment",       type: "personal" },
+  { name: "Illegal Procedure",       type: "tech" },
+  { name: "Interference",            type: "tech" },
+  { name: "Offsides",                type: "tech" },
+  { name: "Pushing",                 type: "tech" },
+  { name: "Slashing",                type: "personal" },
+  { name: "Tripping",                type: "personal" },
+  { name: "Unnecessary Roughness",   type: "personal" },
+  { name: "Unsportsmanlike Conduct", type: "personal" },
+];
+
 let _nextId = 1;
 function nextId() { return _nextId++; }
 
@@ -210,8 +226,8 @@ export function entryDisplayInfo(entry) {
   let icon = EVENTS.find(e => e.id === entry.event)?.icon || "•";
   let label = EVENTS.find(e => e.id === entry.event)?.label || entry.event;
   if (entry.event === "shot_saved") { icon = "🧤"; label = "Save"; }
-  if (entry.event === "penalty_tech") { icon = "🟨"; label = "Technical foul"; }
-  if (entry.event === "penalty_min") { icon = "🟥"; label = `Personal foul (${entry.penaltyMin}min)`; }
+  if (entry.event === "penalty_tech") { icon = "🟨"; label = entry.foulName ? `${entry.foulName} (Technical)` : "Technical foul"; }
+  if (entry.event === "penalty_min") { icon = "🟥"; label = entry.foulName ? `${entry.foulName} (${entry.penaltyMin}min)` : `Personal foul (${entry.penaltyMin}min)`; }
   if (entry.event === "goal" && entry.emo) label = "Goal (EMO)";
   return { icon, label, player: entry.teamStat ? null : entry.player };
 }
@@ -290,7 +306,7 @@ const S = {
   logDot: (c) => ({ width: 8, height: 8, borderRadius: "50%", background: c, flexShrink: 0 }),
   qtrDivider: { display: "flex", alignItems: "center", padding: "6px 14px", background: "#f5f5f5", borderBottom: "1px solid #e5e5e5", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" },
   logActionBtn: (c) => ({ fontSize: 12, background: "none", border: `1px solid ${c || "#e5e5e5"}`, borderRadius: 4, padding: "2px 7px", cursor: "pointer", color: c || "#888", flexShrink: 0, lineHeight: 1.4 }),
-  undoBtn: { fontSize: 11, background: "none", border: "1px solid #e5e5e5", borderRadius: 4, padding: "2px 6px", cursor: "pointer", color: "#888", flexShrink: 0 },
+  undoBtn: { fontSize: 11, fontWeight: 700, background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 4, padding: "2px 6px", cursor: "pointer", color: "#c0392b", flexShrink: 0, letterSpacing: "0.03em" },
   emptyState: { textAlign: "center", padding: "40px 16px", color: "#aaa", fontSize: 14 },
   questionCard: { background: "#f7f7f7", borderRadius: 12, padding: "20px 20px 16px", marginBottom: 14 },
   questionText: { fontSize: 17, fontWeight: 500, textAlign: "center", marginBottom: 4 },
@@ -400,6 +416,7 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [pendingEntries, setPendingEntries] = useState([]);
   const [penaltyType, setPenaltyType] = useState(null);
+  const [penaltyFoulName, setPenaltyFoulName] = useState(null);
   const [penaltyNR, setPenaltyNR] = useState(false);
   const [goalTimeMin, setGoalTimeMin] = useState(null);
   const [goalTimeSec, setGoalTimeSec] = useState(null);
@@ -576,8 +593,8 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
       return s;
     }
     if (fto) return `🥊 Forced TO — ${playerStr} · ${teamName} → #${to?.player?.num} ${to?.player?.name}`;
-    if (tech) return `🟨 Technical foul — ${playerStr} · ${teamName}`;
-    if (pfoul) return `🟥 Personal foul (${pfoul.penaltyMin}min) — ${playerStr} · ${teamName}`;
+    if (tech) return `🟨 ${tech.foulName ? `${tech.foulName} (Technical)` : "Technical foul"} — ${playerStr} · ${teamName}`;
+    if (pfoul) return `🟥 ${pfoul.foulName ? `${pfoul.foulName} (${pfoul.penaltyMin}min)` : `Personal foul (${pfoul.penaltyMin}min)`} — ${playerStr} · ${teamName}`;
     const { icon, label } = entryDisplayInfo(primary);
     return `${icon} ${label} — ${playerStr} · ${teamName}`;
   }
@@ -878,19 +895,21 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
   }
 
   // Penalty flow — consecutive and simultaneous relationships are auto-derived from the log
-  function handlePenaltyTech() {
-    setPenaltyType("tech");
-    setPendingEntries([mkEntry(selectedTeam, "penalty_tech", selectedPlayer)]);
-    setGoalTimeMin(null); setGoalTimeSec(null);
-    setStep("ask_penalty_time");
-  }
-  function handlePenaltyPersonal() {
-    setPenaltyType("personal");
-    setPenaltyNR(false);
-    setStep("ask_penalty_min");
+  function handlePenaltyFoul(option) {
+    setPenaltyFoulName(option.name);
+    if (option.type === "tech") {
+      setPenaltyType("tech");
+      setPendingEntries([mkEntry(selectedTeam, "penalty_tech", selectedPlayer, { foulName: option.name })]);
+      setGoalTimeMin(null); setGoalTimeSec(null);
+      setStep("ask_penalty_time");
+    } else {
+      setPenaltyType("personal");
+      setPenaltyNR(false);
+      setStep("ask_penalty_min");
+    }
   }
   function handlePenaltyMin(mins) {
-    setPendingEntries([mkEntry(selectedTeam, "penalty_min", selectedPlayer, { penaltyMin: mins })]);
+    setPendingEntries([mkEntry(selectedTeam, "penalty_min", selectedPlayer, { penaltyMin: mins, foulName: penaltyFoulName })]);
     setStep("ask_penalty_nr");
   }
   function handlePenaltyNR(isNR) {
@@ -909,8 +928,8 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
     const e0 = entries[0];
     const nrTag = penaltyNR ? " NR" : "";
     const label = e0.event === "penalty_tech"
-      ? `Technical foul — #${selectedPlayer.num} ${selectedPlayer.name}`
-      : `Personal foul (${e0.penaltyMin}min${nrTag}) — #${selectedPlayer.num} ${selectedPlayer.name}`;
+      ? `${e0.foulName || "Technical foul"} (Technical) — #${selectedPlayer.num} ${selectedPlayer.name}`
+      : `${e0.foulName || "Personal foul"} (${e0.penaltyMin}min${nrTag}) — #${selectedPlayer.num} ${selectedPlayer.name}`;
     commitEntries(entries, label);
   }
 
@@ -1296,7 +1315,7 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
                   <button key={ti} style={S.teamBigBtn(teamColors[ti], ti === 0)} onClick={() => { setSelectedTeam(ti); setStep("event"); }}>
                     <span style={{ fontSize: 36, fontWeight: 600, display: "block", marginBottom: 4, color: ti === 0 ? teamColors[0] : "#fff" }}>{totalScores[ti]}</span>
                     <span style={{ fontSize: 13, color: ti === 0 ? teamColors[0] : "rgba(255,255,255,0.8)" }}>{teams[ti].name}</span>
-                    <span style={{ fontSize: 11, marginTop: 6, display: "block", opacity: 0.65, color: ti === 0 ? teamColors[0] : "#fff" }}>
+                    <span style={{ fontSize: 13, marginTop: 6, display: "block", opacity: 0.8, color: ti === 0 ? teamColors[0] : "#fff", fontWeight: 500 }}>
                       ⏸ {timeoutsLeft[ti]} timeout{timeoutsLeft[ti] !== 1 ? "s" : ""} left
                     </span>
                   </button>
@@ -1322,7 +1341,7 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
                           <td style={{ padding: entry.isNested ? "5px 14px 5px 26px" : "8px 14px" }}>
                             {entry.isNested
                               ? <span style={{ fontSize: 11, color: "#bbb", marginRight: 4 }}>└</span>
-                              : <div style={{ width: 14, height: 14, borderRadius: "50%", background: entry.color }} />
+                              : <div style={{ width: 14, height: 14, borderRadius: "50%", background: entry.teamIdx === 0 ? "#fff" : entry.color, border: `2px solid ${entry.color}`, boxSizing: "border-box" }} />
                             }
                           </td>
                           <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", fontWeight: entry.isNested ? 400 : 600, color: entry.isNested ? "#888" : "#111", fontSize: entry.isNested ? 12 : 13 }}>
@@ -1544,7 +1563,7 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
                   { outcome: "blocked", label: `Blocked — by ${teams[1 - selectedTeam]?.name}` },
                   { outcome: "post",    label: "Off the post / crossbar (SOG)" },
                 ].map(({ outcome, label }) => (
-                  <button key={outcome} style={{ ...S.btnNo, textAlign: "left", padding: "14px 16px" }} onClick={() => handleShotOutcome(outcome)}>{label}</button>
+                  <button key={outcome} style={{ ...S.btnNo, textAlign: "center", padding: "14px 16px" }} onClick={() => handleShotOutcome(outcome)}>{label}</button>
                 ))}
               </div>
             </div>
@@ -1608,18 +1627,25 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
               <button style={S.backBtn} onClick={() => setStep("player")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>🟨 Penalty — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
               {editingGroupId && (() => {
-                const isTech = getGroupById(editingGroupId).some(e => e.event === "penalty_tech");
-                const pfoul = getGroupById(editingGroupId).find(e => e.event === "penalty_min");
-                return <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
-                  Currently: {isTech ? "Technical foul (30s)" : pfoul ? `Personal foul — ${pfoul.penaltyMin} min` : "Unknown"}
-                </div>;
+                const existing = getGroupById(editingGroupId).find(e => e.event === "penalty_tech" || e.event === "penalty_min");
+                return existing?.foulName ? <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
+                  Currently: {existing.foulName}
+                </div> : null;
               })()}
-              <div style={S.questionCard}><div style={S.questionText}>Foul type?</div></div>
-              <div style={S.yesNoRow}>
-                {(() => { const prev = editingGroupId ? getGroupById(editingGroupId).some(e => e.event === "penalty_tech") : null; return [
-                  <button key="t" style={{ ...S.btnNo, border: prev === true ? "2px solid #111" : "1px solid #ddd", fontWeight: prev === true ? 600 : 400 }} onClick={handlePenaltyTech}>Technical (30s){prev === true ? " ✓" : ""}</button>,
-                  <button key="p" style={{ ...S.btnYes, background: prev === false ? "#333" : "#111" }} onClick={handlePenaltyPersonal}>Personal foul{prev === false ? " ✓" : ""}</button>,
-                ]; })()}
+              <div style={S.questionCard}><div style={S.questionText}>What was the foul?</div></div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                {PENALTY_OPTIONS.map(opt => {
+                  const prevFoul = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "penalty_tech" || e.event === "penalty_min")?.foulName : null;
+                  const isSelected = prevFoul === opt.name;
+                  return (
+                    <button key={opt.name}
+                      style={{ ...S.btnNo, textAlign: "center", padding: "10px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, border: isSelected ? "2px solid #111" : "1px solid #ddd", fontWeight: isSelected ? 600 : 400 }}
+                      onClick={() => handlePenaltyFoul(opt)}>
+                      <span>{opt.name}</span>
+                      <span style={{ fontSize: 10, color: opt.type === "tech" ? "#b8860b" : "#c0392b", fontWeight: 400, letterSpacing: "0.03em" }}>{opt.type === "tech" ? "🟨 Technical" : "🟥 Personal"}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1628,7 +1654,7 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
           {step === "ask_penalty_min" && (
             <div>
               <button style={S.backBtn} onClick={() => setStep("ask_penalty_type")}>← Back</button>
-              <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 Personal foul — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 {penaltyFoulName} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
               {editingGroupId && (() => {
                 const prev = getGroupById(editingGroupId).find(e => e.event === "penalty_min")?.penaltyMin;
                 return prev ? <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
@@ -1647,7 +1673,7 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
           {step === "ask_penalty_nr" && (
             <div>
               <button style={S.backBtn} onClick={() => setStep("ask_penalty_min")}>← Back</button>
-              <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 Personal foul ({pendingEntries[0]?.penaltyMin}min) — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 {penaltyFoulName} ({pendingEntries[0]?.penaltyMin}min) — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
               <div style={S.questionCard}>
                 <div style={S.questionText}>Releasable or non-releasable?</div>
                 <div style={S.questionSub}>NR penalties are served in full — no early release on a goal</div>
@@ -1664,7 +1690,7 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
             <div>
               <button style={S.backBtn} onClick={() => penaltyType === "tech" ? setStep("ask_penalty_type") : setStep("ask_penalty_nr")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
-                {penaltyType === "tech" ? "🟨 Technical foul" : `🟥 Personal foul (${pendingEntries[0]?.penaltyMin}min${penaltyNR ? " NR" : ""})`} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
+                {penaltyType === "tech" ? `🟨 ${penaltyFoulName} (Technical)` : `🟥 ${penaltyFoulName} (${pendingEntries[0]?.penaltyMin}min${penaltyNR ? " NR" : ""})`} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
               <div style={S.questionCard}>
                 <div style={S.questionText}>Time remaining?</div>
@@ -1899,17 +1925,7 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
             scoringTimeline.length === 0
               ? <div style={S.emptyState}>No events recorded yet</div>
               : <div style={S.tableWrap}>
-                  {(() => {
-                    const goalCount    = scoringTimeline.filter(e => e.type === "goal").length;
-                    const toCount      = scoringTimeline.filter(e => e.type === "timeout").length;
-                    const penCount     = scoringTimeline.filter(e => e.type === "penalty").length;
-                    const meta = [
-                      goalCount  && `${goalCount} goal${goalCount !== 1 ? "s" : ""}`,
-                      toCount    && `${toCount} timeout${toCount !== 1 ? "s" : ""}`,
-                      penCount   && `${penCount} penalty${penCount !== 1 ? "s" : ""}`,
-                    ].filter(Boolean).join(", ");
-                    return <div style={S.tableTitle}><span>Timeline</span><span style={{ fontWeight: 400, fontSize: 11 }}>{meta}</span></div>;
-                  })()}
+                  <div style={S.tableTitle}><span>Timeline</span></div>
                   <table style={S.table}>
                     <thead><tr>
                       <th style={{ ...S.th(false), textAlign: "left", paddingLeft: 14 }}>Time</th>
@@ -1949,8 +1965,8 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
                             const p = entry.penalty;
                             const isTech = p.event === "penalty_tech";
                             const desc = isTech
-                              ? "🟨 Technical foul"
-                              : `🟥 Personal foul (${p.penaltyMin}min${p.nonReleasable ? " NR" : ""})`;
+                              ? `🟨 ${p.foulName ? `${p.foulName} (Technical)` : "Technical foul"}`
+                              : `🟥 ${p.foulName ? `${p.foulName} (${p.penaltyMin}min${p.nonReleasable ? " NR" : ""})` : `Personal foul (${p.penaltyMin}min${p.nonReleasable ? " NR" : ""})`}`;
                             return (
                               <tr key={`p-${gi}`} style={{ background: "#fdf8f8" }}>
                                 <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>

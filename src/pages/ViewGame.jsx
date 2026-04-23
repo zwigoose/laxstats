@@ -6,6 +6,7 @@ import {
   STAT_KEYS, STAT_LABELS,
   qLabel, isOT,
 } from "../components/LaxStats";
+import GameTimeline from "../components/GameTimeline";
 
 function getLatestTime(log, currentQuarter) {
   if (!log?.length) return null;
@@ -379,110 +380,10 @@ export default function ViewGame() {
 
             {/* Timeline */}
             {statsTab === "timeline" && (
-              scoringTimeline.length === 0
-                ? <div style={S.emptyState}>No events recorded yet</div>
-                : <div style={S.tableWrap}>
-                    {(() => {
-                      const goalCount = scoringTimeline.filter(e => e.type === "goal").length;
-                      const toCount   = scoringTimeline.filter(e => e.type === "timeout").length;
-                      const penCount  = scoringTimeline.filter(e => e.type === "penalty").length;
-                      const meta = [
-                        goalCount && `${goalCount} goal${goalCount !== 1 ? "s" : ""}`,
-                        toCount   && `${toCount} timeout${toCount !== 1 ? "s" : ""}`,
-                        penCount  && `${penCount} penalty${penCount !== 1 ? "ies" : ""}`,
-                      ].filter(Boolean).join(", ");
-                      return <div style={S.tableTitle}><span>Timeline</span><span style={{ fontWeight: 400, fontSize: 11 }}>{meta}</span></div>;
-                    })()}
-                    <table style={S.table}>
-                      <thead><tr>
-                        <th style={{ ...S.th(false), textAlign: "left", paddingLeft: 14 }}>Time</th>
-                        <th style={{ ...S.th(false), textAlign: "left" }}>Team</th>
-                        <th style={{ ...S.th(false), textAlign: "left" }}>Event</th>
-                        <th style={{ ...S.th(false), textAlign: "left" }}>Assist</th>
-                        <th style={S.th(false)}>Score</th>
-                      </tr></thead>
-                      <tbody>
-                        {(() => {
-                          const withScores = [];
-                          const scores = [0, 0];
-                          scoringTimeline.forEach(entry => {
-                            if (entry.type === "goal") scores[entry.goal.teamIdx]++;
-                            withScores.push({ ...entry, scoreSnap: [...scores] });
-                          });
-                          return [...withScores].reverse().map((entry, gi) => {
-                            if (entry.type === "timeout") {
-                              const to = entry.timeout;
-                              return (
-                                <tr key={`to-${gi}`} style={{ background: "#fafafa" }}>
-                                  <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
-                                    {to.timeoutTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{to.timeoutTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
-                                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(to.quarter)}</span>
-                                  </td>
-                                  <td style={S.tdLeft}><span style={{ color: teamColors[to.teamIdx], fontWeight: 500 }}>{teams[to.teamIdx]?.name}</span></td>
-                                  <td style={{ ...S.tdLeft, color: "#888", fontStyle: "italic" }} colSpan={2}>⏸ Timeout</td>
-                                  <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                                    <span style={{ color: teamColors[0] }}>{entry.scoreSnap[0]}</span>
-                                    <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
-                                    <span style={{ color: teamColors[1] }}>{entry.scoreSnap[1]}</span>
-                                  </td>
-                                </tr>
-                              );
-                            }
-                            if (entry.type === "penalty") {
-                              const pen = entry.penalty;
-                              const isTech = pen.event === "penalty_tech";
-                              const nrTag = pen.nonReleasable ? " NR" : "";
-                              const penLabel = isTech
-                                ? `🟨 Technical foul`
-                                : `🟥 Personal foul (${pen.penaltyMin}min${nrTag})`;
-                              return (
-                                <tr key={`pen-${gi}`} style={{ background: "#fffbf5" }}>
-                                  <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
-                                    {pen.penaltyTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{pen.penaltyTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
-                                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(pen.quarter)}</span>
-                                  </td>
-                                  <td style={S.tdLeft}><span style={{ color: teamColors[pen.teamIdx], fontWeight: 500 }}>{teams[pen.teamIdx]?.name}</span></td>
-                                  <td style={S.tdLeft}>
-                                    <span style={{ color: "#888", fontStyle: "italic" }}>{penLabel}</span>
-                                  </td>
-                                  <td style={S.tdLeft}>
-                                    <span style={{ fontWeight: 500 }}>#{pen.player?.num} {pen.player?.name}</span>
-                                  </td>
-                                  <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                                    <span style={{ color: teamColors[0] }}>{entry.scoreSnap[0]}</span>
-                                    <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
-                                    <span style={{ color: teamColors[1] }}>{entry.scoreSnap[1]}</span>
-                                  </td>
-                                </tr>
-                              );
-                            }
-                            const { goal, assist, scoreSnap } = entry;
-                            return (
-                              <tr key={`g-${gi}`}>
-                                <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
-                                  {goal.goalTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{goal.goalTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
-                                  <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(goal.quarter)}</span>
-                                </td>
-                                <td style={S.tdLeft}><span style={{ color: teamColors[goal.teamIdx], fontWeight: 500 }}>{teams[goal.teamIdx]?.name}</span></td>
-                                <td style={S.tdLeft}>
-                                  <span style={{ fontWeight: 500 }}>#{goal.player?.num} {goal.player?.name}</span>
-                                  {goal.emo && <span style={{ marginLeft: 6, fontSize: 11, background: "#e8f5e9", color: "#2a7a3b", borderRadius: 4, padding: "1px 5px" }}>EMO</span>}
-                                </td>
-                                <td style={S.tdLeft}>
-                                  {assist ? <span style={{ color: "#888" }}>#{assist.player?.num} {assist.player?.name}</span> : <span style={{ color: "#ddd" }}>—</span>}
-                                </td>
-                                <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                                  <span style={{ color: teamColors[0] }}>{scoreSnap[0]}</span>
-                                  <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
-                                  <span style={{ color: teamColors[1] }}>{scoreSnap[1]}</span>
-                                </td>
-                              </tr>
-                            );
-                          });
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
+              <div style={S.tableWrap}>
+                <div style={S.tableTitle}><span>Timeline</span></div>
+                <GameTimeline scoringTimeline={scoringTimeline} teams={teams} teamColors={teamColors} />
+              </div>
             )}
           </>
         )}

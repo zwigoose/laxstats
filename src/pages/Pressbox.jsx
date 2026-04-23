@@ -6,6 +6,7 @@ import {
   STAT_LABELS,
   qLabel, entryDisplayInfo,
 } from "../components/LaxStats";
+import GameTimeline from "../components/GameTimeline";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -151,21 +152,16 @@ export default function Dashboard() {
       if (!groups[e.groupId]) { groups[e.groupId] = []; order.push(e.groupId); }
       groups[e.groupId].push(e);
     });
-    const withScores = []; const scores = [0, 0];
-    order.map(gid => groups[gid])
+    return order.map(gid => groups[gid])
       .filter(g => g.some(e => ["goal","timeout","penalty_tech","penalty_min"].includes(e.event)))
-      .forEach(g => {
+      .map(g => {
         const goal    = g.find(e => e.event === "goal");
         const timeout = g.find(e => e.event === "timeout");
         const penalty = g.find(e => e.event === "penalty_tech" || e.event === "penalty_min");
-        if (goal) scores[goal.teamIdx]++;
-        let entry;
-        if (goal)         entry = { type: "goal",    goal,    assist: g.find(e => e.event === "assist") };
-        else if (timeout) entry = { type: "timeout", timeout };
-        else              entry = { type: "penalty",  penalty };
-        withScores.push({ ...entry, scoreSnap: [...scores] });
+        if (goal)    return { type: "goal",    goal,    assist: g.find(e => e.event === "assist") };
+        if (timeout) return { type: "timeout", timeout };
+        return { type: "penalty", penalty };
       });
-    return [...withScores].reverse();
   }, [log, statsQtr]);
 
   const logGroups = useMemo(() => {
@@ -447,80 +443,7 @@ export default function Dashboard() {
                   <span style={{ fontSize: 11, color: "#aaa" }}>{scoringTimeline.length} events</span>
                 </div>
                 <div style={scrollBody}>
-                  {scoringTimeline.length === 0
-                    ? <div style={{ textAlign: "center", padding: "20px 16px", color: "#aaa", fontSize: 13 }}>No scored events yet</div>
-                    : <table style={TABLE}>
-                        <thead><tr>
-                          <th style={THL}>Time</th>
-                          <th style={THL}>Team</th>
-                          <th style={THL}>Event</th>
-                          <th style={THL}>Detail</th>
-                          <th style={TH(false)}>Score</th>
-                        </tr></thead>
-                        <tbody>
-                          {scoringTimeline.map((entry, i) => {
-                            const scoreCell = (
-                              <td style={TD({ fontWeight: 600, fontVariantNumeric: "tabular-nums" })}>
-                                <span style={{ color: teamColors[0] }}>{entry.scoreSnap[0]}</span>
-                                <span style={{ color: "#ccc", margin: "0 2px" }}>–</span>
-                                <span style={{ color: teamColors[1] }}>{entry.scoreSnap[1]}</span>
-                              </td>
-                            );
-
-                            if (entry.type === "timeout") {
-                              const to = entry.timeout;
-                              return (
-                                <tr key={i} style={{ background: "#fafafa" }}>
-                                  <td style={TDL()}>
-                                    <div style={{ fontWeight: 600, fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{to.timeoutTime || "—"}</div>
-                                    <div style={{ fontSize: 10, fontWeight: 600, color: "#888" }}>{qLabel(to.quarter)}</div>
-                                  </td>
-                                  <td style={TDL({ color: teamColors[to.teamIdx], fontWeight: 500 })}>{teams[to.teamIdx]?.name}</td>
-                                  <td style={TDL({ color: "#888", fontStyle: "italic" })}>⏸ Timeout</td>
-                                  <td style={TDL()} />
-                                  {scoreCell}
-                                </tr>
-                              );
-                            }
-
-                            if (entry.type === "penalty") {
-                              const pen = entry.penalty;
-                              const isTech = pen.event === "penalty_tech";
-                              return (
-                                <tr key={i} style={{ background: "#fffbf5" }}>
-                                  <td style={TDL()}>
-                                    <div style={{ fontWeight: 600, fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{pen.penaltyTime || "—"}</div>
-                                    <div style={{ fontSize: 10, fontWeight: 600, color: "#888" }}>{qLabel(pen.quarter)}</div>
-                                  </td>
-                                  <td style={TDL({ color: teamColors[pen.teamIdx], fontWeight: 500 })}>{teams[pen.teamIdx]?.name}</td>
-                                  <td style={TDL({ color: "#888", fontStyle: "italic" })}>{isTech ? "🟨 Tech" : `🟥 Personal (${pen.penaltyMin}m${pen.nonReleasable ? " NR" : ""})`}</td>
-                                  <td style={TDL({ fontWeight: 500 })}>#{pen.player?.num} {pen.player?.name}</td>
-                                  {scoreCell}
-                                </tr>
-                              );
-                            }
-
-                            // Goal
-                            const { goal, assist } = entry;
-                            return (
-                              <tr key={i}>
-                                <td style={TDL()}>
-                                  <div style={{ fontWeight: 600, fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{goal.goalTime || "—"}</div>
-                                  <div style={{ fontSize: 10, fontWeight: 600, color: "#888" }}>{qLabel(goal.quarter)}</div>
-                                </td>
-                                <td style={TDL({ color: teamColors[goal.teamIdx], fontWeight: 500 })}>{teams[goal.teamIdx]?.name}</td>
-                                <td style={TDL()}>🥍 Goal{goal.emo ? " (EMO)" : ""}</td>
-                                <td style={TDL()}>
-                                  <span style={{ fontWeight: 500 }}>#{goal.player?.num} {goal.player?.name}</span>
-                                  {assist && <span style={{ color: "#888", fontSize: 11, marginLeft: 5 }}>· #{assist.player?.num} {assist.player?.name}</span>}
-                                </td>
-                                {scoreCell}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                  }
+                  <GameTimeline scoringTimeline={scoringTimeline} teams={teams} teamColors={teamColors} compact />
                 </div>
               </div>
 
