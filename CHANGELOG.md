@@ -5,6 +5,27 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [1.7.0] — 2026-04-22
+
+### Added
+- **Branding** — replaced emoji favicon with a full favicon package (SVG, PNG 96×96, ICO, 180×180 Apple touch icon, 192×512 PWA manifest icons); logo appears in the hero banner, login page, and all page headers (`/score`, `/view`, `/pressbox`)
+- **Open Graph / social meta tags** — `og:title`, `og:description`, `og:image`, `og:url`, and Twitter card tags so shared links render a rich preview in iMessage, Slack, and similar apps
+- **Game date capture** — setup screen includes a date field (defaults to today) so the actual game date is recorded separately from the Supabase `created_at` timestamp; date is stored in game state and displayed on game cards
+- **Completed games grouped by date** — finished games in the My Games list are grouped under date headers (newest date first) rather than displayed as a flat list
+- **Historical games for unauthenticated users** — the public home page (`/`) shows completed games grouped by date so anyone can browse past results without logging in
+- **Admin: delete game** — gear menu on each All Games row now includes a Danger Zone section with a two-stage "Delete game → Yes, delete" confirmation; deleting removes the row immediately from the list
+- **Admin: both dates visible** — All Games rows now show both the game date and the created date so admins can distinguish when a game was played from when it was entered
+
+### Changed
+- **Admin: sign-out destination** — signing out now navigates to `/` (public home) instead of `/login`
+- **Live game date display** — once a game is live, the date field in setup is replaced with static text so the date cannot be accidentally changed mid-game
+- **Footer** — changed to `position: fixed` with a `--footer-h` CSS variable consumed by full-viewport pages (Press Box) via `calc(100vh - var(--footer-h, 36px))`; content area uses matching `paddingBottom` so nothing slides behind the footer
+
+### Fixed
+- Games loaded mid-session no longer defaulted their date to today; date now initializes from `created_at` when no `gameDate` is present in state
+
+---
+
 ## [1.6.0] — 2026-04-22
 
 ### Added
