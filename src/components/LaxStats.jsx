@@ -47,7 +47,7 @@ function parseRoster(text) {
     const n = line.match(/^#?(\d+)$/);
     if (n) return { num: n[1], name: `#${n[1]}` };
     return { num: "", name: line };
-  }).filter(p => p.name);
+  }).filter(p => p.name).sort((a, b) => parseInt(a.num, 10) - parseInt(b.num, 10));
 }
 
 function findDuplicateNums(rosterText) {
