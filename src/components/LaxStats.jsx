@@ -314,78 +314,107 @@ const S = {
   pendingBubble: (c) => ({ background: "#f7f7f7", borderLeft: `3px solid ${c}`, borderRadius: "0 8px 8px 0", padding: "8px 12px", marginBottom: 12, fontSize: 13, color: "#555" }),
   finalBanner: { background: "#1a1a1a", color: "#fff", borderRadius: 12, padding: "20px", textAlign: "center", marginBottom: 20 },
   editBanner: { background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "8px 14px", marginBottom: 14, fontSize: 13, color: "#7a5c00", display: "flex", alignItems: "center", gap: 8 },
-  wheelWrap: { display: "flex", gap: 12, justifyContent: "center", alignItems: "center", margin: "14px 0" },
-  wheelCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4 },
-  wheelLabel: { fontSize: 11, color: "#888", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 },
-  wheelScroll: { height: 160, overflowY: "scroll", width: 72, border: "1px solid #e5e5e5", borderRadius: 10, scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" },
-  wheelItem: (sel) => ({ height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontSize: sel ? 20 : 16, fontWeight: sel ? 600 : 400, color: sel ? "#111" : "#aaa", background: sel ? "#f0f0f0" : "transparent", scrollSnapAlign: "start", cursor: "pointer", userSelect: "none", borderBottom: "1px solid #f5f5f5" }),
-  wheelSep: { fontSize: 28, fontWeight: 300, color: "#ccc", paddingTop: 50 },
   timeConfirmBtn: { width: "100%", marginTop: 10, padding: 13, fontSize: 15, fontWeight: 500, border: "none", borderRadius: 10, background: "#111", color: "#fff", cursor: "pointer" },
   // Timeline styles
   timelineTable: { width: "100%", fontSize: 13, borderCollapse: "collapse" },
   timelineRow: (c) => ({ borderBottom: "1px solid #f0f0f0", background: "transparent" }),
 };
 
-// ── TimeWheel ───────────────────────────────────────────────────────────────
-function TimeWheel({ maxMinutes, selectedMin, selectedSec, onMinChange, onSecChange, ceilingSecs, ceilingInclusive = false }) {
-  const isValid = (m, s) => ceilingSecs == null || (ceilingInclusive ? (m * 60 + s) <= ceilingSecs : (m * 60 + s) < ceilingSecs);
-  const mins = Array.from({ length: maxMinutes + 1 }, (_, i) => maxMinutes - i);
-  const secs = Array.from({ length: 60 }, (_, i) => 59 - i);
-  const minScrollRef = useRef(null);
-  const secScrollRef = useRef(null);
-  const ITEM_H = 44;
-
-  // On mount: scroll both wheels to the first valid position.
-  // If a ceiling exists, scroll to just at/below the ceiling time so valid
-  // options are visible immediately. Otherwise default seconds to the midpoint.
-  useEffect(() => {
-    if (ceilingSecs != null) {
-      const ceilMin = Math.floor(ceilingSecs / 60);
-      const ceilSec = ceilingSecs % 60;
-      // Scroll minutes: put the ceiling minute at the top of the visible area
-      if (minScrollRef.current) {
-        const minIdx = maxMinutes - ceilMin; // index in reversed [maxMinutes → 0] array
-        minScrollRef.current.scrollTop = minIdx * ITEM_H;
-      }
-      // Scroll seconds: show the highest valid second at the ceiling minute
-      // (= ceilSec - 1). If ceilSec is 0, the ceiling minute itself is invalid;
-      // show 59 (the top of the next valid minute block).
-      if (secScrollRef.current) {
-        const targetSec = ceilSec > 0 ? ceilSec - 1 : 59;
-        const secIdx = 59 - targetSec; // index in reversed [59 → 0] array
-        secScrollRef.current.scrollTop = secIdx * ITEM_H;
-      }
-    } else if (secScrollRef.current && selectedSec === null) {
-      // No ceiling: default seconds to the midpoint (~30)
-      secScrollRef.current.scrollTop = 29 * ITEM_H;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function handleMinChange(m) {
-    onMinChange(m);
-    if (selectedSec !== null && !isValid(m, selectedSec)) onSecChange(null);
+// ── TimeKeypad ───────────────────────────────────────────────────────────────
+function parseClockDigits(digits) {
+  if (!digits) return { valid: false };
+  if (!/^\d{1,4}$/.test(digits)) return { valid: false, error: "Enter up to 4 digits" };
+  let minutes, seconds;
+  if (digits.length <= 2) {
+    minutes = 0;
+    seconds = Number(digits);
+  } else {
+    seconds = Number(digits.slice(-2));
+    minutes = Number(digits.slice(0, -2));
   }
+  if (seconds > 59) return { valid: false, error: "Seconds must be 00–59" };
+  const totalSeconds = minutes * 60 + seconds;
+  return { valid: true, minutes, seconds, totalSeconds, label: `${minutes}:${String(seconds).padStart(2, "0")}` };
+}
+
+function timeStringToDigits(str) {
+  const [m, s] = str.split(":").map(Number);
+  return m === 0 ? String(s) : String(m) + String(s).padStart(2, "0");
+}
+
+function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeiling = false, onConfirm, showSameAsLatest = false, latestLabel = null }) {
+  const [digits, setDigits] = useState("");
+  const parsed = parseClockDigits(digits);
+  const exceedsMax = parsed.valid && parsed.totalSeconds > maxSeconds;
+  const violatesCeiling = parsed.valid && ceilingSecs != null && (
+    allowEqualToCeiling ? parsed.totalSeconds > ceilingSecs : parsed.totalSeconds >= ceilingSecs
+  );
+  const canUse = parsed.valid && !exceedsMax && !violatesCeiling;
+
+  const errorMsg = digits.length > 0 && !parsed.valid
+    ? (parsed.error || "Invalid time")
+    : exceedsMax
+    ? `Max is ${Math.floor(maxSeconds / 60)}:${String(maxSeconds % 60).padStart(2, "0")}`
+    : violatesCeiling
+    ? `Must be ${allowEqualToCeiling ? "at or before" : "before"} ${Math.floor(ceilingSecs / 60)}:${String(ceilingSecs % 60).padStart(2, "0")}`
+    : null;
+
+  function pressDigit(d) {
+    if (digits.length >= 4) return;
+    setDigits(prev => prev + d);
+  }
+
+  const keyStyle = (special) => ({
+    padding: "16px 0",
+    fontSize: special ? 18 : 22,
+    fontWeight: special ? 500 : 400,
+    background: special ? "#f0f0f0" : "#f7f7f7",
+    border: "1px solid #e8e8e8",
+    borderRadius: 10,
+    cursor: "pointer",
+    color: "#111",
+    fontFamily: "system-ui, sans-serif",
+    userSelect: "none",
+    WebkitUserSelect: "none",
+  });
+
   return (
-    <div style={S.wheelWrap}>
-      <div style={S.wheelCol}>
-        <div style={S.wheelLabel}>Min</div>
-        <div style={S.wheelScroll} ref={minScrollRef}>
-          {mins.map(m => {
-            const ok = ceilingSecs == null || (ceilingInclusive ? (m * 60) <= ceilingSecs : (m * 60) < ceilingSecs);
-            return <div key={m} style={{ ...S.wheelItem(selectedMin === m), opacity: ok ? 1 : 0.25, pointerEvents: ok ? "auto" : "none" }} onClick={() => ok && handleMinChange(m)}>{m}</div>;
-          })}
-        </div>
+    <div style={{ marginTop: 12 }}>
+      {/* Clock display */}
+      <div style={{ textAlign: "center", marginBottom: 4 }}>
+        <span style={{ fontSize: 48, fontWeight: 300, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums", color: canUse ? "#111" : digits.length > 0 ? "#111" : "#ccc" }}>
+          {parsed.valid ? parsed.label : digits.length > 0 ? "—:——" : "--:--"}
+        </span>
       </div>
-      <div style={S.wheelSep}>:</div>
-      <div style={S.wheelCol}>
-        <div style={S.wheelLabel}>Sec</div>
-        <div style={S.wheelScroll} ref={secScrollRef}>
-          {secs.map(s => {
-            const ok = selectedMin !== null ? isValid(selectedMin, s) : (ceilingSecs == null || s < ceilingSecs);
-            return <div key={s} style={{ ...S.wheelItem(selectedSec === s), opacity: ok ? 1 : 0.25, pointerEvents: ok ? "auto" : "none" }} onClick={() => ok && onSecChange(s)}>{String(s).padStart(2,"0")}</div>;
-          })}
-        </div>
+      {/* Typed digits helper + error */}
+      <div style={{ textAlign: "center", height: 18, marginBottom: 10 }}>
+        {errorMsg
+          ? <span style={{ fontSize: 12, color: "#c0392b" }}>{errorMsg}</span>
+          : digits.length > 0
+          ? <span style={{ fontSize: 12, color: "#aaa" }}>Typed: {digits}</span>
+          : <span style={{ fontSize: 12, color: "#ddd" }}>Enter time remaining</span>}
+      </div>
+      {/* Same as latest shortcut */}
+      {showSameAsLatest && latestLabel && (
+        <button
+          onClick={() => setDigits(timeStringToDigits(latestLabel))}
+          style={{ width: "100%", marginBottom: 10, padding: "10px 0", fontSize: 13, fontWeight: 600, background: "#f0f8ff", border: "1px solid #c0d8f0", borderRadius: 10, cursor: "pointer", color: "#1a6bab" }}>
+          Same as latest: {latestLabel}
+        </button>
+      )}
+      {/* Keypad */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+        {[1,2,3,4,5,6,7,8,9].map(d => (
+          <button key={d} style={keyStyle(false)} onClick={() => pressDigit(String(d))}>{d}</button>
+        ))}
+        <button style={keyStyle(true)} onClick={() => setDigits(prev => prev.slice(0, -1))}>⌫</button>
+        <button style={keyStyle(false)} onClick={() => pressDigit("0")}>0</button>
+        <button
+          style={{ ...keyStyle(true), background: canUse ? "#111" : "#ccc", color: "#fff", fontWeight: 600, fontSize: 15 }}
+          disabled={!canUse}
+          onClick={() => canUse && onConfirm(parsed.label)}>
+          Use
+        </button>
       </div>
     </div>
   );
@@ -418,10 +447,9 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
   const [penaltyType, setPenaltyType] = useState(null);
   const [penaltyFoulName, setPenaltyFoulName] = useState(null);
   const [penaltyNR, setPenaltyNR] = useState(false);
-  const [goalTimeMin, setGoalTimeMin] = useState(null);
-  const [goalTimeSec, setGoalTimeSec] = useState(null);
 
   const [lastGoalie, setLastGoalie] = useState([null, null]);
+  const [lastFaceoffWinner, setLastFaceoffWinner] = useState([null, null]);
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [deletingGroupId, setDeletingGroupId] = useState(null);
   const [lastEntry, setLastEntry] = useState(null);
@@ -612,8 +640,6 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
     setPendingEntries([]);
     setPenaltyType(null);
     setPenaltyNR(false);
-    setGoalTimeMin(null);
-    setGoalTimeSec(null);
     setEditingGroupId(null);
     setDeletingGroupId(null);
   }
@@ -680,11 +706,7 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
     else setSelectedEvent(ev);
 
     setSelectedPlayer(primary.player);
-    if (goalEntry?.goalTime) {
-      const [m, s] = goalEntry.goalTime.split(":").map(Number);
-      setGoalTimeMin(m || 0);
-      setGoalTimeSec(s || 0);
-    }
+    // (goalTime is stored on the entry; TimeKeypad reads it via latestLabel if needed)
     setScreen("track");
     // Team stats (clear, failed_clear) have no player — go to event picker so
     // user can change team or event type, and it will commit immediately on tap
@@ -819,16 +841,18 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
     } else if (ev.id === "penalty") {
       setStep("ask_penalty_type");
     } else {
+      if (ev.id === "faceoff_win") {
+        setLastFaceoffWinner(prev => prev.map((v, i) => i === selectedTeam ? player : v));
+      }
       commitEntries([mkEntry(selectedTeam, ev.id, player)], `${ev.label} — #${player.num} ${player.name}`);
     }
   }
 
   // Goal flow: assist → time (EMO auto-detected from penalty box at goal time)
-  function handleAssistNo() { setGoalTimeMin(null); setGoalTimeSec(null); setStep("ask_goal_time"); }
+  function handleAssistNo() { setStep("ask_goal_time"); }
   function handleAssistYes() { setStep("assist_player"); }
   function handleAssistPlayerSelected(assister) {
     setPendingEntries(prev => [...prev, mkEntry(selectedTeam, "assist", assister)]);
-    setGoalTimeMin(null); setGoalTimeSec(null);
     setStep("ask_goal_time");
   }
   function handleGoalTime(t) {
@@ -900,7 +924,6 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
     if (option.type === "tech") {
       setPenaltyType("tech");
       setPendingEntries([mkEntry(selectedTeam, "penalty_tech", selectedPlayer, { foulName: option.name })]);
-      setGoalTimeMin(null); setGoalTimeSec(null);
       setStep("ask_penalty_time");
     } else {
       setPenaltyType("personal");
@@ -914,7 +937,6 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
   }
   function handlePenaltyNR(isNR) {
     setPenaltyNR(isNR);
-    setGoalTimeMin(null); setGoalTimeSec(null);
     setStep("ask_penalty_time");
   }
   function handlePenaltyTime(t) {
@@ -1418,10 +1440,27 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
             <div>
               <button style={S.backBtn} onClick={() => setStep("event")}>← Back</button>
               <div style={{ ...S.stepLabel }}>{selectedEvent?.label} — Which player?</div>
+              {selectedEvent?.id === "faceoff_win" && (() => {
+                const lfw = lastFaceoffWinner[selectedTeam];
+                const prevPlayer = editingGroupId ? prevPlayerInGroup(editingGroupId, selectedTeam) : null;
+                const featured = prevPlayer || lfw;
+                const isHome = selectedTeam === 0;
+                return featured ? (
+                  <button
+                    style={{ ...S.playerBtn(true, teamColors[selectedTeam], isHome), width: "100%", display: "flex", justifyContent: "center", gap: 8, padding: "12px 16px", marginBottom: 10, boxSizing: "border-box" }}
+                    onClick={() => handlePlayerSelected(featured)}
+                  >
+                    <span style={S.playerNum(true, isHome, teamColors[selectedTeam])}>#{featured.num}</span>
+                    <span style={S.playerName(true, isHome, teamColors[selectedTeam])}>{featured.name}</span>
+                  </button>
+                ) : null;
+              })()}
               <div style={S.playerGrid}>
                 {parsedRosters[selectedTeam]?.map((p, i) => {
                   const prev = editingGroupId ? prevPlayerInGroup(editingGroupId, selectedTeam) : null;
-                  const sel = prev ? (prev.num === p.num && prev.name === p.name) : false;
+                  const lfw = lastFaceoffWinner[selectedTeam];
+                  const featured = prev || lfw;
+                  const sel = featured ? (featured.num === p.num && featured.name === p.name) : false;
                   const isHome = selectedTeam === 0;
                   return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handlePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
                 })}
@@ -1501,16 +1540,13 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
               </div>
               <div style={S.questionCard}>
                 <div style={S.questionText}>Time remaining in {curQLabel}?</div>
-                {timeCeilingSecs !== null && <div style={{ fontSize: 12, color: "#888", textAlign: "center", marginTop: 4 }}>Must be before {Math.floor(timeCeilingSecs/60)}:{String(timeCeilingSecs%60).padStart(2,"0")} remaining</div>}
-                {goalTimeMin !== null && goalTimeSec !== null && <div style={{ fontSize: 24, fontWeight: 500, textAlign: "center", marginTop: 8 }}>{goalTimeMin}:{String(goalTimeSec).padStart(2,"0")}</div>}
               </div>
-              <TimeWheel maxMinutes={isOT(currentQuarter) ? 4 : 12} selectedMin={goalTimeMin} selectedSec={goalTimeSec}
-                onMinChange={m => setGoalTimeMin(m)} onSecChange={s => setGoalTimeSec(s)} ceilingSecs={timeCeilingSecs} />
-              <button style={{ ...S.timeConfirmBtn, background: (goalTimeMin !== null && goalTimeSec !== null) ? "#111" : "#ccc", cursor: (goalTimeMin !== null && goalTimeSec !== null) ? "pointer" : "not-allowed" }}
-                disabled={goalTimeMin === null || goalTimeSec === null}
-                onClick={() => handleGoalTime(`${goalTimeMin}:${String(goalTimeSec).padStart(2,"0")}`)}>
-                Confirm time →
-              </button>
+              <TimeKeypad
+                maxSeconds={isOT(currentQuarter) ? 240 : 720}
+                ceilingSecs={timeCeilingSecs}
+                allowEqualToCeiling={false}
+                onConfirm={handleGoalTime}
+              />
             </div>
           )}
 
@@ -1521,18 +1557,13 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
               <div style={S.questionCard}>
                 <div style={S.questionText}>Timeout — {teams[selectedTeam]?.name}</div>
                 <div style={S.questionSub}>Time remaining in {curQLabel}?</div>
-                {goalTimeMin !== null && goalTimeSec !== null && <div style={{ fontSize: 24, fontWeight: 500, textAlign: "center", marginTop: 8 }}>{goalTimeMin}:{String(goalTimeSec).padStart(2,"0")}</div>}
               </div>
-              <TimeWheel maxMinutes={isOT(currentQuarter) ? 4 : 12} selectedMin={goalTimeMin} selectedSec={goalTimeSec}
-                onMinChange={m => setGoalTimeMin(m)} onSecChange={s => setGoalTimeSec(s)} ceilingSecs={timeCeilingSecs} />
-              <button style={{ ...S.timeConfirmBtn, background: (goalTimeMin !== null && goalTimeSec !== null) ? "#111" : "#ccc", cursor: (goalTimeMin !== null && goalTimeSec !== null) ? "pointer" : "not-allowed" }}
-                disabled={goalTimeMin === null || goalTimeSec === null}
-                onClick={() => {
-                  const t = `${goalTimeMin}:${String(goalTimeSec).padStart(2,"0")}`;
-                  commitEntries([mkEntry(selectedTeam, "timeout", null, { teamStat: true, timeoutTime: t })], `Timeout — ${teams[selectedTeam]?.name} at ${t}`);
-                }}>
-                Log Timeout →
-              </button>
+              <TimeKeypad
+                maxSeconds={isOT(currentQuarter) ? 240 : 720}
+                ceilingSecs={timeCeilingSecs}
+                allowEqualToCeiling={false}
+                onConfirm={(t) => commitEntries([mkEntry(selectedTeam, "timeout", null, { teamStat: true, timeoutTime: t })], `Timeout — ${teams[selectedTeam]?.name} at ${t}`)}
+              />
               <button style={{ ...S.btnSecondary, marginTop: 8 }} onClick={() => {
                 commitEntries([mkEntry(selectedTeam, "timeout", null, { teamStat: true })], `Timeout — ${teams[selectedTeam]?.name}`);
               }}>
@@ -1696,17 +1727,14 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
                 <div style={S.questionText}>Time remaining?</div>
                 <div style={S.questionSub}>Penalties from the same dead-ball cycle can share a time</div>
               </div>
-              <div style={{ padding: "0 4px" }}>
-                {timeCeilingSecs !== null && <div style={{ fontSize: 12, color: "#888", textAlign: "center", marginTop: 4 }}>At or before {Math.floor(timeCeilingSecs/60)}:{String(timeCeilingSecs%60).padStart(2,"0")} remaining</div>}
-                {goalTimeMin !== null && goalTimeSec !== null && <div style={{ fontSize: 24, fontWeight: 500, textAlign: "center", marginTop: 8 }}>{goalTimeMin}:{String(goalTimeSec).padStart(2,"0")}</div>}
-              </div>
-              <TimeWheel maxMinutes={isOT(currentQuarter) ? 4 : 12} selectedMin={goalTimeMin} selectedSec={goalTimeSec}
-                onMinChange={setGoalTimeMin} onSecChange={setGoalTimeSec} ceilingSecs={timeCeilingSecs} ceilingInclusive={true} />
-              <button style={{ ...S.timeConfirmBtn, background: (goalTimeMin !== null && goalTimeSec !== null) ? "#111" : "#ccc", cursor: (goalTimeMin !== null && goalTimeSec !== null) ? "pointer" : "not-allowed" }}
-                disabled={goalTimeMin === null || goalTimeSec === null}
-                onClick={() => handlePenaltyTime(`${goalTimeMin}:${String(goalTimeSec).padStart(2,"0")}`)}>
-                Confirm time
-              </button>
+              <TimeKeypad
+                maxSeconds={isOT(currentQuarter) ? 240 : 720}
+                ceilingSecs={timeCeilingSecs}
+                allowEqualToCeiling={true}
+                onConfirm={handlePenaltyTime}
+                showSameAsLatest={true}
+                latestLabel={timeCeilingSecs !== null ? `${Math.floor(timeCeilingSecs/60)}:${String(timeCeilingSecs%60).padStart(2,"0")}` : null}
+              />
             </div>
           )}
 

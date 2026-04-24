@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [1.9.0] — 2026-04-24
+
+### Changed
+- **Time entry redesigned** — replaced the scrolling wheel picker with a numeric keypad (`TimeKeypad`) for goal, timeout, and penalty time entry; type 1–4 digits (seconds only, or M:SS) and confirm; the keypad validates against the quarter ceiling and shows live feedback; penalty time step includes a "Same as latest" shortcut for dead-ball cycles with multiple fouls
+
+---
+
 ## [1.8.0] — 2026-04-23
 
 ### Added
