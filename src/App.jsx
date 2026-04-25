@@ -6,6 +6,11 @@ import ViewGame from "./pages/ViewGame";
 import Pressbox from "./pages/Pressbox";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
+import CreateOrg from "./pages/CreateOrg";
+import OrgDashboard from "./pages/OrgDashboard";
+import SeasonView from "./pages/SeasonView";
+import TeamManager from "./pages/TeamManager";
+import CreateGame from "./pages/CreateGame";
 import { version } from "../package.json";
 
 // Single source of truth for footer height — consumed here and via the
@@ -26,10 +31,15 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<GameList />} />
+        <Route path="/games/new" element={<PrivateRoute><CreateGame /></PrivateRoute>} />
         <Route path="/games/:id/score" element={<PrivateRoute><Scorekeeper /></PrivateRoute>} />
-        <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
         <Route path="/games/:id/view" element={<ViewGame />} />
         <Route path="/games/:id/pressbox" element={<Pressbox />} />
+        <Route path="/orgs/new" element={<PrivateRoute><CreateOrg /></PrivateRoute>} />
+        <Route path="/orgs/:slug" element={<OrgDashboard />} />
+        <Route path="/orgs/:slug/seasons/:id" element={<SeasonView />} />
+        <Route path="/orgs/:slug/teams" element={<PrivateRoute><TeamManager /></PrivateRoute>} />
+        <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
       </Routes>
     </div>
   );

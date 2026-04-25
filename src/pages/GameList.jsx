@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { qLabel } from "../components/LaxStats";
+import { useOrgRole } from "../hooks/useOrgRole";
 
 const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
 
@@ -368,8 +369,106 @@ function PublicCompletedSection() {
   );
 }
 
+// ── Org Games Section ─────────────────────────────────────────────────────────
+function OrgGamesSection({ orgMemberships }) {
+  const navigate = useNavigate();
+  const [gamesByOrg, setGamesByOrg] = useState({});
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => { if (orgMemberships?.length) load(); }, [orgMemberships]);
+
+  async function load() {
+    const orgIds = orgMemberships.map(m => m.org_id);
+    const { data } = await supabase
+      .from("games")
+      .select("id, created_at, name, state, org_id, home_team:teams!home_team_id(id, name, color), away_team:teams!away_team_id(id, name, color)")
+      .in("org_id", orgIds)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    const grouped = {};
+    (data || []).forEach(g => {
+      if (!grouped[g.org_id]) grouped[g.org_id] = [];
+      grouped[g.org_id].push(g);
+    });
+    setGamesByOrg(grouped);
+    setLoaded(true);
+  }
+
+  if (!loaded || !orgMemberships?.length) return null;
+
+  return (
+    <>
+      {orgMemberships.map(m => {
+        const orgGames = gamesByOrg[m.org_id] || [];
+        const orgName = m.org?.name ?? "Org";
+        return (
+          <div key={m.org_id} style={{ marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                {orgName}
+              </div>
+              <button onClick={() => navigate(`/orgs/${m.org?.slug}`)}
+                style={{ fontSize: 12, color: "#1a6bab", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 500 }}>
+                View org →
+              </button>
+            </div>
+            {orgGames.length === 0 ? (
+              <div style={{ fontSize: 13, color: "#aaa" }}>No games yet.</div>
+            ) : (
+              orgGames.slice(0, 5).map(game => {
+                const info = getGameInfo(game);
+                const homeTeam = game.home_team;
+                const awayTeam = game.away_team;
+                const c0 = homeTeam?.color || info?.t0?.color || "#444";
+                const c1 = awayTeam?.color || info?.t1?.color || "#888";
+                const homeName = homeTeam?.name || info?.t0?.name || "Home";
+                const awayName = awayTeam?.name || info?.t1?.name || "Away";
+                const score0 = (info?.score0 ?? 0);
+                const score1 = (info?.score1 ?? 0);
+                const hasScore = info?.started;
+                return (
+                  <div key={game.id} style={{ borderRadius: 14, overflow: "hidden", marginBottom: 8, border: "1px solid #e8e8e8", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+                    <div style={{ height: 4, background: `linear-gradient(90deg, ${c0} 50%, ${c1} 50%)` }} />
+                    <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {hasScore ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: c0 }}>{homeName}</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: score0 >= score1 ? c0 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{score0}</span>
+                            <span style={{ fontSize: 12, color: "#ccc" }}>–</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: score1 >= score0 ? c1 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{score1}</span>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: c1 }}>{awayName}</span>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 14, color: "#555" }}>{game.name}</div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        {info?.gameOver
+                          ? <span style={{ fontSize: 10, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "2px 7px", textTransform: "uppercase" }}>Final</span>
+                          : info?.started
+                          ? <span style={{ fontSize: 10, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "2px 7px" }}>● Live</span>
+                          : null}
+                        <button onClick={() => navigate(`/games/${game.id}/score`)}
+                          style={{ padding: "5px 10px", fontSize: 12, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}>
+                          {info?.started ? "Score" : "Setup"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 // ── Games Tab ─────────────────────────────────────────────────────────────────
-function GamesTab({ onNewGame, creating, user }) {
+function GamesTab({ onNewGame, user }) {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -384,6 +483,7 @@ function GamesTab({ onNewGame, creating, user }) {
       .from("games")
       .select("id, created_at, name, state")
       .eq("user_id", user.id)
+      .is("org_id", null)
       .order("created_at", { ascending: false });
     if (err) setError(err.message);
     else setGames(data || []);
@@ -409,10 +509,10 @@ function GamesTab({ onNewGame, creating, user }) {
     <div style={{ textAlign: "center", padding: "64px 20px" }}>
       <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, marginBottom: 8, objectFit: "contain" }} />
       <div style={{ fontSize: 26, fontWeight: 800, color: "#111", letterSpacing: "-0.02em", marginBottom: 16 }}>LaxStats</div>
-      <div style={{ fontSize: 16, fontWeight: 600, color: "#111", marginBottom: 6 }}>No games yet</div>
-      <div style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>Create your first game to start tracking stats.</div>
+      <div style={{ fontSize: 16, fontWeight: 600, color: "#111", marginBottom: 6 }}>No personal games yet</div>
+      <div style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>Create a game to start tracking stats.</div>
       <button style={{ padding: "12px 28px", fontSize: 15, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 12, cursor: "pointer" }}
-        onClick={onNewGame} disabled={creating}>{creating ? "Creating…" : "+ New Game"}</button>
+        onClick={onNewGame}>+ New Game</button>
     </div>
   );
 
@@ -757,21 +857,11 @@ function RostersTab({ showNewInit = false }) {
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function GameList() {
   const navigate = useNavigate();
-  const { user, isAdmin, loading: authLoading } = useAuth();
+  const { user, isAdmin, orgMemberships, loading: authLoading } = useAuth();
   const [tab, setTab] = useState("games");
-  const [creating, setCreating] = useState(false);
 
-  async function handleNewGame() {
-    setCreating(true);
-    const name = `Game — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
-    const { data, error: err } = await supabase
-      .from("games")
-      .insert({ name, state: null, user_id: user.id })
-      .select()
-      .single();
-    setCreating(false);
-    if (err) return;
-    navigate(`/games/${data.id}/score`);
+  function handleNewGame() {
+    navigate("/games/new");
   }
 
   async function handleSignOut() {
@@ -831,14 +921,13 @@ export default function GameList() {
             Stat Tracker
           </div>
           {user && (
-            <button onClick={handleNewGame} disabled={creating} style={{
+            <button onClick={handleNewGame} style={{
               display: "inline-flex", alignItems: "center", gap: 8,
               padding: "11px 22px", fontSize: 14, fontWeight: 700,
-              background: creating ? "rgba(255,255,255,0.15)" : "#fff",
-              color: creating ? "rgba(255,255,255,0.5)" : "#111",
-              border: "none", borderRadius: 12, cursor: creating ? "not-allowed" : "pointer",
+              background: "#fff", color: "#111",
+              border: "none", borderRadius: 12, cursor: "pointer",
             }}>
-              {creating ? "Creating…" : "＋ New Game"}
+              ＋ New Game
             </button>
           )}
         </div>
@@ -854,7 +943,11 @@ export default function GameList() {
       {user && (
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px" }}>
           <div style={{ display: "flex", gap: 4, padding: "12px 0 0", marginBottom: 16, borderBottom: "1px solid #e8e8e8" }}>
-            {[["games", "My Games"], ["rosters", "Rosters"]].map(([id, label]) => (
+            {[
+              ["games", orgMemberships?.length ? "Personal" : "My Games"],
+              ...(orgMemberships?.length ? [["orgs", "Leagues"]] : []),
+              ["rosters", "Rosters"],
+            ].map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} style={{
                 padding: "8px 18px", fontSize: 14, fontWeight: tab === id ? 700 : 500,
                 border: "none", background: "transparent", cursor: "pointer",
@@ -865,7 +958,8 @@ export default function GameList() {
             ))}
           </div>
 
-          {tab === "games" && <GamesTab onNewGame={handleNewGame} creating={creating} user={user} />}
+          {tab === "games" && <GamesTab onNewGame={handleNewGame} user={user} />}
+          {tab === "orgs" && <OrgGamesSection orgMemberships={orgMemberships} />}
           {tab === "rosters" && <RostersTab />}
         </div>
       )}
