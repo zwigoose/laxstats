@@ -1,39 +1,229 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import LaxStats from "../components/LaxStats";
+import { useGameEvents } from "../hooks/useGameEvents";
 
 const S = {
-  header: { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10, fontFamily: "system-ui, sans-serif" },
-  backBtn: { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
+  header:      { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10, fontFamily: "system-ui, sans-serif" },
+  backBtn:     { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
   headerTitle: { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" },
-  saveStatus: { fontSize: 12, color: "#aaa" },
-  viewBtn: { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" },
-  loading: { fontFamily: "system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#888", fontSize: 14 },
-  error: { fontFamily: "system-ui, sans-serif", maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14 },
+  saveStatus:  { fontSize: 12, color: "#aaa" },
+  viewBtn:     { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" },
+  loading:     { fontFamily: "system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#888", fontSize: 14 },
+  error:       { fontFamily: "system-ui, sans-serif", maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14 },
+  secondaryBadge: { fontSize: 11, fontWeight: 700, color: "#1a6bab", background: "#eef4fb", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
+  primaryBadge:   { fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #b5e0c0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
 };
 
+// ── v1 path — JSONB blob save (unchanged) ─────────────────────────────────────
+function ScorekeeperV1({ game, id, navigate }) {
+  const [saveStatus, setSaveStatus] = useState("");
+  const saveTimer    = useRef(null);
+  const pendingSave  = useRef(null);
+  const saveInFlight = useRef(false);
+  const [gameName, setGameName] = useState(game?.name || "");
+
+  const handleStateChange = useCallback(async (newState) => {
+    pendingSave.current = newState;
+    if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
+      setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
+    }
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      if (saveInFlight.current) return;
+      const stateToSave = pendingSave.current;
+      if (!stateToSave) return;
+      saveInFlight.current = true;
+      setSaveStatus("saving");
+      pendingSave.current = null;
+      const updatePayload = { state: stateToSave };
+      if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
+        updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
+      }
+      const { error: err } = await supabase.from("games").update(updatePayload).eq("id", id);
+      saveInFlight.current = false;
+      if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
+      else {
+        setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000);
+        if (pendingSave.current) handleStateChange(pendingSave.current);
+      }
+    }, 800);
+  }, [id]);
+
+  return (
+    <div>
+      <div style={S.header}>
+        <button style={S.backBtn} onClick={() => navigate("/")}>← Games</button>
+        <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 28, height: 28, objectFit: "contain" }} />
+        <span style={S.headerTitle}>{gameName || "Scorekeeper"}</span>
+        <span style={S.saveStatus}>
+          {saveStatus === "saving" && "Saving…"}
+          {saveStatus === "saved"  && "Saved ✓"}
+          {saveStatus === "error"  && "Save failed"}
+        </span>
+        <button style={S.viewBtn} onClick={() => navigate(`/games/${id}/view`)}>Live view →</button>
+      </div>
+      <LaxStats
+        initialState={game?.state}
+        createdAt={game?.created_at}
+        onStateChange={handleStateChange}
+        onCancel={async () => { await supabase.from("games").delete().eq("id", id); navigate("/"); }}
+      />
+    </div>
+  );
+}
+
+// ── v2 path — game_events table + Realtime ────────────────────────────────────
+function ScorekeeperV2({ game, id, navigate, userId }) {
+  const [saveStatus, setSaveStatus] = useState("");
+  const saveTimer    = useRef(null);
+  const pendingMeta  = useRef(null);
+  const saveInFlight = useRef(false);
+  const [gameName, setGameName]   = useState(game?.name || "");
+
+  const {
+    entries,
+    loading:    eventsLoading,
+    commitGroup,
+    softDeleteGroup,
+    isPrimary,
+    presenceList,
+    error:      eventsError,
+  } = useGameEvents(id, userId);
+
+  // Build initialState: use game.state for meta (teams, quarter, etc.)
+  // but inject events from game_events as the log.
+  const initialState = eventsLoading
+    ? undefined  // still loading — LaxStats waits
+    : (game?.state
+        ? { ...game.state, log: entries }
+        : (entries.length > 0 ? { log: entries } : null));
+
+  // Meta-event handler: persist quarter/gameOver changes to games.state
+  const handleMetaEvent = useCallback(async (type, payload) => {
+    setSaveStatus("saving");
+    const { data: current } = await supabase
+      .from("games")
+      .select("state, name")
+      .eq("id", id)
+      .single();
+    const meta = current?.state ? { ...current.state } : {};
+    delete meta.log; // v2 games don't store log in state
+
+    if (type === "endQuarter") {
+      meta.completedQuarters = [...(meta.completedQuarters || []), payload.quarter];
+      meta.currentQuarter    = (meta.currentQuarter || 1) + 1;
+    } else if (type === "gameOver") {
+      meta.completedQuarters = [...(meta.completedQuarters || []), payload.quarter];
+      meta.gameOver          = true;
+    }
+
+    const { error: err } = await supabase
+      .from("games")
+      .update({ state: meta })
+      .eq("id", id);
+
+    if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
+    else { setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000); }
+  }, [id]);
+
+  // State change handler: persist team/meta changes (NOT the log — that's in game_events)
+  const handleStateChange = useCallback(async (newState) => {
+    if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
+      setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
+    }
+    // Build meta payload (no log)
+    const { log: _log, ...meta } = newState;
+    pendingMeta.current = meta;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      if (saveInFlight.current) return;
+      const stateToSave = pendingMeta.current;
+      if (!stateToSave) return;
+      saveInFlight.current = true;
+      setSaveStatus("saving");
+      pendingMeta.current = null;
+      const updatePayload = { state: stateToSave };
+      if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
+        updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
+      }
+      const { error: err } = await supabase.from("games").update(updatePayload).eq("id", id);
+      saveInFlight.current = false;
+      if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
+      else { setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000); }
+    }, 800);
+  }, [id]);
+
+  const scorerCount = presenceList.length;
+
+  return (
+    <div>
+      <div style={S.header}>
+        <button style={S.backBtn} onClick={() => navigate("/")}>← Games</button>
+        <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 28, height: 28, objectFit: "contain" }} />
+        <span style={S.headerTitle}>{gameName || "Scorekeeper"}</span>
+        {scorerCount > 1 && (
+          <span style={isPrimary ? S.primaryBadge : S.secondaryBadge}>
+            {isPrimary ? "Primary" : "Secondary"}
+            {scorerCount > 1 && ` · ${scorerCount} scorers`}
+          </span>
+        )}
+        <span style={S.saveStatus}>
+          {saveStatus === "saving" && "Saving…"}
+          {saveStatus === "saved"  && "Saved ✓"}
+          {saveStatus === "error"  && "Save failed"}
+          {eventsError && !saveStatus && "Event error"}
+        </span>
+        <button style={S.viewBtn} onClick={() => navigate(`/games/${id}/view`)}>Live view →</button>
+      </div>
+
+      {eventsLoading ? (
+        <div style={S.loading}>Loading events…</div>
+      ) : (
+        <LaxStats
+          initialState={initialState}
+          createdAt={game?.created_at}
+          onStateChange={handleStateChange}
+          onEventCommit={commitGroup}
+          onEventSoftDelete={softDeleteGroup}
+          onMetaEvent={handleMetaEvent}
+          remoteEntries={entries}
+          scorekeeperRole={isPrimary ? "primary" : "secondary"}
+          onCancel={async () => {
+            // Soft-delete all events and delete the game row
+            await supabase
+              .from("game_events")
+              .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
+              .eq("game_id", id)
+              .is("deleted_at", null);
+            await supabase.from("games").delete().eq("id", id);
+            navigate("/");
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Root — dispatches to v1 or v2 based on schema_ver ─────────────────────────
 export default function Scorekeeper() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [game, setGame] = useState(null);
+  const { user } = useAuth();
+  const [game, setGame]     = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [saveStatus, setSaveStatus] = useState(""); // "" | "saving" | "saved" | "error"
-  const saveTimer = useRef(null);
-  const pendingSave = useRef(null);
-  const saveInFlight = useRef(false);
+  const [error, setError]   = useState(null);
 
-  useEffect(() => {
-    loadGame();
-  }, [id]);
+  useEffect(() => { loadGame(); }, [id]);
 
   async function loadGame() {
     setLoading(true);
     setError(null);
     const { data, error: err } = await supabase
       .from("games")
-      .select("id, created_at, name, state")
+      .select("id, created_at, name, state, schema_ver")
       .eq("id", id)
       .single();
     if (err) { setError(err.message); setLoading(false); return; }
@@ -41,80 +231,11 @@ export default function Scorekeeper() {
     setLoading(false);
   }
 
-  // Debounced save: coalesces rapid state changes into one write per 800ms
-  const handleStateChange = useCallback(async (newState) => {
-    console.log("[Scorekeeper] onStateChange fired, log entries:", newState?.log?.length, "teams:", newState?.teams?.map(t => t.name));
-    pendingSave.current = newState;
-
-    // Update the display name only — do NOT write state back into game here,
-    // as that would change the initialState prop and re-trigger hydration in LaxStats.
-    if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
-      const autoName = `${newState.teams[0].name} vs ${newState.teams[1].name}`;
-      setGame(prev => prev ? { ...prev, name: autoName } : prev);
-    }
-
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      if (saveInFlight.current) return; // will retry on next change
-      const stateToSave = pendingSave.current;
-      if (!stateToSave) return;
-      saveInFlight.current = true;
-      setSaveStatus("saving");
-      pendingSave.current = null;
-
-      const updatePayload = { state: stateToSave };
-      if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
-        updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
-      }
-
-      console.log("[Scorekeeper] saving state to Supabase, game id:", id, "payload:", updatePayload);
-      const { error: err } = await supabase
-        .from("games")
-        .update(updatePayload)
-        .eq("id", id);
-
-      saveInFlight.current = false;
-      if (err) {
-        console.error("[Scorekeeper] save error:", err);
-        setSaveStatus("error");
-        setTimeout(() => setSaveStatus(""), 3000);
-      } else {
-        console.log("[Scorekeeper] save succeeded");
-        setSaveStatus("saved");
-        setTimeout(() => setSaveStatus(""), 2000);
-        // If more changes arrived while saving, trigger another save
-        if (pendingSave.current) handleStateChange(pendingSave.current);
-      }
-    }, 800);
-  }, [id]);
-
   if (loading) return <div style={S.loading}>Loading game…</div>;
-  if (error) return <div style={S.error}>{error}</div>;
+  if (error)   return <div style={S.error}>{error}</div>;
 
-  return (
-    <div>
-      <div style={S.header}>
-        <button style={S.backBtn} onClick={() => navigate("/")}>← Games</button>
-        <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 28, height: 28, objectFit: "contain" }} />
-        <span style={S.headerTitle}>{game?.name || "Scorekeeper"}</span>
-        <span style={S.saveStatus}>
-          {saveStatus === "saving" && "Saving…"}
-          {saveStatus === "saved" && "Saved ✓"}
-          {saveStatus === "error" && "Save failed"}
-        </span>
-        <button style={S.viewBtn} onClick={() => navigate(`/games/${id}/view`)}>
-          Live view →
-        </button>
-      </div>
-      <LaxStats
-        initialState={game?.state}
-        createdAt={game?.created_at}
-        onStateChange={handleStateChange}
-        onCancel={async () => {
-          await supabase.from("games").delete().eq("id", id);
-          navigate("/");
-        }}
-      />
-    </div>
-  );
+  if (game?.schema_ver === 2) {
+    return <ScorekeeperV2 game={game} id={id} navigate={navigate} userId={user?.id} />;
+  }
+  return <ScorekeeperV1 game={game} id={id} navigate={navigate} />;
 }

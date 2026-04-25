@@ -421,7 +421,18 @@ function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeiling = false, onCo
 }
 
 // ── Main Component ──────────────────────────────────────────────────────────
-export default function LaxStats({ initialState = null, createdAt = null, onStateChange = null, onCancel = null }) {
+export default function LaxStats({
+  initialState = null,
+  createdAt = null,
+  onStateChange = null,
+  onCancel = null,
+  // v2 props — all optional; omit for v1 (schema_ver=1) games
+  onEventCommit = null,      // async (stampedEntries) => void — write group to game_events
+  onEventSoftDelete = null,  // async (groupId) => void — soft-delete group in game_events
+  onMetaEvent = null,        // async (type, payload) => void — quarter/game state changes
+  remoteEntries = null,      // [{...entry}] from other scorers; merged into local log
+  scorekeeperRole = "primary", // "primary" | "secondary"
+}) {
   const [screen, setScreen] = useState("setup"); // setup | track | stats | log
   const [trackingStarted, setTrackingStarted] = useState(false);
   const [teams, setTeams] = useState([{ name: "Home", roster: "", color: "#1a6bab" }, { name: "Away", roster: "", color: "#b84e1a" }]);
@@ -505,6 +516,25 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
     onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, _nextId });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate]);
+
+  // v2: merge remote entries from other scorers into local log
+  useEffect(() => {
+    if (!remoteEntries?.length) return;
+    setLog(prev => {
+      const existingGroupIds = new Set(prev.map(e => e.groupId));
+      const newGroupIds = new Set();
+      const toAdd = [];
+      for (const entry of remoteEntries) {
+        if (!existingGroupIds.has(entry.groupId) && !newGroupIds.has(entry.groupId)) {
+          newGroupIds.add(entry.groupId);
+        }
+        if (newGroupIds.has(entry.groupId)) toAdd.push(entry);
+      }
+      if (!toAdd.length) return prev;
+      return [...prev, ...toAdd].sort((a, b) => (a.seq ?? a.id) - (b.seq ?? b.id));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteEntries]);
 
   const teamColors = [teams[0].color, teams[1].color];
 
@@ -645,7 +675,8 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
   }
 
   function commitEntries(entries, flashText) {
-    const gid = nextId();
+    // v2: use UUID so it can serve as the DB group_id
+    const gid = onEventCommit ? crypto.randomUUID() : nextId();
     const isEdit = editingGroupId !== null;
 
     let stamped;
@@ -673,6 +704,11 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
     }
     setLog(newLog);
 
+    // v2: write to game_events (fire-and-forget; optimistic state already applied)
+    if (onEventCommit) {
+      onEventCommit(stamped).catch(err => console.error("[LaxStats] onEventCommit:", err));
+    }
+
     // Only update the "last entry" banner for NEW entries, not edits
     if (!isEdit) {
       setLastEntry({ text: flashText, count: stamped.length, groupId: gid });
@@ -685,6 +721,7 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
       setScreen("stats");
       setStatsTab("summary");
       setStatsQtr("all");
+      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter }).catch(console.error);
       resetEntry();
       return;
     }
@@ -960,10 +997,12 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
     setCompletedQuarters(prev => [...prev, currentQuarter]);
     if (currentQuarter === 4 && !tied) {
       setGameOver(true); setScreen("stats"); setStatsTab("summary"); setStatsQtr("all");
+      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter }).catch(console.error);
     } else {
       const ended = currentQuarter;
       setCurrentQuarter(prev => prev + 1);
       setScreen("stats"); setStatsTab("summary"); setStatsQtr(String(ended));
+      if (onMetaEvent) onMetaEvent("endQuarter", { quarter: ended }).catch(console.error);
     }
     resetEntry();
   }
@@ -972,6 +1011,7 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
     setLog(prev => prev.filter(e => e.groupId !== gid));
     setDeletingGroupId(null);
     if (lastEntry?.groupId === gid) setLastEntry(null);
+    if (onEventSoftDelete) onEventSoftDelete(gid).catch(err => console.error("[LaxStats] onEventSoftDelete:", err));
   }
 
   const curQLabel = qLabel(currentQuarter);
@@ -1304,7 +1344,12 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
           {lastEntry && step === "team" && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f0f0f0", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 13 }}>
               <span style={{ flex: 1, color: "#444" }}><span style={{ fontWeight: 500, color: "#888", marginRight: 6 }}>Last entry:</span>{lastEntry.text}</span>
-              <button style={S.undoBtn} onClick={() => { setLog(prev => prev.filter(e => e.groupId !== lastEntry.groupId)); setLastEntry(null); }}>undo</button>
+              <button style={S.undoBtn} onClick={() => {
+                const gid = lastEntry.groupId;
+                setLog(prev => prev.filter(e => e.groupId !== gid));
+                setLastEntry(null);
+                if (onEventSoftDelete) onEventSoftDelete(gid).catch(err => console.error("[LaxStats] undo softDelete:", err));
+              }}>undo</button>
             </div>
           )}
 
@@ -1383,7 +1428,11 @@ export default function LaxStats({ initialState = null, createdAt = null, onStat
                 </div>
               )}
 
-              <button style={S.endQtrBtn(gameOver)} onClick={() => { if (!gameOver) setStep("endqtr"); }}>End {curQLabel} →</button>
+              <button style={S.endQtrBtn(gameOver || scorekeeperRole === "secondary")}
+                title={scorekeeperRole === "secondary" ? "Only the primary scorer can end a quarter" : undefined}
+                onClick={() => { if (!gameOver && scorekeeperRole !== "secondary") setStep("endqtr"); }}>
+                {scorekeeperRole === "secondary" ? `${curQLabel} — Primary controls quarter` : `End ${curQLabel} →`}
+              </button>
               <div style={{ textAlign: "center", marginTop: 10 }}>
                 <button style={S.tabBtn(false)} onClick={() => setScreen("stats")}>View stats →</button>
               </div>

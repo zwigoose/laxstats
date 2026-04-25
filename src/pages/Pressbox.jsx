@@ -6,6 +6,7 @@ import {
   STAT_LABELS,
   qLabel, entryDisplayInfo,
 } from "../components/LaxStats";
+import { dbRowToEntry } from "../hooks/useGameEvents";
 import GameTimeline from "../components/GameTimeline";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -90,12 +91,29 @@ export default function Dashboard() {
     });
   }
 
+  const [v2Log, setV2Log] = useState(null);
+
   useEffect(() => {
     loadGame();
-    const channel = supabase
-      .channel(`dash-${id}`)
+    const channel = supabase.channel(`pressbox-${id}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
-        (payload) => setGame(payload.new))
+        (payload) => setGame(prev => prev ? { ...prev, ...payload.new } : payload.new))
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_events", filter: `game_id=eq.${id}` },
+        (payload) => {
+          if (payload.new.deleted_at) return;
+          const entry = dbRowToEntry(payload.new);
+          setV2Log(prev => {
+            if (!prev) return [entry];
+            if (prev.some(e => e.dbId === entry.dbId)) return prev;
+            return [...prev, entry].sort((a, b) => a.seq - b.seq);
+          });
+        })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_events", filter: `game_id=eq.${id}` },
+        (payload) => {
+          if (payload.new.deleted_at) {
+            setV2Log(prev => prev ? prev.filter(e => e.dbId !== payload.new.id) : prev);
+          }
+        })
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [id]);
@@ -103,16 +121,27 @@ export default function Dashboard() {
   async function loadGame() {
     setLoading(true); setError(null);
     const { data, error: err } = await supabase
-      .from("games").select("id, created_at, name, state").eq("id", id).single();
+      .from("games").select("id, created_at, name, state, schema_ver").eq("id", id).single();
     if (err) { setError(err.message); setLoading(false); return; }
-    setGame(data); setLoading(false);
+    setGame(data);
+    if (data?.schema_ver === 2) {
+      const { data: evData } = await supabase
+        .from("game_events")
+        .select("*")
+        .eq("game_id", data.id)
+        .is("deleted_at", null)
+        .order("seq");
+      setV2Log((evData || []).map(dbRowToEntry));
+    }
+    setLoading(false);
   }
 
   // ── Derived state ─────────────────────────────────────────────────────────
 
   const state             = game?.state;
+  const isV2              = game?.schema_ver === 2;
   const teams             = state?.teams             || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
-  const log               = state?.log               || [];
+  const log               = isV2 ? (v2Log ?? []) : (state?.log || []);
   const currentQuarter    = state?.currentQuarter    || 1;
   const completedQuarters = state?.completedQuarters || [];
   const gameOver          = state?.gameOver          || false;

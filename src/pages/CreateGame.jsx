@@ -156,7 +156,8 @@ export default function CreateGame() {
         home_team_id: homeTeamId,
         away_team_id: awayTeamId,
         game_type: gameType,
-        schema_ver: 1,  // Phase 4 will switch to 2 when scorekeeper writes game_events
+        game_date: gameDate || null,
+        schema_ver: 2,
       })
       .select("id").single();
 
