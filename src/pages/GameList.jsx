@@ -887,7 +887,10 @@ export default function GameList() {
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4 }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
               <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, objectFit: "contain" }} />
-              <span style={{ fontSize: 36, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>LaxStats</span>
+              <span style={{ fontSize: 36, fontWeight: 800, color: import.meta.env.MODE === "staging" ? "#e53935" : "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>LaxStats</span>
+              {import.meta.env.MODE === "staging" && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#e53935", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>v2.0.0 staging</span>
+              )}
             </div>
             {!authLoading && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>

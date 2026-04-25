@@ -55,7 +55,10 @@ export default function Login() {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, objectFit: "contain", marginBottom: 8 }} />
-          <div style={{ fontSize: 30, fontWeight: 800, color: "#111", letterSpacing: "-0.02em" }}>LaxStats</div>
+          <div style={{ fontSize: 30, fontWeight: 800, color: import.meta.env.MODE === "staging" ? "#e53935" : "#111", letterSpacing: "-0.02em" }}>LaxStats</div>
+          {import.meta.env.MODE === "staging" && (
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#e53935", letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 4, opacity: 0.85 }}>v2.0.0 staging</div>
+          )}
         </div>
 
         {/* Card */}
