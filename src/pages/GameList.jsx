@@ -102,11 +102,56 @@ function getGameInfo(game) {
 }
 
 // ── Game Card ─────────────────────────────────────────────────────────────────
-function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
+function GameCard({ game, onDelete, deleteStage, onDeleteStage, orgMemberships = [], onMovedToOrg }) {
   const navigate = useNavigate();
   const info = getGameInfo(game);
   const c0 = info?.t0?.color || "#444";
   const c1 = info?.t1?.color || "#888";
+
+  // Move-to-org state
+  const [moveOpen, setMoveOpen]       = useState(false);
+  const [moveOrgId, setMoveOrgId]     = useState(orgMemberships[0]?.org_id ?? "");
+  const [seasons, setSeasons]         = useState([]);
+  const [moveSeasonId, setMoveSeasonId] = useState("");
+  const [moveLoading, setMoveLoading] = useState(false);
+  const [moveSaving, setMoveSaving]   = useState(false);
+
+  async function openMove() {
+    setMoveOpen(true);
+    const orgId = moveOrgId || orgMemberships[0]?.org_id;
+    if (orgId) loadSeasons(orgId);
+  }
+
+  async function loadSeasons(orgId) {
+    setMoveLoading(true);
+    setMoveSeasonId("");
+    const { data } = await supabase.from("seasons").select("id, name")
+      .eq("org_id", orgId).order("start_date", { ascending: false });
+    setSeasons(data || []);
+    setMoveLoading(false);
+  }
+
+  async function handleOrgChange(orgId) {
+    setMoveOrgId(orgId);
+    loadSeasons(orgId);
+  }
+
+  async function handleMove() {
+    if (!moveOrgId || moveSaving) return;
+    setMoveSaving(true);
+    const { error: err } = await supabase.from("games").update({
+      org_id:    moveOrgId,
+      season_id: moveSeasonId || null,
+    }).eq("id", game.id);
+    setMoveSaving(false);
+    if (err) return;
+    setMoveOpen(false);
+    onMovedToOrg?.(game.id);
+  }
+
+  const isPending = !info?.started;
+  const canMove   = isPending && orgMemberships.length > 0 && !game.org_id;
+  const selStyle  = { padding: "5px 8px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 7, background: "#fff", fontFamily: "system-ui, sans-serif", flex: 1 };
 
   return (
     <div style={{ borderRadius: 16, overflow: "hidden", marginBottom: 12, boxShadow: "0 2px 12px rgba(0,0,0,0.07)", border: "1px solid #e8e8e8", background: "#fff" }}>
@@ -161,6 +206,12 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
             <span style={{ fontSize: 11, color: "#bbb" }}>{formatDate(info?.gameDate || game.created_at)}</span>
           </div>
           <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
+            {canMove && (
+              <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #c0d8f0", borderRadius: 8, cursor: "pointer", color: "#1a6bab" }}
+                onClick={() => moveOpen ? setMoveOpen(false) : openMove()}>
+                {moveOpen ? "Cancel" : "Move to org →"}
+              </button>
+            )}
             <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
               onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
             <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
@@ -172,6 +223,35 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage }) {
           </div>
         </div>
       </div>
+
+      {/* Move to org panel */}
+      {moveOpen && canMove && (
+        <div style={{ padding: "12px 16px", background: "#f0f6ff", borderTop: "1px solid #d0e4f8" }}>
+          {orgMemberships.length > 1 && (
+            <>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Organization</div>
+              <select style={{ ...selStyle, width: "100%", marginBottom: 0 }} value={moveOrgId} onChange={e => handleOrgChange(e.target.value)}>
+                {orgMemberships.map(m => (
+                  <option key={m.org_id} value={m.org_id}>{m.org?.name ?? m.org_id}</option>
+                ))}
+              </select>
+            </>
+          )}
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", margin: "10px 0 6px" }}>Season (optional)</div>
+          {moveLoading ? (
+            <div style={{ fontSize: 13, color: "#aaa" }}>Loading seasons…</div>
+          ) : (
+            <select style={{ ...selStyle, width: "100%" }} value={moveSeasonId} onChange={e => setMoveSeasonId(e.target.value)}>
+              <option value="">— No season —</option>
+              {seasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          )}
+          <button onClick={handleMove} disabled={!moveOrgId || moveSaving}
+            style={{ marginTop: 10, padding: "8px 18px", fontSize: 13, fontWeight: 600, background: moveOrgId && !moveSaving ? "#1a6bab" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: moveOrgId && !moveSaving ? "pointer" : "not-allowed" }}>
+            {moveSaving ? "Moving…" : "Move to org →"}
+          </button>
+        </div>
+      )}
 
       {/* Delete confirm strips */}
       {deleteStage === 1 && (
@@ -468,7 +548,7 @@ function OrgGamesSection({ orgMemberships }) {
 }
 
 // ── Games Tab ─────────────────────────────────────────────────────────────────
-function GamesTab({ onNewGame, user }) {
+function GamesTab({ onNewGame, user, orgMemberships = [] }) {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -516,12 +596,18 @@ function GamesTab({ onNewGame, user }) {
     </div>
   );
 
+  function handleMovedToOrg(id) {
+    setGames(prev => prev.filter(g => g.id !== id));
+  }
+
   function card(game) {
     return (
       <GameCard key={game.id} game={game}
         deleteStage={deleteStages[game.id] ?? 0}
         onDeleteStage={(stage) => setDeleteStages(prev => stage === null ? (({ [game.id]: _, ...rest }) => rest)(prev) : { ...prev, [game.id]: stage })}
         onDelete={() => handleDelete(game.id)}
+        orgMemberships={orgMemberships}
+        onMovedToOrg={handleMovedToOrg}
       />
     );
   }
@@ -961,7 +1047,7 @@ export default function GameList() {
             ))}
           </div>
 
-          {tab === "games" && <GamesTab onNewGame={handleNewGame} user={user} />}
+          {tab === "games" && <GamesTab onNewGame={handleNewGame} user={user} orgMemberships={orgMemberships} />}
           {tab === "orgs" && <OrgGamesSection orgMemberships={orgMemberships} />}
           {tab === "rosters" && <RostersTab />}
         </div>
