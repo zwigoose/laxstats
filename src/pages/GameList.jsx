@@ -461,10 +461,10 @@ function OrgGamesSection({ orgMemberships }) {
     const orgIds = orgMemberships.map(m => m.org_id);
     const { data } = await supabase
       .from("games")
-      .select("id, created_at, name, state, org_id, home_team:teams!home_team_id(id, name, color), away_team:teams!away_team_id(id, name, color)")
+      .select("id, created_at, name, state, org_id, game_date, home_team:teams!home_team_id(id, name, color), away_team:teams!away_team_id(id, name, color)")
       .in("org_id", orgIds)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(30);
 
     const grouped = {};
     (data || []).forEach(g => {
@@ -475,70 +475,113 @@ function OrgGamesSection({ orgMemberships }) {
     setLoaded(true);
   }
 
-  if (!loaded || !orgMemberships?.length) return null;
+  if (!orgMemberships?.length) return null;
+
+  const roleLabel = (role) => {
+    if (role === "org_admin") return "Admin";
+    return role.charAt(0).toUpperCase() + role.slice(1);
+  };
 
   return (
     <>
       {orgMemberships.map(m => {
-        const orgGames = gamesByOrg[m.org_id] || [];
-        const orgName = m.org?.name ?? "Org";
+        const orgGames = (gamesByOrg[m.org_id] || []).slice(0, 5);
+        const orgName  = m.org?.name ?? "Org";
+        const orgSlug  = m.org?.slug;
+
         return (
-          <div key={m.org_id} style={{ marginBottom: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                {orgName}
-              </div>
-              <button onClick={() => navigate(`/orgs/${m.org?.slug}`)}
-                style={{ fontSize: 12, color: "#1a6bab", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 500 }}>
-                View org →
-              </button>
-            </div>
-            {orgGames.length === 0 ? (
-              <div style={{ fontSize: 13, color: "#aaa" }}>No games yet.</div>
-            ) : (
-              orgGames.slice(0, 5).map(game => {
-                const info = getGameInfo(game);
-                const homeTeam = game.home_team;
-                const awayTeam = game.away_team;
-                const c0 = homeTeam?.color || info?.t0?.color || "#444";
-                const c1 = awayTeam?.color || info?.t1?.color || "#888";
-                const homeName = homeTeam?.name || info?.t0?.name || "Home";
-                const awayName = awayTeam?.name || info?.t1?.name || "Away";
-                const score0 = (info?.score0 ?? 0);
-                const score1 = (info?.score1 ?? 0);
-                const hasScore = info?.started;
-                return (
-                  <div key={game.id} style={{ borderRadius: 14, overflow: "hidden", marginBottom: 8, border: "1px solid #e8e8e8", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-                    <div style={{ height: 4, background: `linear-gradient(90deg, ${c0} 50%, ${c1} 50%)` }} />
-                    <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        {hasScore ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontSize: 15, fontWeight: 700, color: c0 }}>{homeName}</span>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: score0 >= score1 ? c0 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{score0}</span>
-                            <span style={{ fontSize: 12, color: "#ccc" }}>–</span>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: score1 >= score0 ? c1 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{score1}</span>
-                            <span style={{ fontSize: 15, fontWeight: 700, color: c1 }}>{awayName}</span>
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 14, color: "#555" }}>{game.name}</div>
-                        )}
-                      </div>
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        {info?.gameOver
-                          ? <span style={{ fontSize: 10, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "2px 7px", textTransform: "uppercase" }}>Final</span>
-                          : info?.started
-                          ? <span style={{ fontSize: 10, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "2px 7px" }}>● Live</span>
-                          : null}
-                        <button onClick={() => navigate(`/games/${game.id}/score`)}
-                          style={{ padding: "5px 10px", fontSize: 12, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}>
-                          {info?.started ? "Score" : "Setup"}
-                        </button>
-                      </div>
-                    </div>
+          <div key={m.org_id} style={{ marginBottom: 28 }}>
+            {/* Org card */}
+            <div style={{ borderRadius: 16, border: "1px solid #e0e0e0", background: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,0.06)", marginBottom: 12, overflow: "hidden" }}>
+              <div style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#111", letterSpacing: "-0.01em", marginBottom: 3 }}>{orgName}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: m.role === "org_admin" ? "#d4820a" : "#1a6bab", background: m.role === "org_admin" ? "#fff8ec" : "#eef4fb", borderRadius: 6, padding: "2px 7px", letterSpacing: "0.05em" }}>
+                      {roleLabel(m.role)}
+                    </span>
+                    {orgSlug && (
+                      <span style={{ fontSize: 12, color: "#bbb" }}>/{orgSlug}</span>
+                    )}
                   </div>
-                );
-              })
+                </div>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <button
+                    onClick={() => navigate("/games/new", { state: { orgMembership: m } })}
+                    style={{ padding: "8px 14px", fontSize: 13, fontWeight: 600, background: "#f5f5f5", color: "#111", border: "1px solid #e0e0e0", borderRadius: 10, cursor: "pointer" }}>
+                    + New Game
+                  </button>
+                  {orgSlug && (
+                    <button
+                      onClick={() => navigate(`/orgs/${orgSlug}`)}
+                      style={{ padding: "8px 16px", fontSize: 13, fontWeight: 700, background: "#111", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer" }}>
+                      Open →
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Recent games for this org */}
+            {loaded && (
+              orgGames.length === 0 ? (
+                <div style={{ fontSize: 13, color: "#aaa", padding: "4px 2px 8px" }}>No games yet — create the first one.</div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Recent Games</div>
+                  {orgGames.map(game => {
+                    const info = getGameInfo(game);
+                    const homeTeam = game.home_team;
+                    const awayTeam = game.away_team;
+                    const c0 = homeTeam?.color || info?.t0?.color || "#444";
+                    const c1 = awayTeam?.color || info?.t1?.color || "#888";
+                    const homeName = homeTeam?.name || info?.t0?.name || "Home";
+                    const awayName = awayTeam?.name || info?.t1?.name || "Away";
+                    const score0 = info?.score0 ?? 0;
+                    const score1 = info?.score1 ?? 0;
+                    const hasScore = info?.started;
+                    const gameDate = game.game_date || game.created_at.split("T")[0];
+                    return (
+                      <div key={game.id} style={{ borderRadius: 14, overflow: "hidden", marginBottom: 8, border: "1px solid #e8e8e8", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+                        <div style={{ height: 4, background: `linear-gradient(90deg, ${c0} 50%, ${c1} 50%)` }} />
+                        <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {hasScore ? (
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                <span style={{ fontSize: 15, fontWeight: 700, color: c0 }}>{homeName}</span>
+                                <span style={{ fontSize: 14, fontWeight: 700, color: score0 >= score1 ? c0 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{score0}</span>
+                                <span style={{ fontSize: 12, color: "#ccc" }}>–</span>
+                                <span style={{ fontSize: 14, fontWeight: 700, color: score1 >= score0 ? c1 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{score1}</span>
+                                <span style={{ fontSize: 15, fontWeight: 700, color: c1 }}>{awayName}</span>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 14, color: "#555" }}>{game.name}</div>
+                            )}
+                            <div style={{ fontSize: 11, color: "#bbb", marginTop: 2 }}>{formatDate(gameDate)}</div>
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                            {info?.gameOver
+                              ? <span style={{ fontSize: 10, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "2px 7px", textTransform: "uppercase" }}>Final</span>
+                              : info?.started
+                              ? <span style={{ fontSize: 10, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "2px 7px" }}>● Live</span>
+                              : <span style={{ fontSize: 10, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "2px 7px" }}>● Pending</span>}
+                            <button onClick={() => navigate(`/games/${game.id}/score`)}
+                              style={{ padding: "5px 10px", fontSize: 12, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}>
+                              {info?.started ? "Score" : "Setup"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {orgSlug && (
+                    <button onClick={() => navigate(`/orgs/${orgSlug}`)}
+                      style={{ fontSize: 12, color: "#1a6bab", background: "none", border: "none", cursor: "pointer", padding: "4px 2px", fontWeight: 500 }}>
+                      View all games in {orgName} →
+                    </button>
+                  )}
+                </>
+              )
             )}
           </div>
         );
@@ -1034,7 +1077,7 @@ export default function GameList() {
           <div style={{ display: "flex", gap: 4, padding: "12px 0 0", marginBottom: 16, borderBottom: "1px solid #e8e8e8" }}>
             {[
               ["games", orgMemberships?.length ? "Personal" : "My Games"],
-              ...(orgMemberships?.length ? [["orgs", "Leagues"]] : []),
+              ...(orgMemberships?.length ? [["orgs", "Orgs"]] : []),
               ["rosters", "Rosters"],
             ].map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} style={{
