@@ -103,18 +103,27 @@ function ImportRoster({ teamId, orgId, existingPlayers, onImported, onCancel }) 
     if (!rows?.length) return;
     setImporting(true);
     setImportError(null);
-    const toInsert = rows.map(r => ({
-      team_id:  teamId,
-      org_id:   orgId,
-      name:     r.name,
-      number:   r.number ? parseInt(r.number, 10) : null,
-      position: r.position || null,
-    }));
-    const { data, error: err } = await supabase
-      .from("players").insert(toInsert).select("id, name, number, position");
+
+    // Step 1: create players in the org pool
+    const { data: newPlayers, error: pErr } = await supabase
+      .from("players")
+      .insert(rows.map(r => ({
+        org_id:   orgId,
+        name:     r.name,
+        number:   r.number ? parseInt(r.number, 10) : null,
+        position: r.position || null,
+      })))
+      .select("id, name, number, position");
+    if (pErr) { setImportError(pErr.message); setImporting(false); return; }
+
+    // Step 2: assign all to this team
+    const { error: tErr } = await supabase
+      .from("team_players")
+      .insert(newPlayers.map(p => ({ team_id: teamId, player_id: p.id, jersey_num: null })));
     setImporting(false);
-    if (err) { setImportError(err.message); return; }
-    onImported(data);
+    if (tErr) { setImportError(tErr.message); return; }
+
+    onImported(newPlayers.map(p => ({ ...p, jersey_num: null })));
   }
 
   const dupeNums = rows ? rows.filter(r => r.number && existingNums.has(r.number)).map(r => `#${r.number}`) : [];
@@ -343,12 +352,20 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
     if (players !== null) return;
     setLoadingPlayers(true);
     const { data } = await supabase
-      .from("players")
-      .select("id, name, number, position")
-      .eq("team_id", team.id)
-      .order("number", { nullsFirst: false })
-      .order("name");
-    setPlayers(data || []);
+      .from("team_players")
+      .select("jersey_num, player:players!inner(id, name, number, position)")
+      .eq("team_id", team.id);
+    const flat = (data || [])
+      .map(tp => ({ ...tp.player, jersey_num: tp.jersey_num }))
+      .sort((a, b) => {
+        const na = a.jersey_num ?? a.number;
+        const nb = b.jersey_num ?? b.number;
+        if (na != null && nb != null) return na - nb;
+        if (na != null) return -1;
+        if (nb != null) return 1;
+        return a.name.localeCompare(b.name);
+      });
+    setPlayers(flat);
     setLoadingPlayers(false);
   }
 
@@ -372,18 +389,28 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
   async function handleAddPlayer(fields) {
     setSaving(true);
     setPlayerError(null);
-    const { data, error: err } = await supabase
+    // Create the player in the org pool
+    const { data: player, error: pErr } = await supabase
       .from("players")
-      .insert({ team_id: team.id, org_id: orgId, ...fields })
+      .insert({ org_id: orgId, name: fields.name, number: fields.number, position: fields.position })
       .select("id, name, number, position")
       .single();
-    if (err) { setPlayerError(err.message); setSaving(false); return; }
-    setPlayers(prev => [...(prev || []), data].sort((a, b) => {
-      if (a.number != null && b.number != null) return a.number - b.number;
-      if (a.number != null) return -1;
-      if (b.number != null) return 1;
-      return a.name.localeCompare(b.name);
-    }));
+    if (pErr) { setPlayerError(pErr.message); setSaving(false); return; }
+    // Assign to this team
+    const { error: tErr } = await supabase
+      .from("team_players")
+      .insert({ team_id: team.id, player_id: player.id, jersey_num: null });
+    if (tErr) { setPlayerError(tErr.message); setSaving(false); return; }
+    const entry = { ...player, jersey_num: null };
+    setPlayers(prev => {
+      const next = [...(prev || []), entry];
+      return next.sort((a, b) => {
+        const na = a.jersey_num ?? a.number, nb = b.jersey_num ?? b.number;
+        if (na != null && nb != null) return na - nb;
+        if (na != null) return -1; if (nb != null) return 1;
+        return a.name.localeCompare(b.name);
+      });
+    });
     setAddingPlayer(false);
     setSaving(false);
   }
@@ -399,7 +426,9 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
   }
 
   async function handleDeletePlayer(id) {
-    const { error: err } = await supabase.from("players").delete().eq("id", id);
+    // Remove from this team only; player stays in the org pool
+    const { error: err } = await supabase.from("team_players")
+      .delete().eq("team_id", team.id).eq("player_id", id);
     if (err) { setPlayerError(err.message); return; }
     setPlayers(prev => prev.filter(p => p.id !== id));
   }
@@ -458,8 +487,8 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
                         onCancel={() => setEditingPlayerId(null)} />
                     ) : (
                       <div key={p.id} style={{ display: "flex", alignItems: "center", padding: "7px 0", borderBottom: "1px solid #f5f5f5", gap: 8 }}>
-                        {p.number != null && (
-                          <span style={{ fontSize: 12, color: "#bbb", width: 24, textAlign: "right", flexShrink: 0 }}>#{p.number}</span>
+                        {(p.jersey_num ?? p.number) != null && (
+                          <span style={{ fontSize: 12, color: "#bbb", width: 24, textAlign: "right", flexShrink: 0 }}>#{p.jersey_num ?? p.number}</span>
                         )}
                         <span style={{ flex: 1, fontSize: 14, color: "#111" }}>{p.name}</span>
                         {p.position && <span style={{ fontSize: 11, color: "#aaa" }}>{p.position}</span>}
@@ -519,6 +548,8 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
     </div>
   );
 }
+
+export { TeamCard, TeamForm, ColorPicker, PRESET_COLORS };
 
 export default function TeamManager() {
   const { slug } = useParams();

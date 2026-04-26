@@ -775,7 +775,7 @@ export default function LaxStats({
     if (!orgContext?.orgId) return;
     supabase
       .from("teams")
-      .select("id, name, color, players(id, number, name)")
+      .select("id, name, color, team_players(jersey_num, player:players!inner(id, name, number))")
       .eq("org_id", orgContext.orgId)
       .order("name")
       .then(({ data }) => { if (data) setOrgTeams(data); });
@@ -1221,7 +1221,7 @@ export default function LaxStats({
               <div key={ti} style={S.setupCard(teams[ti].color)}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div style={S.teamLabel(teams[ti].color)}>{ti === 0 ? "Home" : "Away"}</div>
-                  {(savedTeams.length > 0 || orgTeams.length > 0) && (
+                  {!teams[ti].orgTeamId && (savedTeams.length > 0 || orgTeams.length > 0) && (
                     <select
                       style={{ fontSize: 11, color: teams[ti].color, border: "1px solid #e5e5e5", borderRadius: 6, padding: "3px 6px", background: "#fafafa", cursor: "pointer", maxWidth: 130 }}
                       defaultValue=""
@@ -1231,11 +1231,11 @@ export default function LaxStats({
                         if (val.startsWith("org:")) {
                           const orgTeam = orgTeams.find(t => t.id === val.slice(4));
                           if (!orgTeam) return;
-                          const roster = (orgTeam.players || [])
-                            .sort((a, b) => parseInt(a.number, 10) - parseInt(b.number, 10))
-                            .map(p => `#${p.number} ${p.name}`)
+                          const roster = (orgTeam.team_players || [])
+                            .sort((a, b) => (a.jersey_num ?? a.player?.number ?? 99) - (b.jersey_num ?? b.player?.number ?? 99))
+                            .map(tp => `#${tp.jersey_num ?? tp.player?.number} ${tp.player?.name}`)
                             .join("\n");
-                          setTeams(t => t.map((x, i) => i === ti ? { ...x, name: orgTeam.name, roster, color: orgTeam.color || x.color } : x));
+                          setTeams(t => t.map((x, i) => i === ti ? { ...x, name: orgTeam.name, roster, color: orgTeam.color || x.color, orgTeamId: orgTeam.id } : x));
                           if (onOrgTeamSelected) onOrgTeamSelected(ti, orgTeam.id);
                         } else {
                           const saved = savedTeams.find(t => t.id === val);
@@ -1262,39 +1262,75 @@ export default function LaxStats({
                     </select>
                   )}
                 </div>
-                <input style={S.textInput} placeholder={ti === 0 ? "Home team name" : "Away team name"}
-                  value={teams[ti].name} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, name: e.target.value } : x))} />
-                <div style={{ marginBottom: 4, fontSize: 11, color: "#888" }}>Team color</div>
-                <div style={S.colorRow}>
-                  {PRESET_COLORS.map(c => <div key={c} style={S.colorSwatch(c, teams[ti].color === c)} onClick={() => setTeams(t => t.map((x, i) => i === ti ? { ...x, color: c } : x))} />)}
-                  <input type="color" style={S.colorPickerInput} value={teams[ti].color} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, color: e.target.value } : x))} />
-                </div>
-                <textarea style={S.textarea} placeholder={"#2 First Last\n#7 First Last\n#11 First Last"}
-                  value={teams[ti].roster} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, roster: e.target.value } : x))} />
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                  <div style={S.hint}>One player per line — #number Name</div>
-                  <label style={{ fontSize: 11, color: teamColors[ti], fontWeight: 600, cursor: "pointer", flexShrink: 0, marginLeft: 8 }}>
-                    Upload CSV
-                    <input type="file" accept=".csv,text/csv" style={{ display: "none" }}
-                      onChange={e => { handleCsvRoster(e.target.files[0], ti); e.target.value = ""; }} />
-                  </label>
-                </div>
-                {teams[ti].roster && (() => {
-                  const players = parseRoster(teams[ti].roster);
-                  const dupes = findDuplicateNums(teams[ti].roster);
-                  return (
-                    <div style={{ marginTop: 10 }}>
-                      <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{players.length} player{players.length !== 1 ? "s" : ""}</div>
-                      {players.slice(0, 5).map((p, i) => <span key={i} style={S.chip}><span style={S.chipNum}>#{p.num}</span>{p.name}</span>)}
-                      {players.length > 5 && <span style={S.chip}>+{players.length - 5} more</span>}
-                      {dupes.length > 0 && (
-                        <div style={{ fontSize: 11, color: "#c0392b", marginTop: 6, fontWeight: 500 }}>
-                          Duplicate number{dupes.length > 1 ? "s" : ""}: {dupes.join(", ")}
-                        </div>
-                      )}
+                {teams[ti].orgTeamId ? (
+                  /* ── Locked org team ── */
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <div style={{ width: 12, height: 12, borderRadius: "50%", background: teams[ti].color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" }}>{teams[ti].name}</span>
+                      <button
+                        onClick={() => setTeams(t => t.map((x, i) => i === ti ? { ...x, orgTeamId: null, roster: "", name: ti === 0 ? "Home" : "Away", color: ti === 0 ? "#1a6bab" : "#b84e1a" } : x))}
+                        style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #ddd", borderRadius: 6, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
+                      >
+                        Change
+                      </button>
                     </div>
-                  );
-                })()}
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #c0e8c8", borderRadius: 6, padding: "3px 9px", marginBottom: 10, display: "inline-block" }}>
+                      Org roster · locked
+                    </div>
+                    {(() => {
+                      const players = parseRoster(teams[ti].roster);
+                      return (
+                        <div>
+                          <div style={{ fontSize: 11, color: "#aaa", marginBottom: 6 }}>{players.length} player{players.length !== 1 ? "s" : ""}</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {players.map((p, i) => <span key={i} style={S.chip}><span style={S.chipNum}>#{p.num}</span>{p.name}</span>)}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#bbb", marginTop: 10 }}>
+                            To update this roster, edit it in Org → Teams
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  /* ── Free-form entry ── */
+                  <>
+                    <input style={S.textInput} placeholder={ti === 0 ? "Home team name" : "Away team name"}
+                      value={teams[ti].name} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, name: e.target.value } : x))} />
+                    <div style={{ marginBottom: 4, fontSize: 11, color: "#888" }}>Team color</div>
+                    <div style={S.colorRow}>
+                      {PRESET_COLORS.map(c => <div key={c} style={S.colorSwatch(c, teams[ti].color === c)} onClick={() => setTeams(t => t.map((x, i) => i === ti ? { ...x, color: c } : x))} />)}
+                      <input type="color" style={S.colorPickerInput} value={teams[ti].color} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, color: e.target.value } : x))} />
+                    </div>
+                    <textarea style={S.textarea} placeholder={"#2 First Last\n#7 First Last\n#11 First Last"}
+                      value={teams[ti].roster} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, roster: e.target.value } : x))} />
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                      <div style={S.hint}>One player per line — #number Name</div>
+                      <label style={{ fontSize: 11, color: teamColors[ti], fontWeight: 600, cursor: "pointer", flexShrink: 0, marginLeft: 8 }}>
+                        Upload CSV
+                        <input type="file" accept=".csv,text/csv" style={{ display: "none" }}
+                          onChange={e => { handleCsvRoster(e.target.files[0], ti); e.target.value = ""; }} />
+                      </label>
+                    </div>
+                    {teams[ti].roster && (() => {
+                      const players = parseRoster(teams[ti].roster);
+                      const dupes = findDuplicateNums(teams[ti].roster);
+                      return (
+                        <div style={{ marginTop: 10 }}>
+                          <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{players.length} player{players.length !== 1 ? "s" : ""}</div>
+                          {players.slice(0, 5).map((p, i) => <span key={i} style={S.chip}><span style={S.chipNum}>#{p.num}</span>{p.name}</span>)}
+                          {players.length > 5 && <span style={S.chip}>+{players.length - 5} more</span>}
+                          {dupes.length > 0 && (
+                            <div style={{ fontSize: 11, color: "#c0392b", marginTop: 6, fontWeight: 500 }}>
+                              Duplicate number{dupes.length > 1 ? "s" : ""}: {dupes.join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
               </div>
             ))}
           </div>

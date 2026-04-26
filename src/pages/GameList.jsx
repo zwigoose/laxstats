@@ -335,7 +335,7 @@ function LiveGamesSection({ user }) {
   async function load() {
     const { data } = await supabase
       .from("games")
-      .select("id, created_at, name, state, user_id, org_id")
+      .select("id, created_at, name, state, user_id, org_id, pressbox_enabled")
       .not("state", "is", null)
       .order("created_at", { ascending: false });
     const live = (data || []).filter(g => {
@@ -344,8 +344,8 @@ function LiveGamesSection({ user }) {
     });
     setLiveGames(live);
 
-    // Check pressbox access for each unique org represented in live games
-    const orgIds = [...new Set(live.map(g => g.org_id).filter(Boolean))];
+    // Check pressbox access for orgs that don't already have per-game override
+    const orgIds = [...new Set(live.filter(g => !g.pressbox_enabled && g.org_id).map(g => g.org_id))];
     if (orgIds.length > 0) {
       const results = await Promise.all(
         orgIds.map(id => supabase.rpc("org_feature_limit", { p_org_id: id, p_feature_id: "pressbox" }).then(({ data }) => ({ id, limit: data })))
@@ -365,7 +365,7 @@ function LiveGamesSection({ user }) {
       </div>
       {liveGames.map(game => (
         <LiveCard key={game.id} game={game} isOwner={user?.id === game.user_id}
-          hasPressbox={game.org_id ? pressboxOrgs.has(game.org_id) : false} />
+          hasPressbox={game.pressbox_enabled || (game.org_id ? pressboxOrgs.has(game.org_id) : false)} />
       ))}
     </div>
   );
@@ -496,6 +496,14 @@ function OrgGamesSection({ orgMemberships }) {
 
   return (
     <>
+      {orgMemberships.length > 0 && (
+        <div style={{ textAlign: "right", marginBottom: 8 }}>
+          <button onClick={() => navigate("/orgs")}
+            style={{ fontSize: 12, color: "#1a6bab", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            Orgs dashboard →
+          </button>
+        </div>
+      )}
       {orgMemberships.map(m => {
         const orgGames = (gamesByOrg[m.org_id] || []).slice(0, 5);
         const orgName  = m.org?.name ?? "Org";

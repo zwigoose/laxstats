@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import GameList from "./pages/GameList";
 import Scorekeeper from "./pages/Scorekeeper";
@@ -11,11 +11,15 @@ import OrgDashboard from "./pages/OrgDashboard";
 import SeasonView from "./pages/SeasonView";
 import TeamManager from "./pages/TeamManager";
 import CreateGame from "./pages/CreateGame";
+import Orgs from "./pages/Orgs";
 import { version } from "../package.json";
 
-// Single source of truth for footer height — consumed here and via the
-// --footer-h CSS variable that full-viewport pages (Pressbox) use.
+// Single source of truth for layout heights — consumed here and via CSS variables.
 const FOOTER_H = 36;
+const NAV_H    = 44;
+
+// Routes where the nav + its top padding should NOT appear (full-viewport experiences).
+const NO_NAV = /\/games\/[^/]+\/(score|pressbox)/;
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -24,48 +28,112 @@ function PrivateRoute({ children }) {
   return children;
 }
 
-function AppRoutes() {
+// ── Global nav bar ───────────────────────────────────────────────────────────
+function NavItem({ label, active, onClick }) {
   return (
-    // Pad the content area so nothing slides behind the fixed footer.
-    <div style={{ paddingBottom: FOOTER_H }}>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={<GameList />} />
-        <Route path="/games/new" element={<PrivateRoute><CreateGame /></PrivateRoute>} />
-        <Route path="/games/:id/score" element={<PrivateRoute><Scorekeeper /></PrivateRoute>} />
-        <Route path="/games/:id/view" element={<ViewGame />} />
-        <Route path="/games/:id/pressbox" element={<Pressbox />} />
-        <Route path="/orgs/new" element={<PrivateRoute><CreateOrg /></PrivateRoute>} />
-        <Route path="/orgs/:slug" element={<OrgDashboard />} />
-        <Route path="/orgs/:slug/seasons/:id" element={<SeasonView />} />
-        <Route path="/orgs/:slug/teams" element={<PrivateRoute><TeamManager /></PrivateRoute>} />
-        <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
-      </Routes>
+    <button
+      onClick={onClick}
+      style={{
+        fontSize: 13, fontWeight: active ? 600 : 400,
+        color: active ? "#111" : "#888",
+        background: active ? "#f0f0f0" : "none",
+        border: "none", cursor: "pointer",
+        padding: "5px 11px", borderRadius: 7,
+        fontFamily: "system-ui, sans-serif",
+        transition: "background 0.1s, color 0.1s",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function AppNav() {
+  const { user, isAdmin, orgMemberships } = useAuth();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const path      = location.pathname;
+
+  if (!user || path === "/login" || NO_NAV.test(path)) return null;
+
+  const hasOrgs = orgMemberships?.length > 0;
+
+  return (
+    <div style={{
+      position: "fixed", top: 0, left: 0, right: 0, height: NAV_H,
+      background: "#fff", borderBottom: "1px solid #f0f0f0",
+      display: "flex", alignItems: "center", padding: "0 16px",
+      gap: 2, zIndex: 200, fontFamily: "system-ui, sans-serif",
+    }}>
+      {/* Logo / home */}
+      <button
+        onClick={() => navigate("/")}
+        style={{
+          fontSize: 15, fontWeight: 800, color: "#111", letterSpacing: "-0.03em",
+          background: "none", border: "none", cursor: "pointer",
+          padding: "5px 8px", borderRadius: 7, marginRight: 6,
+          fontFamily: "system-ui, sans-serif",
+        }}
+      >
+        LaxStats
+      </button>
+
+      <div style={{ width: 1, height: 18, background: "#e8e8e8", marginRight: 4 }} />
+
+      <NavItem label="Home"  active={path === "/"}            onClick={() => navigate("/")} />
+      {hasOrgs && (
+        <NavItem label="Orgs"  active={path.startsWith("/orgs")} onClick={() => navigate("/orgs")} />
+      )}
+      {isAdmin && (
+        <NavItem label="Admin" active={path === "/admin"}        onClick={() => navigate("/admin")} />
+      )}
     </div>
   );
 }
 
+// ── Routes ───────────────────────────────────────────────────────────────────
+function AppRoutes() {
+  const location = useLocation();
+  const path     = location.pathname;
+  const showNav  = path !== "/login" && !NO_NAV.test(path);
+
+  return (
+    <>
+      <AppNav />
+      <div style={{ paddingBottom: FOOTER_H, paddingTop: showNav ? NAV_H : 0 }}>
+        <Routes>
+          <Route path="/login"                    element={<Login />} />
+          <Route path="/"                         element={<GameList />} />
+          <Route path="/games/new"                element={<PrivateRoute><CreateGame /></PrivateRoute>} />
+          <Route path="/games/:id/score"          element={<PrivateRoute><Scorekeeper /></PrivateRoute>} />
+          <Route path="/games/:id/view"           element={<ViewGame />} />
+          <Route path="/games/:id/pressbox"       element={<Pressbox />} />
+          <Route path="/orgs"                     element={<PrivateRoute><Orgs /></PrivateRoute>} />
+          <Route path="/orgs/new"                 element={<PrivateRoute><CreateOrg /></PrivateRoute>} />
+          <Route path="/orgs/:slug"               element={<OrgDashboard />} />
+          <Route path="/orgs/:slug/seasons/:id"   element={<SeasonView />} />
+          <Route path="/orgs/:slug/teams"         element={<PrivateRoute><TeamManager /></PrivateRoute>} />
+          <Route path="/admin"                    element={<PrivateRoute><Admin /></PrivateRoute>} />
+        </Routes>
+      </div>
+    </>
+  );
+}
+
+// ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        {/* Publish footer height as a CSS variable for full-viewport pages */}
-        <style>{`:root { --footer-h: ${FOOTER_H}px; }`}</style>
+        <style>{`:root { --footer-h: ${FOOTER_H}px; --nav-h: ${NAV_H}px; }`}</style>
         <AppRoutes />
         <footer style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
+          position: "fixed", bottom: 0, left: 0, right: 0,
           height: FOOTER_H,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 11,
-          color: "#bbb",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 11, color: "#bbb",
           fontFamily: "system-ui, sans-serif",
-          background: "#fff",
-          borderTop: "1px solid #f0f0f0",
+          background: "#fff", borderTop: "1px solid #f0f0f0",
           zIndex: 100,
         }}>
           &copy; {new Date().getFullYear()} LaxStats &middot; v{version}

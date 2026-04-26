@@ -68,6 +68,11 @@ function AdminGameRow({ game, userMap, users, onReassigned, onDeleted }) {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+  const [pressboxEnabled, setPressboxEnabled] = useState(!!game.pressbox_enabled);
+  const [togglingPressbox, setTogglingPressbox] = useState(false);
+  const [pressboxError, setPressboxError] = useState(null);
+  // org-level pressbox: null = not yet fetched, true/false = result
+  const [orgPressbox, setOrgPressbox] = useState(null);
 
   async function handleDelete() {
     if (!deleteConfirm) { setDeleteConfirm(true); return; }
@@ -76,6 +81,16 @@ function AdminGameRow({ game, userMap, users, onReassigned, onDeleted }) {
     const { error: err } = await supabase.from("games").delete().eq("id", game.id);
     if (err) { setDeleteError(err.message); setDeleting(false); }
     else { onDeleted(game.id); }
+  }
+
+  async function handleTogglePressbox() {
+    setTogglingPressbox(true);
+    setPressboxError(null);
+    const next = !pressboxEnabled;
+    const { error: err } = await supabase.rpc("admin_set_game_pressbox", { p_game_id: game.id, p_enabled: next });
+    if (err) { setPressboxError(err.message); setTogglingPressbox(false); return; }
+    setPressboxEnabled(next);
+    setTogglingPressbox(false);
   }
 
   async function handleReassign() {
@@ -122,10 +137,22 @@ function AdminGameRow({ game, userMap, users, onReassigned, onDeleted }) {
           <div style={{ display: "flex", gap: 6 }}>
             <button style={{ padding: "5px 10px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}
               onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
+            <button style={{ padding: "5px 10px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}
+              onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
             <button style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: "#111", border: "none", borderRadius: 7, cursor: "pointer", color: "#fff" }}
               onClick={() => navigate(`/games/${game.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
             <button title="Reassign owner" style={{ padding: "5px 9px", fontSize: 12, background: adminOpen ? "#f0f0f0" : "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#888" }}
-              onClick={() => { setAdminOpen(v => !v); setDeleteConfirm(false); setDeleteError(null); }}>⚙</button>
+              onClick={() => {
+                const opening = !adminOpen;
+                setAdminOpen(opening);
+                setDeleteConfirm(false);
+                setDeleteError(null);
+                // Fetch org pressbox status once when panel first opens
+                if (opening && orgPressbox === null && game.org_id) {
+                  supabase.rpc("org_feature_limit", { p_org_id: game.org_id, p_feature_id: "pressbox" })
+                    .then(({ data }) => setOrgPressbox(data !== 0));
+                }
+              }}>⚙</button>
           </div>
         </div>
       </div>
@@ -144,6 +171,63 @@ function AdminGameRow({ game, userMap, users, onReassigned, onDeleted }) {
             </button>
           </div>
           {reassignError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{reassignError}</div>}
+          <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Press Box</div>
+            {orgPressbox ? (
+              // Org plan enables pressbox for all games in this org — no per-game toggle needed
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  position: "relative", width: 40, height: 22, borderRadius: 11,
+                  background: "#111", flexShrink: 0,
+                }}>
+                  <span style={{
+                    position: "absolute", top: 3, left: 21,
+                    width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  }} />
+                </div>
+                <span style={{ fontSize: 13, color: "#555" }}>Enabled via org plan</span>
+                <button
+                  onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}
+                  style={{ fontSize: 11, color: "#1a6bab", background: "none", border: "1px solid #c0d8f0", borderRadius: 6, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}
+                >
+                  Open ↗
+                </button>
+              </div>
+            ) : (
+              // No org-level pressbox — per-game override toggle
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  onClick={handleTogglePressbox}
+                  disabled={togglingPressbox}
+                  style={{
+                    position: "relative", width: 40, height: 22, borderRadius: 11, border: "none",
+                    background: pressboxEnabled ? "#111" : "#ddd",
+                    cursor: togglingPressbox ? "default" : "pointer",
+                    transition: "background 0.2s", flexShrink: 0, padding: 0,
+                  }}
+                >
+                  <span style={{
+                    position: "absolute", top: 3, left: pressboxEnabled ? 21 : 3,
+                    width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                    transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  }} />
+                </button>
+                <span style={{ fontSize: 13, color: "#555" }}>
+                  {pressboxEnabled ? "Enabled — press box link is active for this game" : "Disabled — enable to share the press box view"}
+                </span>
+                {pressboxEnabled && (
+                  <button
+                    onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}
+                    style={{ fontSize: 11, color: "#1a6bab", background: "none", border: "1px solid #c0d8f0", borderRadius: 6, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}
+                  >
+                    Open ↗
+                  </button>
+                )}
+              </div>
+            )}
+            {pressboxError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{pressboxError}</div>}
+          </div>
           <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Danger zone</div>
             {!deleteConfirm ? (
@@ -172,6 +256,76 @@ function AdminGameRow({ game, userMap, users, onReassigned, onDeleted }) {
   );
 }
 
+// ── Shared section toggle ─────────────────────────────────────────────────────
+function SectionToggle({ label, count, open, onToggle }) {
+  if (count === 0) return null;
+  return (
+    <button onClick={onToggle} style={{
+      width: "100%", padding: "8px 12px", marginTop: 4, marginBottom: open ? 8 : 4,
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      background: "#f5f5f5", border: "1px solid #e8e8e8", borderRadius: 8,
+      cursor: "pointer", fontSize: 12, fontWeight: 600, color: "#666",
+    }}>
+      <span>{count} {label}{count !== 1 ? "s" : ""}</span>
+      <span style={{ fontSize: 12, color: "#aaa", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s", display: "inline-block" }}>›</span>
+    </button>
+  );
+}
+
+// ── Org game group ────────────────────────────────────────────────────────────
+function OrgGameGroup({ orgName, orgSlug, games, userMap, users, onReassigned, onDeleted }) {
+  const live    = games.filter(g => { const i = getGameInfo(g); return i?.started && !i?.gameOver; });
+  const pending = games.filter(g => { const i = getGameInfo(g); return !i?.started; });
+  const final   = games.filter(g => { const i = getGameInfo(g); return i?.gameOver; });
+
+  const [open, setOpen]           = useState(live.length > 0);
+  const [showPending, setShowPending] = useState(false);
+  const [showFinal, setShowFinal]     = useState(false);
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      {/* Org header row */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          width: "100%", padding: "10px 14px",
+          display: "flex", alignItems: "center", gap: 10,
+          background: "#fff", border: "1px solid #e0e0e0", borderRadius: open ? "12px 12px 0 0" : 12,
+          cursor: "pointer", textAlign: "left",
+        }}
+      >
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#111", flex: 1 }}>{orgName}</span>
+        {live.length > 0 && (
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "2px 8px" }}>
+            ● {live.length} live
+          </span>
+        )}
+        <span style={{ fontSize: 11, color: "#aaa" }}>{games.length} game{games.length !== 1 ? "s" : ""}</span>
+        <span style={{ fontSize: 13, color: "#ccc", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>›</span>
+      </button>
+
+      {open && (
+        <div style={{ border: "1px solid #e0e0e0", borderTop: "none", borderRadius: "0 0 12px 12px", padding: "10px 12px 12px", background: "#fafafa" }}>
+          {live.length === 0 && pending.length === 0 && final.length === 0 && (
+            <div style={{ fontSize: 13, color: "#aaa", padding: "8px 0" }}>No games.</div>
+          )}
+          {live.map(g => (
+            <AdminGameRow key={g.id} game={g} userMap={userMap} users={users} onReassigned={onReassigned} onDeleted={onDeleted} />
+          ))}
+          <SectionToggle label="pending game" count={pending.length} open={showPending} onToggle={() => setShowPending(v => !v)} />
+          {showPending && pending.map(g => (
+            <AdminGameRow key={g.id} game={g} userMap={userMap} users={users} onReassigned={onReassigned} onDeleted={onDeleted} />
+          ))}
+          <SectionToggle label="completed game" count={final.length} open={showFinal} onToggle={() => setShowFinal(v => !v)} />
+          {showFinal && final.map(g => (
+            <AdminGameRow key={g.id} game={g} userMap={userMap} users={users} onReassigned={onReassigned} onDeleted={onDeleted} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── All Games Tab ─────────────────────────────────────────────────────────────
 function AllGamesTab() {
   const navigate = useNavigate();
@@ -179,8 +333,8 @@ function AllGamesTab() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showPending, setShowPending] = useState(false);
-  const [showFinal, setShowFinal] = useState(false);
+  const [showPersonalPending, setShowPersonalPending] = useState(false);
+  const [showPersonalFinal, setShowPersonalFinal]     = useState(false);
   const [showCreateGame, setShowCreateGame] = useState(false);
   const [createForUserId, setCreateForUserId] = useState("");
   const [creating, setCreating] = useState(false);
@@ -200,7 +354,7 @@ function AllGamesTab() {
     setLoading(true);
     setError(null);
     const [gamesRes, usersRes] = await Promise.all([
-      supabase.from("games").select("id, name, created_at, state, user_id").order("created_at", { ascending: false }),
+      supabase.from("games").select("id, name, created_at, state, user_id, pressbox_enabled, org_id, org:organizations!org_id(id, name, slug)").order("created_at", { ascending: false }),
       supabase.rpc("admin_get_users"),
     ]);
     if (gamesRes.error) { setError(gamesRes.error.message); setLoading(false); return; }
@@ -215,9 +369,31 @@ function AllGamesTab() {
     return m;
   }, [users]);
 
-  const liveGames    = games.filter(g => { const i = getGameInfo(g); return i?.started && !i?.gameOver; });
-  const pendingGames = games.filter(g => { const i = getGameInfo(g); return !i?.started; });
-  const finalGames   = games.filter(g => { const i = getGameInfo(g); return i?.gameOver; });
+  // Split into org groups and personal
+  const { orgGroups, personalGames } = useMemo(() => {
+    const groups = {};
+    const personal = [];
+    for (const g of games) {
+      if (g.org_id) {
+        if (!groups[g.org_id]) groups[g.org_id] = { org: g.org, games: [] };
+        groups[g.org_id].games.push(g);
+      } else {
+        personal.push(g);
+      }
+    }
+    // Sort orgs: those with live games first, then alphabetically
+    const sorted = Object.values(groups).sort((a, b) => {
+      const aLive = a.games.some(g => { const i = getGameInfo(g); return i?.started && !i?.gameOver; });
+      const bLive = b.games.some(g => { const i = getGameInfo(g); return i?.started && !i?.gameOver; });
+      if (aLive !== bLive) return bLive ? 1 : -1;
+      return (a.org?.name ?? "").localeCompare(b.org?.name ?? "");
+    });
+    return { orgGroups: sorted, personalGames: personal };
+  }, [games]);
+
+  const personalLive    = personalGames.filter(g => { const i = getGameInfo(g); return i?.started && !i?.gameOver; });
+  const personalPending = personalGames.filter(g => { const i = getGameInfo(g); return !i?.started; });
+  const personalFinal   = personalGames.filter(g => { const i = getGameInfo(g); return i?.gameOver; });
 
   async function handleCreateGame() {
     if (!createForUserId) return;
@@ -235,21 +411,6 @@ function AllGamesTab() {
 
   function handleGameDeleted(gameId) {
     setGames(prev => prev.filter(g => g.id !== gameId));
-  }
-
-  function SectionToggle({ label, count, open, onToggle }) {
-    if (count === 0) return null;
-    return (
-      <button onClick={onToggle} style={{
-        width: "100%", padding: "10px 14px", marginTop: 4, marginBottom: open ? 10 : 4,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: "#f5f5f5", border: "1px solid #e8e8e8", borderRadius: 10,
-        cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#555",
-      }}>
-        <span>{count} {label}{count !== 1 ? "s" : ""}</span>
-        <span style={{ fontSize: 12, color: "#aaa", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s", display: "inline-block" }}>›</span>
-      </button>
-    );
   }
 
   if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
@@ -287,16 +448,34 @@ function AllGamesTab() {
       </div>
 
       {games.length === 0 && <div style={{ textAlign: "center", padding: "24px 0 12px", color: "#aaa", fontSize: 14 }}>No games yet.</div>}
-      {liveGames.length === 0 && games.length > 0 && (
-        <div style={{ textAlign: "center", padding: "24px 0 12px", color: "#aaa", fontSize: 14 }}>No live games.</div>
+
+      {/* Org groups */}
+      {orgGroups.map(({ org, games: orgGames }) => (
+        <OrgGameGroup
+          key={org?.id ?? "unknown"}
+          orgName={org?.name ?? "Unknown Org"}
+          orgSlug={org?.slug}
+          games={orgGames}
+          userMap={userMap}
+          users={users}
+          onReassigned={handleGameReassigned}
+          onDeleted={handleGameDeleted}
+        />
+      ))}
+
+      {/* Personal games */}
+      {personalGames.length > 0 && (
+        <div style={{ marginTop: orgGroups.length > 0 ? 16 : 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            Personal Games
+          </div>
+          {personalLive.map(g => <AdminGameRow key={g.id} game={g} userMap={userMap} users={users} onReassigned={handleGameReassigned} onDeleted={handleGameDeleted} />)}
+          <SectionToggle label="pending game" count={personalPending.length} open={showPersonalPending} onToggle={() => setShowPersonalPending(v => !v)} />
+          {showPersonalPending && personalPending.map(g => <AdminGameRow key={g.id} game={g} userMap={userMap} users={users} onReassigned={handleGameReassigned} onDeleted={handleGameDeleted} />)}
+          <SectionToggle label="completed game" count={personalFinal.length} open={showPersonalFinal} onToggle={() => setShowPersonalFinal(v => !v)} />
+          {showPersonalFinal && personalFinal.map(g => <AdminGameRow key={g.id} game={g} userMap={userMap} users={users} onReassigned={handleGameReassigned} onDeleted={handleGameDeleted} />)}
+        </div>
       )}
-      {liveGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} onDeleted={handleGameDeleted} />)}
-
-      <SectionToggle label="pending game" count={pendingGames.length} open={showPending} onToggle={() => setShowPending(v => !v)} />
-      {showPending && pendingGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} onDeleted={handleGameDeleted} />)}
-
-      <SectionToggle label="completed game" count={finalGames.length} open={showFinal} onToggle={() => setShowFinal(v => !v)} />
-      {showFinal && finalGames.map(game => <AdminGameRow key={game.id} game={game} userMap={userMap} users={users} onReassigned={handleGameReassigned} onDeleted={handleGameDeleted} />)}
     </div>
   );
 }
@@ -326,7 +505,7 @@ function UsersTab() {
     setError(null);
     const [usersRes, gamesRes] = await Promise.all([
       supabase.rpc("admin_get_users"),
-      supabase.from("games").select("id, name, created_at, state, user_id").order("created_at", { ascending: false }),
+      supabase.from("games").select("id, name, created_at, state, user_id, pressbox_enabled").order("created_at", { ascending: false }),
     ]);
     if (usersRes.error) { setError(usersRes.error.message); setLoading(false); return; }
     setUsers(usersRes.data || []);
@@ -843,9 +1022,11 @@ function RostersAdminTab() {
 }
 
 // ── Orgs Tab ──────────────────────────────────────────────────────────────────
-const PLANS       = ["free", "starter", "pro", "enterprise"];
-const PLAN_STATUS = ["active", "trialing", "past_due", "canceled"];
-const ORG_ROLES   = ["org_admin", "coach", "scorekeeper", "viewer"];
+const PLANS          = ["free", "starter", "pro", "enterprise"];
+const PLAN_STATUS    = ["active", "trialing", "past_due", "canceled"];
+const ORG_ROLES      = ["org_admin", "coach", "scorekeeper", "viewer"];
+// Features whose limit is semantically on/off (1 = enabled, 0 = disabled)
+const BOOLEAN_FEATURES = new Set(["pressbox", "season_stats", "multi_scorekeeper"]);
 
 const PLAN_COLOR = {
   free: { bg: "#f5f5f5", color: "#888" },
@@ -858,11 +1039,23 @@ const STATUS_COLOR = {
 };
 
 function OrgCard({ org, users, onUpdated, onDeleted }) {
+  const navigate = useNavigate();
   const [open, setOpen]               = useState(false);
   const [members, setMembers]         = useState([]);
   const [features, setFeatures]       = useState([]);
+  const [teams, setTeams]             = useState([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError]             = useState(null);
+
+  // Create team
+  const [showNewTeam, setShowNewTeam]   = useState(false);
+  const [newTeamName, setNewTeamName]   = useState("");
+  const [newTeamColor, setNewTeamColor] = useState("#444444");
+  const [creatingTeam, setCreatingTeam] = useState(false);
+
+  // Create game
+  const [showNewGame, setShowNewGame]   = useState(false);
+  const [gameOwner, setGameOwner]       = useState("");
 
   // Plan editing
   const [editPlan, setEditPlan]       = useState(false);
@@ -884,14 +1077,43 @@ function OrgCard({ org, users, onUpdated, onDeleted }) {
 
   async function loadDetail() {
     setLoadingDetail(true);
-    const [mRes, fRes] = await Promise.all([
+    const [mRes, fRes, tRes] = await Promise.all([
       supabase.rpc("admin_get_org_members", { p_org_id: org.id }),
       supabase.rpc("admin_get_org_features", { p_org_id: org.id }),
+      supabase.from("teams").select("id, name, color").eq("org_id", org.id).order("name"),
     ]);
     if (mRes.error) setError(mRes.error.message);
     else setMembers(mRes.data || []);
     if (fRes.data) setFeatures(fRes.data);
+    if (tRes.data) setTeams(tRes.data);
     setLoadingDetail(false);
+  }
+
+  async function handleCreateTeam() {
+    if (!newTeamName.trim()) return;
+    setCreatingTeam(true);
+    const { data, error: err } = await supabase
+      .from("teams")
+      .insert({ name: newTeamName.trim(), color: newTeamColor, org_id: org.id })
+      .select("id, name, color")
+      .single();
+    if (err) { setError(err.message); setCreatingTeam(false); return; }
+    setTeams(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+    setNewTeamName("");
+    setNewTeamColor("#444444");
+    setShowNewTeam(false);
+    setCreatingTeam(false);
+    onUpdated({ ...org, team_count: Number(org.team_count) + 1 });
+  }
+
+  function handleCreateGame() {
+    if (!gameOwner) return;
+    const membership = {
+      org_id: org.id,
+      role: "org_admin",
+      org: { id: org.id, name: org.name, slug: org.slug },
+    };
+    navigate("/games/new", { state: { orgMembership: membership, adminOwnerOverride: gameOwner } });
   }
 
   function toggle() {
@@ -953,12 +1175,13 @@ function OrgCard({ org, users, onUpdated, onDeleted }) {
 
   async function handleFeatureOverride(featureId, rawVal) {
     const val = rawVal === "" ? null : parseInt(rawVal, 10);
+    const resolved = isNaN(val) ? null : val;
     const { error: err } = await supabase.rpc("admin_set_feature_override", {
-      p_org_id: org.id, p_feature_id: featureId, p_override_limit: isNaN(val) ? null : val,
+      p_org_id: org.id, p_feature_id: featureId, p_override_limit: resolved,
     });
     if (err) setError(err.message);
     else setFeatures(prev => prev.map(f =>
-      f.feature_id === featureId ? { ...f, override_limit: isNaN(val) ? null : val } : f
+      f.feature_id === featureId ? { ...f, override_limit: resolved } : f
     ));
   }
 
@@ -1068,23 +1291,138 @@ function OrgCard({ org, users, onUpdated, onDeleted }) {
                 <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Feature Limits</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "6px 12px", alignItems: "center" }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: "#aaa" }}>Feature</span>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "#aaa" }}>Plan limit</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#aaa" }}>Plan default</span>
                   <span style={{ fontSize: 11, fontWeight: 600, color: "#aaa" }}>Override</span>
-                  {features.map(f => (
-                    <>
-                      <span key={f.feature_id + "_n"} style={{ fontSize: 13, color: "#111" }}>{f.description || f.feature_id}</span>
-                      <span key={f.feature_id + "_p"} style={{ fontSize: 12, color: "#aaa", textAlign: "right" }}>
-                        {f.plan_limit === null ? "∞" : f.plan_limit === 0 ? "off" : f.plan_limit}
-                      </span>
-                      <input key={f.feature_id + "_o"}
-                        style={{ ...inp, width: 64, textAlign: "center", padding: "4px 6px", fontSize: 12 }}
-                        placeholder="—"
-                        defaultValue={f.override_limit ?? ""}
-                        onBlur={e => handleFeatureOverride(f.feature_id, e.target.value)} />
-                    </>
-                  ))}
+                  {features.map(f => {
+                    const isBool = BOOLEAN_FEATURES.has(f.feature_id);
+                    const planLabel = isBool
+                      ? (f.plan_limit === 0 ? "false" : "true")
+                      : (f.plan_limit === null ? "∞" : f.plan_limit === 0 ? "off" : String(f.plan_limit));
+                    return (
+                      <>
+                        <span key={f.feature_id + "_n"} style={{ fontSize: 13, color: "#111" }}>{f.description || f.feature_id}</span>
+                        <span key={f.feature_id + "_p"} style={{ fontSize: 12, color: "#aaa", textAlign: "right" }}>
+                          {planLabel}
+                        </span>
+                        {isBool ? (
+                          <select key={f.feature_id + "_o"}
+                            value={f.override_limit === null ? "" : String(f.override_limit)}
+                            onChange={e => handleFeatureOverride(f.feature_id, e.target.value)}
+                            style={{ ...inp, padding: "4px 6px", fontSize: 12, minWidth: 90 }}>
+                            <option value="">Plan default</option>
+                            <option value="1">true</option>
+                            <option value="0">false</option>
+                          </select>
+                        ) : (
+                          <input key={f.feature_id + "_o"}
+                            style={{ ...inp, width: 64, textAlign: "center", padding: "4px 6px", fontSize: 12 }}
+                            placeholder="—"
+                            defaultValue={f.override_limit ?? ""}
+                            onBlur={e => handleFeatureOverride(f.feature_id, e.target.value)} />
+                        )}
+                      </>
+                    );
+                  })}
                 </div>
-                <div style={{ fontSize: 11, color: "#bbb", marginTop: 6 }}>Leave override blank to use plan default. Enter a number to override. Null = unlimited.</div>
+                <div style={{ fontSize: 11, color: "#bbb", marginTop: 6 }}>
+                  Boolean features: Plan default / true / false. Numeric: blank = plan default, number = override limit.
+                </div>
+              </div>
+
+              {/* ── Teams ── */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Teams</div>
+                  {!showNewTeam && (
+                    <button onClick={() => setShowNewTeam(true)}
+                      style={{ fontSize: 12, fontWeight: 600, color: "#1a6bab", background: "none", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 9px", cursor: "pointer" }}>
+                      + New Team
+                    </button>
+                  )}
+                </div>
+                {teams.length === 0 && !showNewTeam && (
+                  <div style={{ fontSize: 13, color: "#aaa", marginBottom: 8 }}>No teams yet.</div>
+                )}
+                {teams.length > 0 && (
+                  <div style={{ marginBottom: 10 }}>
+                    {teams.map(t => (
+                      <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #f5f5f5" }}>
+                        <div style={{ width: 12, height: 12, borderRadius: "50%", background: t.color || "#888", flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, color: "#111", flex: 1 }}>{t.name}</span>
+                        <button
+                          onClick={() => navigate(`/orgs/${org.slug}/teams`)}
+                          style={{ fontSize: 11, color: "#555", background: "none", border: "1px solid #ddd", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>
+                          Manage
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {showNewTeam && (
+                  <div style={{ background: "#f7f7f7", borderRadius: 10, padding: "12px 14px", border: "1px solid #e8e8e8" }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <input
+                        style={{ ...inp, flex: 1, minWidth: 120 }}
+                        placeholder="Team name"
+                        value={newTeamName}
+                        onChange={e => setNewTeamName(e.target.value)}
+                        onKeyDown={e => e.key === "Enter" && handleCreateTeam()}
+                        autoFocus
+                      />
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: "50%", background: newTeamColor, border: "1px solid #ddd", flexShrink: 0 }} />
+                        <input
+                          type="color"
+                          value={newTeamColor}
+                          onChange={e => setNewTeamColor(e.target.value)}
+                          style={{ width: 36, height: 28, padding: 2, border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", background: "#fff" }}
+                          title="Team color"
+                        />
+                      </div>
+                      <button onClick={handleCreateTeam} disabled={!newTeamName.trim() || creatingTeam}
+                        style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: newTeamName.trim() && !creatingTeam ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
+                        {creatingTeam ? "…" : "Create"}
+                      </button>
+                      <button onClick={() => { setShowNewTeam(false); setNewTeamName(""); setNewTeamColor("#444444"); }}
+                        style={{ padding: "6px 10px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555", flexShrink: 0 }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Create Game ── */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Create Game</div>
+                {!showNewGame ? (
+                  <button onClick={() => setShowNewGame(true)}
+                    style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                    + New Game in {org.name}
+                  </button>
+                ) : (
+                  <div style={{ background: "#f7f7f7", borderRadius: 10, padding: "12px 14px", border: "1px solid #e8e8e8" }}>
+                    <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Owner — org admin, coach, or scorekeeper</div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <select value={gameOwner} onChange={e => setGameOwner(e.target.value)}
+                        style={{ ...inp, flex: 1 }}>
+                        <option value="">Select member…</option>
+                        {members
+                          .filter(m => ["org_admin", "coach", "scorekeeper"].includes(m.role))
+                          .map(m => <option key={m.user_id} value={m.user_id}>{displayName(m.email)} — {m.role.replace("org_", "")}</option>)
+                        }
+                      </select>
+                      <button onClick={handleCreateGame} disabled={!gameOwner}
+                        style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: gameOwner ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
+                        Go to Setup →
+                      </button>
+                      <button onClick={() => { setShowNewGame(false); setGameOwner(""); }}
+                        style={{ padding: "6px 10px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555", flexShrink: 0 }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* ── Danger zone ── */}
@@ -1116,11 +1454,27 @@ function OrgCard({ org, users, onUpdated, onDeleted }) {
   );
 }
 
+function slugify(str) {
+  return str.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
 function OrgsTab() {
-  const [orgs, setOrgs]     = useState([]);
-  const [users, setUsers]   = useState([]);
+  const [orgs, setOrgs]       = useState([]);
+  const [users, setUsers]     = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState(null);
+  const [error, setError]     = useState(null);
+
+  // Create org state
+  const [showCreate, setShowCreate]   = useState(false);
+  const [newName, setNewName]         = useState("");
+  const [newSlug, setNewSlug]         = useState("");
+  const [newOwner, setNewOwner]       = useState("");
+  const [newPlan, setNewPlan]         = useState("free");
+  const [creating, setCreating]       = useState(false);
+  const [createError, setCreateError] = useState(null);
+  const [slugEdited, setSlugEdited]   = useState(false);
+
+  const inp = { padding: "7px 10px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", background: "#fff", boxSizing: "border-box" };
 
   useEffect(() => {
     Promise.all([
@@ -1134,23 +1488,121 @@ function OrgsTab() {
     });
   }, []);
 
+  function handleNameChange(val) {
+    setNewName(val);
+    if (!slugEdited) setNewSlug(slugify(val));
+  }
+
+  async function handleCreateOrg(e) {
+    e.preventDefault();
+    if (!newName.trim() || !newSlug.trim() || !newOwner) return;
+    setCreating(true);
+    setCreateError(null);
+
+    // Insert org
+    const { data: orgRow, error: orgErr } = await supabase
+      .from("organizations")
+      .insert({ name: newName.trim(), slug: newSlug.trim(), plan: newPlan, plan_status: "active" })
+      .select("id, slug, name, plan, plan_status")
+      .single();
+
+    if (orgErr) { setCreateError(orgErr.message); setCreating(false); return; }
+
+    // Add owner as org_admin
+    const { error: memberErr } = await supabase
+      .from("org_members")
+      .insert({ org_id: orgRow.id, user_id: newOwner, role: "org_admin" });
+
+    if (memberErr) { setCreateError(memberErr.message); setCreating(false); return; }
+
+    // Reload orgs list to pick up all computed columns
+    const { data: fresh } = await supabase.rpc("admin_get_orgs");
+    if (fresh) setOrgs(fresh);
+
+    setShowCreate(false);
+    setNewName(""); setNewSlug(""); setNewOwner(""); setNewPlan("free"); setSlugEdited(false);
+    setCreating(false);
+  }
+
   if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
   if (error)   return <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "12px 16px", color: "#c0392b", fontSize: 13 }}>{error}</div>;
 
-  if (orgs.length === 0) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>No organizations yet.</div>;
-
   return (
     <div style={{ paddingBottom: 40 }}>
-      <div style={{ fontSize: 13, color: "#aaa", marginBottom: 16 }}>{orgs.length} org{orgs.length !== 1 ? "s" : ""}</div>
-      {orgs.map(org => (
-        <OrgCard
-          key={org.id}
-          org={org}
-          users={users}
-          onUpdated={updated => setOrgs(prev => prev.map(o => o.id === updated.id ? { ...o, ...updated } : o))}
-          onDeleted={id => setOrgs(prev => prev.filter(o => o.id !== id))}
-        />
-      ))}
+      {/* Create org */}
+      <div style={{ marginBottom: 16 }}>
+        {!showCreate ? (
+          <button onClick={() => setShowCreate(true)}
+            style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer" }}>
+            + Create Org
+          </button>
+        ) : (
+          <div style={{ border: "1px solid #e0e0e0", borderRadius: 14, padding: 16, background: "#fafafa", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>New Organization</div>
+            <form onSubmit={handleCreateOrg}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Name</label>
+                  <input style={{ ...inp, width: "100%" }} value={newName}
+                    onChange={e => handleNameChange(e.target.value)}
+                    placeholder="My League" required />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Slug</label>
+                  <input style={{ ...inp, width: "100%", fontFamily: "monospace" }} value={newSlug}
+                    onChange={e => { setNewSlug(e.target.value); setSlugEdited(true); }}
+                    placeholder="my-league" required pattern="[a-z0-9\-]+" />
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Owner</label>
+                  <select style={{ ...inp, width: "100%" }} value={newOwner} onChange={e => setNewOwner(e.target.value)} required>
+                    <option value="">Select user…</option>
+                    {users.map(u => <option key={u.id} value={u.id}>{displayName(u.email)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Plan</label>
+                  <select style={{ ...inp, width: "100%" }} value={newPlan} onChange={e => setNewPlan(e.target.value)}>
+                    {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+              {createError && (
+                <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 8, padding: "8px 12px", color: "#c0392b", fontSize: 12, marginBottom: 10 }}>{createError}</div>
+              )}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" onClick={() => { setShowCreate(false); setCreateError(null); setNewName(""); setNewSlug(""); setNewOwner(""); setSlugEdited(false); }}
+                  style={{ padding: "8px 14px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555" }}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={!newName.trim() || !newSlug.trim() || !newOwner || creating}
+                  style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, background: (!newName.trim() || !newSlug.trim() || !newOwner || creating) ? "#ccc" : "#111", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                  {creating ? "Creating…" : "Create Org"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+
+      {orgs.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>No organizations yet.</div>
+      ) : (
+        <>
+          <div style={{ fontSize: 13, color: "#aaa", marginBottom: 12 }}>{orgs.length} org{orgs.length !== 1 ? "s" : ""}</div>
+          {orgs.map(org => (
+            <OrgCard
+              key={org.id}
+              org={org}
+              users={users}
+              onUpdated={updated => setOrgs(prev => prev.map(o => o.id === updated.id ? { ...o, ...updated } : o))}
+              onDeleted={id => setOrgs(prev => prev.filter(o => o.id !== id))}
+            />
+          ))}
+        </>
+      )}
     </div>
   );
 }

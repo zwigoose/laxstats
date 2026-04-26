@@ -126,40 +126,55 @@ function StandingsTable({ teamStats }) {
   );
 }
 
-function StatLeaders({ playerStats }) {
+function StatLeaders({ playerStats, teamStatsMap }) {
   if (!playerStats.length) return (
     <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "20px 0" }}>
       Stat leaders will appear once games are scored.
     </div>
   );
 
-  const topGoals   = [...playerStats].sort((a, b) => b.goals - a.goals).slice(0, 5).filter(p => p.goals > 0);
-  const topAssists = [...playerStats].sort((a, b) => b.assists - a.assists).slice(0, 5).filter(p => p.assists > 0);
+  const top = (key, n = 5) => [...playerStats].sort((a, b) => b[key] - a[key]).slice(0, n).filter(p => p[key] > 0);
+
+  const categories = [
+    { title: "Goals",         key: "goals",         label: "G"  },
+    { title: "Assists",       key: "assists",        label: "A"  },
+    { title: "Points",        key: "points",         label: "Pts" },
+    { title: "Shots on Goal", key: "sog",            label: "SOG" },
+    { title: "Ground Balls",  key: "ground_balls",   label: "GB" },
+    { title: "Faceoff Wins",  key: "faceoff_wins",   label: "FO" },
+    { title: "Saves",         key: "saves",          label: "SV" },
+  ];
 
   function LeaderList({ title, players, statKey, statLabel }) {
     if (!players.length) return null;
     return (
       <div style={{ flex: 1, minWidth: 200 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>{title}</div>
-        {players.map((p, i) => (
-          <div key={`${p.player_id}-${i}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
-            <span style={{ fontSize: 12, color: "#bbb", width: 16, textAlign: "right" }}>{i + 1}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.display_name}</div>
-              <div style={{ fontSize: 11, color: "#aaa" }}>{p.team_name}</div>
+        {players.map((p, i) => {
+          const teamName = teamStatsMap?.[p.team_id]?.team_name ?? p.team_name ?? "";
+          return (
+            <div key={`${p.player_id ?? p.player_name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
+              <span style={{ fontSize: 12, color: "#bbb", width: 16, textAlign: "right" }}>{i + 1}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player_name}</div>
+                {teamName && <div style={{ fontSize: 11, color: "#aaa" }}>{teamName}</div>}
+              </div>
+              <span style={{ fontSize: 16, fontWeight: 700, color: "#111", fontVariantNumeric: "tabular-nums" }}>{p[statKey]}</span>
+              <span style={{ fontSize: 11, color: "#aaa", width: 28 }}>{statLabel}</span>
             </div>
-            <span style={{ fontSize: 16, fontWeight: 700, color: "#111", fontVariantNumeric: "tabular-nums" }}>{p[statKey]}</span>
-            <span style={{ fontSize: 11, color: "#aaa", width: 24 }}>{statLabel}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   }
 
   return (
     <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-      <LeaderList title="Goals" players={topGoals} statKey="goals" statLabel="G" />
-      <LeaderList title="Assists" players={topAssists} statKey="assists" statLabel="A" />
+      {categories.map(({ title, key, label }) => {
+        const players = top(key);
+        if (!players.length) return null;
+        return <LeaderList key={key} title={title} players={players} statKey={key} statLabel={label} />;
+      })}
     </div>
   );
 }
@@ -175,6 +190,7 @@ export default function SeasonView() {
   const [hasPressbox, setHasPressbox] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedTeamId, setSelectedTeamId] = useState(null);
 
   const { canView } = useOrgRole(org?.id);
 
@@ -250,9 +266,23 @@ export default function SeasonView() {
     </div>
   );
 
-  const upcoming = games.filter(g => !g.state?.trackingStarted);
-  const inProgress = games.filter(g => g.state?.trackingStarted && !g.state?.gameOver);
-  const completed = games.filter(g => g.state?.gameOver);
+  // Build a lookup map from team_id → team row for player name resolution
+  const teamStatsMap = Object.fromEntries(teamStats.map(t => [t.team_id, t]));
+
+  // Filtered views
+  const filteredTeamStats   = selectedTeamId ? teamStats.filter(t => t.team_id === selectedTeamId) : teamStats;
+  const filteredPlayerStats = selectedTeamId ? playerStats.filter(p => p.team_id === selectedTeamId) : playerStats;
+
+  const filterGames = (list) => selectedTeamId
+    ? list.filter(g => g.home_team_id === selectedTeamId || g.away_team_id === selectedTeamId)
+    : list;
+
+  const upcoming   = filterGames(games.filter(g => !g.state?.trackingStarted));
+  const inProgress = filterGames(games.filter(g => g.state?.trackingStarted && !g.state?.gameOver));
+  const completed  = filterGames(games.filter(g => g.state?.gameOver));
+
+  // Teams available to filter (only show filter if 2+ teams)
+  const filterTeams = teamStats.length >= 2 ? teamStats : [];
 
   return (
     <div style={S.page}>
@@ -266,9 +296,40 @@ export default function SeasonView() {
             : org?.name}
         </p>
 
+        {/* Team filter pills */}
+        {filterTeams.length > 0 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
+            <button
+              onClick={() => setSelectedTeamId(null)}
+              style={{
+                padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", border: "1px solid",
+                background: !selectedTeamId ? "#111" : "transparent",
+                color: !selectedTeamId ? "#fff" : "#555",
+                borderColor: !selectedTeamId ? "#111" : "#ddd",
+              }}
+            >
+              All
+            </button>
+            {filterTeams.map(t => (
+              <button
+                key={t.team_id}
+                onClick={() => setSelectedTeamId(prev => prev === t.team_id ? null : t.team_id)}
+                style={{
+                  padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", border: "1px solid",
+                  background: selectedTeamId === t.team_id ? (t.team_color || "#111") : "transparent",
+                  color: selectedTeamId === t.team_id ? "#fff" : "#555",
+                  borderColor: selectedTeamId === t.team_id ? (t.team_color || "#111") : "#ddd",
+                }}
+              >
+                {t.team_name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Standings */}
         <div style={S.sectionTitle}>Standings</div>
-        <StandingsTable teamStats={teamStats} />
+        <StandingsTable teamStats={filteredTeamStats} />
 
         {/* Games */}
         {inProgress.length > 0 && (
@@ -301,7 +362,7 @@ export default function SeasonView() {
         {/* Stat Leaders */}
         <div style={S.sectionTitle}>Stat Leaders</div>
         <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, padding: "16px" }}>
-          <StatLeaders playerStats={playerStats} />
+          <StatLeaders playerStats={filteredPlayerStats} teamStatsMap={teamStatsMap} />
         </div>
       </div>
     </div>

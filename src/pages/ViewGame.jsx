@@ -115,14 +115,16 @@ export default function ViewGame() {
     setError(null);
     const { data, error: err } = await supabase
       .from("games")
-      .select("id, created_at, name, state, schema_ver, org_id")
+      .select("id, created_at, name, state, schema_ver, org_id, pressbox_enabled")
       .eq("id", id)
       .single();
     if (err) { setError(err.message); setLoading(false); return; }
     setGame(data);
 
-    // Check pressbox feature access for the org
-    if (data?.org_id) {
+    // Pressbox: per-game override OR org feature flag
+    if (data?.pressbox_enabled) {
+      setHasPressbox(true);
+    } else if (data?.org_id) {
       const { data: limit } = await supabase.rpc("org_feature_limit", {
         p_org_id: data.org_id, p_feature_id: "pressbox",
       });
