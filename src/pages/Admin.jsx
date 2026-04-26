@@ -842,6 +842,319 @@ function RostersAdminTab() {
   );
 }
 
+// ── Orgs Tab ──────────────────────────────────────────────────────────────────
+const PLANS       = ["free", "starter", "pro", "enterprise"];
+const PLAN_STATUS = ["active", "trialing", "past_due", "canceled"];
+const ORG_ROLES   = ["org_admin", "coach", "scorekeeper", "viewer"];
+
+const PLAN_COLOR = {
+  free: { bg: "#f5f5f5", color: "#888" },
+  starter: { bg: "#eef4fb", color: "#1a6bab" },
+  pro: { bg: "#eaf6ec", color: "#2a7a3b" },
+  enterprise: { bg: "#fff8ec", color: "#d4820a" },
+};
+const STATUS_COLOR = {
+  active: "#2a7a3b", trialing: "#1a6bab", past_due: "#d4820a", canceled: "#c0392b",
+};
+
+function OrgCard({ org, users, onUpdated, onDeleted }) {
+  const [open, setOpen]               = useState(false);
+  const [members, setMembers]         = useState([]);
+  const [features, setFeatures]       = useState([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [error, setError]             = useState(null);
+
+  // Plan editing
+  const [editPlan, setEditPlan]       = useState(false);
+  const [plan, setPlan]               = useState(org.plan);
+  const [planStatus, setPlanStatus]   = useState(org.plan_status);
+  const [savingPlan, setSavingPlan]   = useState(false);
+
+  // Add member
+  const [addUsername, setAddUsername] = useState("");
+  const [addRole, setAddRole]         = useState("viewer");
+  const [addSearchResult, setAddSearchResult] = useState(null);
+  const [addError, setAddError]       = useState(null);
+  const [searching, setSearching]     = useState(false);
+  const [adding, setAdding]           = useState(false);
+
+  // Delete org
+  const [deleteStage, setDeleteStage] = useState(0);
+  const [deleting, setDeleting]       = useState(false);
+
+  async function loadDetail() {
+    setLoadingDetail(true);
+    const [mRes, fRes] = await Promise.all([
+      supabase.rpc("admin_get_org_members", { p_org_id: org.id }),
+      supabase.rpc("admin_get_org_features", { p_org_id: org.id }),
+    ]);
+    if (mRes.error) setError(mRes.error.message);
+    else setMembers(mRes.data || []);
+    if (fRes.data) setFeatures(fRes.data);
+    setLoadingDetail(false);
+  }
+
+  function toggle() {
+    if (!open) loadDetail();
+    setOpen(o => !o);
+  }
+
+  async function savePlan() {
+    setSavingPlan(true);
+    const { error: err } = await supabase.rpc("admin_set_org_plan", {
+      p_org_id: org.id, p_plan: plan, p_plan_status: planStatus,
+    });
+    setSavingPlan(false);
+    if (err) { setError(err.message); return; }
+    setEditPlan(false);
+    onUpdated({ ...org, plan, plan_status: planStatus });
+  }
+
+  async function handleSearch() {
+    setSearching(true); setAddSearchResult(null); setAddError(null);
+    const { data, error: err } = await supabase.rpc("find_user_by_username", { p_username: addUsername.trim() });
+    if (err || !data?.length) setAddError("User not found.");
+    else if (members.some(m => m.user_id === data[0].id)) setAddError("Already a member.");
+    else setAddSearchResult(data[0]);
+    setSearching(false);
+  }
+
+  async function handleAddMember() {
+    if (!addSearchResult) return;
+    setAdding(true);
+    const { error: err } = await supabase.rpc("admin_add_org_member", {
+      p_org_id: org.id, p_user_id: addSearchResult.id, p_role: addRole,
+    });
+    if (err) { setAddError(err.message); setAdding(false); return; }
+    setAddUsername(""); setAddRole("viewer"); setAddSearchResult(null);
+    await loadDetail();
+    setAdding(false);
+    onUpdated({ ...org, member_count: Number(org.member_count) + 1 });
+  }
+
+  async function handleRoleChange(userId, newRole) {
+    const { error: err } = await supabase.rpc("admin_set_org_member_role", {
+      p_org_id: org.id, p_user_id: userId, p_role: newRole,
+    });
+    if (err) setError(err.message);
+    else setMembers(prev => prev.map(m => m.user_id === userId ? { ...m, role: newRole } : m));
+  }
+
+  async function handleRemoveMember(userId) {
+    const { error: err } = await supabase.rpc("admin_remove_org_member", {
+      p_org_id: org.id, p_user_id: userId,
+    });
+    if (err) setError(err.message);
+    else {
+      setMembers(prev => prev.filter(m => m.user_id !== userId));
+      onUpdated({ ...org, member_count: Math.max(0, Number(org.member_count) - 1) });
+    }
+  }
+
+  async function handleFeatureOverride(featureId, rawVal) {
+    const val = rawVal === "" ? null : parseInt(rawVal, 10);
+    const { error: err } = await supabase.rpc("admin_set_feature_override", {
+      p_org_id: org.id, p_feature_id: featureId, p_override_limit: isNaN(val) ? null : val,
+    });
+    if (err) setError(err.message);
+    else setFeatures(prev => prev.map(f =>
+      f.feature_id === featureId ? { ...f, override_limit: isNaN(val) ? null : val } : f
+    ));
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    const { error: err } = await supabase.rpc("admin_delete_org", { p_org_id: org.id });
+    if (err) { setError(err.message); setDeleting(false); setDeleteStage(0); return; }
+    onDeleted(org.id);
+  }
+
+  const pc = PLAN_COLOR[org.plan] || PLAN_COLOR.free;
+  const inp = { padding: "6px 9px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", background: "#fff", boxSizing: "border-box" };
+
+  return (
+    <div style={{ border: "1px solid #e8e8e8", borderRadius: 14, marginBottom: 10, overflow: "hidden", background: "#fff", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer" }} onClick={toggle}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>{org.name}</span>
+            <span style={{ fontSize: 11, color: "#aaa" }}>/{org.slug}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "2px 7px", background: pc.bg, color: pc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{org.plan}</span>
+            <span style={{ fontSize: 11, color: STATUS_COLOR[org.plan_status] || "#888" }}>{org.plan_status}</span>
+          </div>
+          <div style={{ fontSize: 12, color: "#aaa", marginTop: 3 }}>
+            {org.member_count} member{org.member_count !== 1 ? "s" : ""} · {org.game_count} game{org.game_count !== 1 ? "s" : ""} · {org.season_count} season{org.season_count !== 1 ? "s" : ""} · {org.team_count} team{org.team_count !== 1 ? "s" : ""}
+          </div>
+        </div>
+        <div style={{ fontSize: 14, color: "#ccc", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</div>
+      </div>
+
+      {open && (
+        <div style={{ borderTop: "1px solid #f0f0f0", padding: "16px" }}>
+          {error && <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 8, padding: "8px 12px", color: "#c0392b", fontSize: 12, marginBottom: 12 }}>{error}</div>}
+          {loadingDetail ? (
+            <div style={{ color: "#aaa", fontSize: 13 }}>Loading…</div>
+          ) : (
+            <>
+              {/* ── Plan ── */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Plan</div>
+                {!editPlan ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 13, color: "#111" }}>{org.plan} · {org.plan_status}</span>
+                    <button onClick={() => setEditPlan(true)} style={{ fontSize: 12, color: "#1a6bab", background: "none", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 9px", cursor: "pointer" }}>Edit</button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <select value={plan} onChange={e => setPlan(e.target.value)} style={{ ...inp }}>
+                      {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <select value={planStatus} onChange={e => setPlanStatus(e.target.value)} style={{ ...inp }}>
+                      {PLAN_STATUS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <button onClick={savePlan} disabled={savingPlan} style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>{savingPlan ? "…" : "Save"}</button>
+                    <button onClick={() => { setEditPlan(false); setPlan(org.plan); setPlanStatus(org.plan_status); }} style={{ padding: "6px 12px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555" }}>Cancel</button>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Members ── */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Members</div>
+                {members.length === 0 ? (
+                  <div style={{ fontSize: 13, color: "#aaa", marginBottom: 10 }}>No members.</div>
+                ) : (
+                  <div style={{ marginBottom: 10 }}>
+                    {members.map(m => (
+                      <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
+                        <span style={{ flex: 1, fontSize: 13, color: "#111" }}>{displayName(m.email)}</span>
+                        <select value={m.role} onChange={e => handleRoleChange(m.user_id, e.target.value)}
+                          style={{ ...inp, padding: "4px 7px", fontSize: 12 }}>
+                          {ORG_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <button onClick={() => handleRemoveMember(m.user_id)}
+                          style={{ fontSize: 11, color: "#c0392b", background: "none", border: "1px solid #f0a0a0", borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>Remove</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Add member */}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  <input style={{ ...inp, flex: 1, minWidth: 120 }} placeholder="Username" value={addUsername}
+                    autoCapitalize="off" autoCorrect="off"
+                    onChange={e => { setAddUsername(e.target.value); setAddSearchResult(null); setAddError(null); }}
+                    onKeyDown={e => e.key === "Enter" && addUsername.trim() && handleSearch()} />
+                  <select value={addRole} onChange={e => setAddRole(e.target.value)} style={{ ...inp }}>
+                    {ORG_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                  {!addSearchResult ? (
+                    <button onClick={handleSearch} disabled={!addUsername.trim() || searching}
+                      style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, background: addUsername.trim() ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                      {searching ? "…" : "Find"}
+                    </button>
+                  ) : (
+                    <button onClick={handleAddMember} disabled={adding}
+                      style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, background: "#2a7a3b", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                      {adding ? "…" : `Add ${addSearchResult.display_name}`}
+                    </button>
+                  )}
+                </div>
+                {addError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 4 }}>{addError}</div>}
+              </div>
+
+              {/* ── Feature overrides ── */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Feature Limits</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "6px 12px", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#aaa" }}>Feature</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#aaa" }}>Plan limit</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#aaa" }}>Override</span>
+                  {features.map(f => (
+                    <>
+                      <span key={f.feature_id + "_n"} style={{ fontSize: 13, color: "#111" }}>{f.description || f.feature_id}</span>
+                      <span key={f.feature_id + "_p"} style={{ fontSize: 12, color: "#aaa", textAlign: "right" }}>
+                        {f.plan_limit === null ? "∞" : f.plan_limit === 0 ? "off" : f.plan_limit}
+                      </span>
+                      <input key={f.feature_id + "_o"}
+                        style={{ ...inp, width: 64, textAlign: "center", padding: "4px 6px", fontSize: 12 }}
+                        placeholder="—"
+                        defaultValue={f.override_limit ?? ""}
+                        onBlur={e => handleFeatureOverride(f.feature_id, e.target.value)} />
+                    </>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: "#bbb", marginTop: 6 }}>Leave override blank to use plan default. Enter a number to override. Null = unlimited.</div>
+              </div>
+
+              {/* ── Danger zone ── */}
+              <div style={{ borderTop: "1px solid #f5f5f5", paddingTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#c0392b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Danger Zone</div>
+                {deleteStage === 0 && (
+                  <button onClick={() => setDeleteStage(1)} style={{ padding: "6px 14px", fontSize: 13, color: "#c0392b", background: "transparent", border: "1px solid #f0a0a0", borderRadius: 8, cursor: "pointer" }}>Delete org…</button>
+                )}
+                {deleteStage === 1 && (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "#c0392b" }}>Delete <strong>{org.name}</strong> and all its data?</span>
+                    <button onClick={() => setDeleteStage(0)} style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}>Cancel</button>
+                    <button onClick={() => setDeleteStage(2)} style={{ padding: "5px 12px", fontSize: 12, color: "#c0392b", background: "transparent", border: "1px solid #e08080", borderRadius: 7, cursor: "pointer", fontWeight: 600 }}>Delete</button>
+                  </div>
+                )}
+                {deleteStage === 2 && (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "#c0392b", fontWeight: 600 }}>Cannot be undone. Confirm?</span>
+                    <button onClick={() => setDeleteStage(0)} style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}>Cancel</button>
+                    <button onClick={handleDelete} disabled={deleting} style={{ padding: "5px 12px", fontSize: 12, background: "#c0392b", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", fontWeight: 600 }}>{deleting ? "…" : "Yes, delete"}</button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrgsTab() {
+  const [orgs, setOrgs]     = useState([]);
+  const [users, setUsers]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]   = useState(null);
+
+  useEffect(() => {
+    Promise.all([
+      supabase.rpc("admin_get_orgs"),
+      supabase.rpc("admin_get_users"),
+    ]).then(([orgsRes, usersRes]) => {
+      if (orgsRes.error) setError(orgsRes.error.message);
+      else setOrgs(orgsRes.data || []);
+      setUsers(usersRes.data || []);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
+  if (error)   return <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "12px 16px", color: "#c0392b", fontSize: 13 }}>{error}</div>;
+
+  if (orgs.length === 0) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>No organizations yet.</div>;
+
+  return (
+    <div style={{ paddingBottom: 40 }}>
+      <div style={{ fontSize: 13, color: "#aaa", marginBottom: 16 }}>{orgs.length} org{orgs.length !== 1 ? "s" : ""}</div>
+      {orgs.map(org => (
+        <OrgCard
+          key={org.id}
+          org={org}
+          users={users}
+          onUpdated={updated => setOrgs(prev => prev.map(o => o.id === updated.id ? { ...o, ...updated } : o))}
+          onDeleted={id => setOrgs(prev => prev.filter(o => o.id !== id))}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ── Migration Tab ─────────────────────────────────────────────────────────────
 function MigrationTab() {
   const [running, setRunning]   = useState(false);
@@ -958,7 +1271,7 @@ export default function Admin() {
       {/* Tabs */}
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px" }}>
         <div style={{ display: "flex", gap: 4, padding: "12px 0 0", marginBottom: 16, borderBottom: "1px solid #e8e8e8" }}>
-          {[["games", "All Games"], ["users", "Users"], ["rosters", "Rosters"], ["migration", "Migration"]].map(([id, label]) => (
+          {[["games", "All Games"], ["users", "Users"], ["rosters", "Rosters"], ["orgs", "Orgs"], ["migration", "Migration"]].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)} style={{
               padding: "8px 18px", fontSize: 14, fontWeight: tab === id ? 700 : 500,
               border: "none", background: "transparent", cursor: "pointer",
@@ -972,6 +1285,7 @@ export default function Admin() {
         {tab === "games"     && <AllGamesTab />}
         {tab === "users"     && <UsersTab />}
         {tab === "rosters"   && <RostersAdminTab />}
+        {tab === "orgs"      && <OrgsTab />}
         {tab === "migration" && <MigrationTab />}
       </div>
     </div>
