@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
-const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
 const GAME_TYPES = [
   { id: "regular",    label: "Regular Season" },
   { id: "playoff",    label: "Playoff" },
@@ -34,33 +33,24 @@ export default function CreateGame() {
   const location = useLocation();
   const { user, orgMemberships } = useAuth();
 
-  // If launched from OrgDashboard, a membership object is passed via router state
+  // If launched from OrgDashboard/GameList, a membership object is passed via router state
   const preselected = location.state?.orgMembership ?? null;
 
-  // step: "choice" | "org-season" | "org-teams" | "org-details" | "creating-personal"
+  // step: "choice" | "org-season" | "org-details" | "creating-personal"
   const initialStep = preselected
     ? "org-season"
     : orgMemberships.length > 0 ? "choice" : "creating-personal";
-  const [step, setStep]         = useState(initialStep);
-  const [error, setError]       = useState(null);
+  const [step, setStep]   = useState(initialStep);
+  const [error, setError] = useState(null);
 
   // Org wizard state
-  const [selectedOrg, setSelectedOrg] = useState(preselected);
-  const [seasons, setSeasons]         = useState([]);
-  const [selectedSeason, setSelectedSeason] = useState(null);
-  const [newSeasonName, setNewSeasonName]   = useState("");
-  const [teams, setTeams]               = useState([]);
-  const [homeTeamId, setHomeTeamId]     = useState("");
-  const [awayTeamId, setAwayTeamId]     = useState("");
-  const [newHomeName, setNewHomeName]   = useState("");
-  const [newHomeColor, setNewHomeColor] = useState(PRESET_COLORS[0]);
-  const [newAwayName, setNewAwayName]   = useState("");
-  const [newAwayColor, setNewAwayColor] = useState(PRESET_COLORS[1]);
-  const [gameDate, setGameDate]         = useState(new Date().toISOString().slice(0, 10));
-  const [gameType, setGameType]         = useState("regular");
+  const [selectedOrg, setSelectedOrg]         = useState(preselected);
+  const [seasons, setSeasons]                 = useState([]);
+  const [selectedSeason, setSelectedSeason]   = useState(null);
+  const [newSeasonName, setNewSeasonName]     = useState("");
+  const [gameDate, setGameDate]               = useState(new Date().toISOString().slice(0, 10));
+  const [gameType, setGameType]               = useState("regular");
 
-  // Auto-create personal game on mount if no org memberships
-  // Also pre-load seasons if launched with a pre-selected org
   useEffect(() => {
     if (step === "creating-personal") createPersonalGame();
     if (preselected) selectOrg(preselected);
@@ -110,49 +100,12 @@ export default function CreateGame() {
     }
 
     if (!season) { setError("Select or create a season."); return; }
-
-    const { data } = await supabase
-      .from("teams")
-      .select("id, name, color")
-      .eq("org_id", selectedOrg.org_id)
-      .order("name");
-    setTeams(data || []);
-    setStep("org-teams");
-  }
-
-  async function handleTeamsNext() {
-    setError(null);
-    let homeId = homeTeamId;
-    let awayId = awayTeamId;
-
-    if (!homeId && newHomeName.trim()) {
-      const { data, error: err } = await supabase
-        .from("teams")
-        .insert({ org_id: selectedOrg.org_id, name: newHomeName.trim(), color: newHomeColor })
-        .select("id").single();
-      if (err) { setError(err.message); return; }
-      homeId = data.id;
-    }
-    if (!awayId && newAwayName.trim()) {
-      const { data, error: err } = await supabase
-        .from("teams")
-        .insert({ org_id: selectedOrg.org_id, name: newAwayName.trim(), color: newAwayColor })
-        .select("id").single();
-      if (err) { setError(err.message); return; }
-      awayId = data.id;
-    }
-
-    if (!homeId || !awayId) { setError("Select or create both teams."); return; }
-    setHomeTeamId(homeId);
-    setAwayTeamId(awayId);
     setStep("org-details");
   }
 
   async function handleCreateOrgGame() {
     setError(null);
-    const homeTeam = teams.find(t => t.id === homeTeamId);
-    const awayTeam = teams.find(t => t.id === awayTeamId);
-    const name = homeTeam && awayTeam ? `${homeTeam.name} vs ${awayTeam.name}` : "Game";
+    const name = `${selectedOrg.org?.name ?? "Org"} Game — ${new Date(gameDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
     const { data, error: err } = await supabase
       .from("games")
@@ -162,8 +115,6 @@ export default function CreateGame() {
         user_id: user.id,
         org_id: selectedOrg.org_id,
         season_id: selectedSeason?.id ?? null,
-        home_team_id: homeTeamId,
-        away_team_id: awayTeamId,
         game_type: gameType,
         game_date: gameDate || null,
         schema_ver: 2,
@@ -244,68 +195,14 @@ export default function CreateGame() {
           </>
         )}
 
-        {/* ── Step: pick / create teams ── */}
-        {step === "org-teams" && (
-          <>
-            <h1 style={S.h1}>Teams</h1>
-
-            <span style={S.label}>Home team</span>
-            {teams.length > 0 && (
-              <select style={S.select} value={homeTeamId} onChange={e => setHomeTeamId(e.target.value)}>
-                <option value="">— Select —</option>
-                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                <option value="">— New team below —</option>
-              </select>
-            )}
-            {!homeTeamId && (
-              <>
-                <input style={{ ...S.input, marginTop: 8 }} value={newHomeName}
-                  onChange={e => setNewHomeName(e.target.value)} placeholder="Home team name" />
-                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                  {PRESET_COLORS.map(c => (
-                    <div key={c} onClick={() => setNewHomeColor(c)}
-                      style={{ width: 24, height: 24, borderRadius: "50%", background: c, cursor: "pointer",
-                        border: newHomeColor === c ? "3px solid #111" : "2px solid transparent",
-                        boxSizing: "border-box", boxShadow: newHomeColor === c ? "none" : "0 0 0 1px #ddd" }} />
-                  ))}
-                </div>
-              </>
-            )}
-
-            <span style={S.label}>Away team</span>
-            {teams.length > 0 && (
-              <select style={S.select} value={awayTeamId} onChange={e => setAwayTeamId(e.target.value)}>
-                <option value="">— Select —</option>
-                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                <option value="">— New team below —</option>
-              </select>
-            )}
-            {!awayTeamId && (
-              <>
-                <input style={{ ...S.input, marginTop: 8 }} value={newAwayName}
-                  onChange={e => setNewAwayName(e.target.value)} placeholder="Away team name" />
-                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                  {PRESET_COLORS.map(c => (
-                    <div key={c} onClick={() => setNewAwayColor(c)}
-                      style={{ width: 24, height: 24, borderRadius: "50%", background: c, cursor: "pointer",
-                        border: newAwayColor === c ? "3px solid #111" : "2px solid transparent",
-                        boxSizing: "border-box", boxShadow: newAwayColor === c ? "none" : "0 0 0 1px #ddd" }} />
-                  ))}
-                </div>
-              </>
-            )}
-
-            <button style={{ ...S.btn, opacity: ((!homeTeamId && !newHomeName.trim()) || (!awayTeamId && !newAwayName.trim())) ? 0.4 : 1 }}
-              disabled={(!homeTeamId && !newHomeName.trim()) || (!awayTeamId && !newAwayName.trim())}
-              onClick={handleTeamsNext}>Next →</button>
-            <button style={S.btnGray} onClick={() => setStep("org-season")}>← Back</button>
-          </>
-        )}
-
         {/* ── Step: date + game type ── */}
         {step === "org-details" && (
           <>
             <h1 style={S.h1}>Game Details</h1>
+            <div style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
+              {selectedOrg?.org?.name}
+              {selectedSeason ? ` · ${selectedSeason.name}` : ""}
+            </div>
 
             <span style={S.label}>Date</span>
             <input type="date" style={S.input} value={gameDate} onChange={e => setGameDate(e.target.value)} />
@@ -315,8 +212,8 @@ export default function CreateGame() {
               {GAME_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
             </select>
 
-            <button style={S.btn} onClick={handleCreateOrgGame}>Create Game →</button>
-            <button style={S.btnGray} onClick={() => setStep("org-teams")}>← Back</button>
+            <button style={S.btn} onClick={handleCreateOrgGame}>Set Up Game →</button>
+            <button style={S.btnGray} onClick={() => setStep("org-season")}>← Back</button>
           </>
         )}
       </div>

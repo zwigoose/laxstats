@@ -18,7 +18,7 @@ const S = {
 };
 
 // ── v1 path — JSONB blob save (unchanged) ─────────────────────────────────────
-function ScorekeeperV1({ game, id, navigate }) {
+function ScorekeeperV1({ game, id, navigate, orgContext }) {
   const [saveStatus, setSaveStatus] = useState("");
   const saveTimer    = useRef(null);
   const pendingSave  = useRef(null);
@@ -69,6 +69,11 @@ function ScorekeeperV1({ game, id, navigate }) {
         initialState={game?.state}
         createdAt={game?.created_at}
         onStateChange={handleStateChange}
+        orgContext={orgContext}
+        onOrgTeamSelected={async (teamIdx, teamId) => {
+          const col = teamIdx === 0 ? "home_team_id" : "away_team_id";
+          await supabase.from("games").update({ [col]: teamId }).eq("id", id);
+        }}
         onCancel={async () => { await supabase.from("games").delete().eq("id", id); navigate("/"); }}
       />
     </div>
@@ -76,7 +81,7 @@ function ScorekeeperV1({ game, id, navigate }) {
 }
 
 // ── v2 path — game_events table + Realtime ────────────────────────────────────
-function ScorekeeperV2({ game, id, navigate, userId }) {
+function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
   const [saveStatus, setSaveStatus] = useState("");
   const saveTimer    = useRef(null);
   const pendingMeta  = useRef(null);
@@ -191,6 +196,11 @@ function ScorekeeperV2({ game, id, navigate, userId }) {
           onMetaEvent={handleMetaEvent}
           remoteEntries={entries}
           scorekeeperRole={isPrimary ? "primary" : "secondary"}
+          orgContext={orgContext}
+          onOrgTeamSelected={async (teamIdx, teamId) => {
+            const col = teamIdx === 0 ? "home_team_id" : "away_team_id";
+            await supabase.from("games").update({ [col]: teamId }).eq("id", id);
+          }}
           onCancel={async () => {
             // Soft-delete all events and delete the game row
             await supabase
@@ -212,9 +222,10 @@ export default function Scorekeeper() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [game, setGame]     = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState(null);
+  const [game, setGame]           = useState(null);
+  const [orgContext, setOrgContext] = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
 
   useEffect(() => { loadGame(); }, [id]);
 
@@ -223,10 +234,27 @@ export default function Scorekeeper() {
     setError(null);
     const { data, error: err } = await supabase
       .from("games")
-      .select("id, created_at, name, state, schema_ver")
+      .select("id, created_at, name, state, schema_ver, org_id, season_id")
       .eq("id", id)
       .single();
     if (err) { setError(err.message); setLoading(false); return; }
+
+    let orgCtx = null;
+    if (data?.org_id) {
+      const [orgRes, seasonRes] = await Promise.all([
+        supabase.from("orgs").select("name").eq("id", data.org_id).single(),
+        data.season_id
+          ? supabase.from("seasons").select("name").eq("id", data.season_id).single()
+          : Promise.resolve({ data: null }),
+      ]);
+      orgCtx = {
+        orgId:      data.org_id,
+        orgName:    orgRes.data?.name ?? null,
+        seasonName: seasonRes.data?.name ?? null,
+      };
+    }
+
+    setOrgContext(orgCtx);
     setGame(data);
     setLoading(false);
   }
@@ -235,7 +263,7 @@ export default function Scorekeeper() {
   if (error)   return <div style={S.error}>{error}</div>;
 
   if (game?.schema_ver === 2) {
-    return <ScorekeeperV2 game={game} id={id} navigate={navigate} userId={user?.id} />;
+    return <ScorekeeperV2 game={game} id={id} navigate={navigate} userId={user?.id} orgContext={orgContext} />;
   }
-  return <ScorekeeperV1 game={game} id={id} navigate={navigate} />;
+  return <ScorekeeperV1 game={game} id={id} navigate={navigate} orgContext={orgContext} />;
 }

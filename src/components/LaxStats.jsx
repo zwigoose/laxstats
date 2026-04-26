@@ -1,14 +1,14 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
-// caused_to renamed to forced_to
+// caused_to / forced_to — label is "Caused TO"
 export const EVENTS = [
   { id: "goal",        label: "Goal",         icon: "🥍" },
   { id: "shot",        label: "Shot",         icon: "🎯" },
   { id: "ground_ball", label: "Ground Ball",  icon: "🪣" },
   { id: "faceoff_win", label: "Faceoff W",    icon: "🔄" },
   { id: "turnover",    label: "Turnover",     icon: "↩️" },
-  { id: "forced_to",   label: "Forced TO",    icon: "🥊" },
+  { id: "forced_to",   label: "Caused TO",    icon: "🥊" },
   { id: "penalty",     label: "Penalty",      icon: "🟨" },
   { id: "mdd_success", label: "MDD Stop",     icon: "🛡️", teamStat: true },
   { id: "timeout",     label: "Timeout",      icon: "⏸️" },
@@ -17,7 +17,7 @@ export const EVENTS = [
 ];
 
 export const STAT_KEYS =["goal","emo_goal","emo_fail","mdd_success","mdd_fail","shot","sog","shot_saved","shot_post","shot_blocked","ground_ball","faceoff_win","turnover","forced_to","penalty_tech","penalty_min","assist","clear","failed_clear","successful_ride","failed_ride"];
-export const STAT_LABELS ={ goal:"G", emo_goal:"EMO", emo_fail:"FEMO", mdd_success:"MDD", mdd_fail:"FMDD", shot:"Sh", sog:"SOG", shot_saved:"Sv", shot_post:"Post", shot_blocked:"Blk", ground_ball:"GB", faceoff_win:"FW", turnover:"TO", forced_to:"FTO", penalty_tech:"Tech", penalty_min:"PF Min", assist:"A", clear:"Clr", failed_clear:"FCl", successful_ride:"SRide", failed_ride:"FRide" };
+export const STAT_LABELS ={ goal:"G", emo_goal:"EMO", emo_fail:"FEMO", mdd_success:"MDD", mdd_fail:"FMDD", shot:"Sh", sog:"SOG", shot_saved:"Sv", shot_post:"Post", shot_blocked:"Blk", ground_ball:"GB", faceoff_win:"FW", turnover:"TO", forced_to:"CTO", penalty_tech:"Tech", penalty_min:"PF Min", assist:"A", clear:"Clr", failed_clear:"FCl", successful_ride:"SRide", failed_ride:"FRide" };
 
 const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
 
@@ -432,6 +432,9 @@ export default function LaxStats({
   onMetaEvent = null,        // async (type, payload) => void — quarter/game state changes
   remoteEntries = null,      // [{...entry}] from other scorers; merged into local log
   scorekeeperRole = "primary", // "primary" | "secondary"
+  // org game props — optional; omit for personal games
+  orgContext = null,          // { orgId, orgName, seasonName } — shows org banner + loads org teams
+  onOrgTeamSelected = null,   // async (teamIdx, teamId) => void — persist home/away_team_id
 }) {
   const [screen, setScreen] = useState("setup"); // setup | track | stats | log
   const [trackingStarted, setTrackingStarted] = useState(false);
@@ -458,6 +461,7 @@ export default function LaxStats({
   const [penaltyType, setPenaltyType] = useState(null);
   const [penaltyFoulName, setPenaltyFoulName] = useState(null);
   const [penaltyNR, setPenaltyNR] = useState(false);
+  const [penaltyTime, setPenaltyTime] = useState(null);
 
   const [lastGoalie, setLastGoalie] = useState([null, null]);
   const [lastFaceoffWinner, setLastFaceoffWinner] = useState([null, null]);
@@ -650,7 +654,7 @@ export default function LaxStats({
       if (save) s += ` · saved by #${save.player?.num}`;
       return s;
     }
-    if (fto) return `🥊 Forced TO — ${playerStr} · ${teamName} → #${to?.player?.num} ${to?.player?.name}`;
+    if (fto) return `🥊 Caused TO — ${playerStr} · ${teamName} → #${to?.player?.num} ${to?.player?.name}`;
     if (tech) return `🟨 ${tech.foulName ? `${tech.foulName} (Technical)` : "Technical foul"} — ${playerStr} · ${teamName}`;
     if (pfoul) return `🟥 ${pfoul.foulName ? `${pfoul.foulName} (${pfoul.penaltyMin}min)` : `Personal foul (${pfoul.penaltyMin}min)`} — ${playerStr} · ${teamName}`;
     const { icon, label } = entryDisplayInfo(primary);
@@ -669,7 +673,9 @@ export default function LaxStats({
     setSelectedPlayer(null);
     setPendingEntries([]);
     setPenaltyType(null);
+    setPenaltyFoulName(null);
     setPenaltyNR(false);
+    setPenaltyTime(null);
     setEditingGroupId(null);
     setDeletingGroupId(null);
   }
@@ -762,6 +768,18 @@ export default function LaxStats({
     supabase.from("saved_teams").select("id, name, roster, color, user_id").order("name")
       .then(({ data }) => { if (data) setSavedTeams(data); });
   }, []);
+
+  // ── Org teams (for org games) ────────────────────────────────────
+  const [orgTeams, setOrgTeams] = useState([]);
+  useEffect(() => {
+    if (!orgContext?.orgId) return;
+    supabase
+      .from("teams")
+      .select("id, name, color, players(id, number, name)")
+      .eq("org_id", orgContext.orgId)
+      .order("name")
+      .then(({ data }) => { if (data) setOrgTeams(data); });
+  }, [orgContext?.orgId]);
 
   // ── Export / Import ─────────────────────────────────────────────
   const [exportCopied, setExportCopied] = useState(false);
@@ -952,16 +970,20 @@ export default function LaxStats({
   // Forced TO flow: pick the opposing player who turned it over
   function handleForcedToPlayerSelected(victim) {
     const entries = [...pendingEntries, mkEntry(1 - selectedTeam, "turnover", victim)];
-    commitEntries(entries, `Forced TO — #${selectedPlayer.num} ${selectedPlayer.name} → TO by #${victim.num} ${victim.name}`);
+    commitEntries(entries, `Caused TO — #${selectedPlayer.num} ${selectedPlayer.name} → TO by #${victim.num} ${victim.name}`);
   }
 
-  // Penalty flow — consecutive and simultaneous relationships are auto-derived from the log
+  // Penalty flow — time is captured first (before player), then player, then type/details
+  function handlePenaltyTime(t) {
+    setPenaltyTime(t);
+    setStep("player");
+  }
   function handlePenaltyFoul(option) {
     setPenaltyFoulName(option.name);
     if (option.type === "tech") {
       setPenaltyType("tech");
-      setPendingEntries([mkEntry(selectedTeam, "penalty_tech", selectedPlayer, { foulName: option.name })]);
-      setStep("ask_penalty_time");
+      const entry = mkEntry(selectedTeam, "penalty_tech", selectedPlayer, { foulName: option.name, penaltyTime });
+      commitEntries([entry], `${option.name} (Technical) — #${selectedPlayer.num} ${selectedPlayer.name}`);
     } else {
       setPenaltyType("personal");
       setPenaltyNR(false);
@@ -973,23 +995,16 @@ export default function LaxStats({
     setStep("ask_penalty_nr");
   }
   function handlePenaltyNR(isNR) {
-    setPenaltyNR(isNR);
-    setStep("ask_penalty_time");
-  }
-  function handlePenaltyTime(t) {
     const entries = pendingEntries.map(e =>
-      (e.event === "penalty_tech" || e.event === "penalty_min") ? {
+      e.event === "penalty_min" ? {
         ...e,
-        penaltyTime: t,
-        ...(penaltyNR ? { nonReleasable: true } : {}),
+        penaltyTime,
+        ...(isNR ? { nonReleasable: true } : {}),
       } : e
     );
     const e0 = entries[0];
-    const nrTag = penaltyNR ? " NR" : "";
-    const label = e0.event === "penalty_tech"
-      ? `${e0.foulName || "Technical foul"} (Technical) — #${selectedPlayer.num} ${selectedPlayer.name}`
-      : `${e0.foulName || "Personal foul"} (${e0.penaltyMin}min${nrTag}) — #${selectedPlayer.num} ${selectedPlayer.name}`;
-    commitEntries(entries, label);
+    const nrTag = isNR ? " NR" : "";
+    commitEntries(entries, `${e0.foulName || "Personal foul"} (${e0.penaltyMin}min${nrTag}) — #${selectedPlayer.num} ${selectedPlayer.name}`);
   }
 
   function handleEndQuarter() {
@@ -1179,6 +1194,13 @@ export default function LaxStats({
       {/* ══ SETUP ══ */}
       {screen === "setup" && (
         <div>
+          {orgContext && (
+            <div style={{ background: "#eef4fb", border: "1px solid #c0d8f0", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#1a6bab", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontWeight: 700 }}>Org game</span>
+              {orgContext.orgName && <><span style={{ color: "#b0c8e0" }}>·</span><span>{orgContext.orgName}</span></>}
+              {orgContext.seasonName && <><span style={{ color: "#b0c8e0" }}>·</span><span>{orgContext.seasonName}</span></>}
+            </div>
+          )}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Game Date</div>
             {trackingStarted ? (
@@ -1199,20 +1221,44 @@ export default function LaxStats({
               <div key={ti} style={S.setupCard(teams[ti].color)}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div style={S.teamLabel(teams[ti].color)}>{ti === 0 ? "Home" : "Away"}</div>
-                  {savedTeams.length > 0 && (
+                  {(savedTeams.length > 0 || orgTeams.length > 0) && (
                     <select
-                      style={{ fontSize: 11, color: teams[ti].color, border: "1px solid #e5e5e5", borderRadius: 6, padding: "3px 6px", background: "#fafafa", cursor: "pointer", maxWidth: 120 }}
+                      style={{ fontSize: 11, color: teams[ti].color, border: "1px solid #e5e5e5", borderRadius: 6, padding: "3px 6px", background: "#fafafa", cursor: "pointer", maxWidth: 130 }}
                       defaultValue=""
                       onChange={e => {
-                        const saved = savedTeams.find(t => t.id === e.target.value);
-                        if (!saved) return;
-                        setTeams(t => t.map((x, i) => i === ti ? { ...x, name: saved.name, roster: saved.roster, color: saved.color } : x));
+                        const val = e.target.value;
+                        if (!val) return;
+                        if (val.startsWith("org:")) {
+                          const orgTeam = orgTeams.find(t => t.id === val.slice(4));
+                          if (!orgTeam) return;
+                          const roster = (orgTeam.players || [])
+                            .sort((a, b) => parseInt(a.number, 10) - parseInt(b.number, 10))
+                            .map(p => `#${p.number} ${p.name}`)
+                            .join("\n");
+                          setTeams(t => t.map((x, i) => i === ti ? { ...x, name: orgTeam.name, roster, color: orgTeam.color || x.color } : x));
+                          if (onOrgTeamSelected) onOrgTeamSelected(ti, orgTeam.id);
+                        } else {
+                          const saved = savedTeams.find(t => t.id === val);
+                          if (!saved) return;
+                          setTeams(t => t.map((x, i) => i === ti ? { ...x, name: saved.name, roster: saved.roster, color: saved.color } : x));
+                        }
                         e.target.value = "";
                       }}>
-                      <option value="" disabled>Load saved…</option>
-                      {savedTeams.map(t => (
-                        <option key={t.id} value={t.id}>{t.name}{currentUserId && t.user_id !== currentUserId ? " (shared)" : ""}</option>
-                      ))}
+                      <option value="" disabled>Load team…</option>
+                      {orgTeams.length > 0 && (
+                        <optgroup label="Org Teams">
+                          {orgTeams.map(t => (
+                            <option key={`org:${t.id}`} value={`org:${t.id}`}>{t.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {savedTeams.length > 0 && (
+                        <optgroup label="Saved Teams">
+                          {savedTeams.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}{currentUserId && t.user_id !== currentUserId ? " (shared)" : ""}</option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   )}
                 </div>
@@ -1470,6 +1516,8 @@ export default function LaxStats({
                         setSelectedEvent(ev);
                         if (ev.id === "timeout") {
                           setStep("ask_timeout_time");
+                        } else if (ev.id === "penalty") {
+                          setStep("ask_penalty_time");
                         } else if (ev.teamStat) {
                           commitEntries([mkEntry(selectedTeam, ev.id, null, { teamStat: true })], `${ev.label} — ${teams[selectedTeam].name}`);
                         } else {
@@ -1506,9 +1554,9 @@ export default function LaxStats({
               })()}
               <div style={S.playerGrid}>
                 {parsedRosters[selectedTeam]?.map((p, i) => {
+                  const isFaceoff = selectedEvent?.id === "faceoff_win";
                   const prev = editingGroupId ? prevPlayerInGroup(editingGroupId, selectedTeam) : null;
-                  const lfw = lastFaceoffWinner[selectedTeam];
-                  const featured = prev || lfw;
+                  const featured = isFaceoff ? (prev || lastFaceoffWinner[selectedTeam]) : prev;
                   const sel = featured ? (featured.num === p.num && featured.name === p.name) : false;
                   const isHome = selectedTeam === 0;
                   return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handlePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
@@ -1517,12 +1565,12 @@ export default function LaxStats({
             </div>
           )}
 
-          {/* Forced TO: pick the opposing player who turned it over */}
+          {/* Caused TO: pick the opposing player who turned it over */}
           {step === "ask_forced_to_player" && (
             <div>
               <button style={S.backBtn} onClick={() => setStep("player")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
-                🥊 Forced TO — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
+                🥊 Caused TO — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
               <div style={{ ...S.stepLabel, color: teamColors[1 - selectedTeam] }}>
                 {teams[1 - selectedTeam]?.name} — Which player turned it over?
@@ -1705,7 +1753,7 @@ export default function LaxStats({
           {step === "ask_penalty_type" && (
             <div>
               <button style={S.backBtn} onClick={() => setStep("player")}>← Back</button>
-              <div style={S.pendingBubble(teamColors[selectedTeam])}>🟨 Penalty — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>🟨 Penalty @ {penaltyTime} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
               {editingGroupId && (() => {
                 const existing = getGroupById(editingGroupId).find(e => e.event === "penalty_tech" || e.event === "penalty_min");
                 return existing?.foulName ? <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
@@ -1734,7 +1782,7 @@ export default function LaxStats({
           {step === "ask_penalty_min" && (
             <div>
               <button style={S.backBtn} onClick={() => setStep("ask_penalty_type")}>← Back</button>
-              <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 {penaltyFoulName} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 {penaltyFoulName} @ {penaltyTime} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
               {editingGroupId && (() => {
                 const prev = getGroupById(editingGroupId).find(e => e.event === "penalty_min")?.penaltyMin;
                 return prev ? <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
@@ -1753,7 +1801,7 @@ export default function LaxStats({
           {step === "ask_penalty_nr" && (
             <div>
               <button style={S.backBtn} onClick={() => setStep("ask_penalty_min")}>← Back</button>
-              <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 {penaltyFoulName} ({pendingEntries[0]?.penaltyMin}min) — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 {penaltyFoulName} ({pendingEntries[0]?.penaltyMin}min) @ {penaltyTime} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
               <div style={S.questionCard}>
                 <div style={S.questionText}>Releasable or non-releasable?</div>
                 <div style={S.questionSub}>NR penalties are served in full — no early release on a goal</div>
@@ -1765,25 +1813,34 @@ export default function LaxStats({
             </div>
           )}
 
-          {/* Penalty: time remaining — allows same time as latest event (for same dead-ball cycle) */}
+          {/* Penalty: time remaining — asked first, before player selection */}
           {step === "ask_penalty_time" && (
             <div>
-              <button style={S.backBtn} onClick={() => penaltyType === "tech" ? setStep("ask_penalty_type") : setStep("ask_penalty_nr")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("event")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
-                {penaltyType === "tech" ? `🟨 ${penaltyFoulName} (Technical)` : `🟥 ${penaltyFoulName} (${pendingEntries[0]?.penaltyMin}min${penaltyNR ? " NR" : ""})`} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
+                🟨 Penalty — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
               <div style={S.questionCard}>
                 <div style={S.questionText}>Time remaining?</div>
                 <div style={S.questionSub}>Penalties from the same dead-ball cycle can share a time</div>
               </div>
-              <TimeKeypad
-                maxSeconds={isOT(currentQuarter) ? 240 : 720}
-                ceilingSecs={timeCeilingSecs}
-                allowEqualToCeiling={true}
-                onConfirm={handlePenaltyTime}
-                showSameAsLatest={true}
-                latestLabel={timeCeilingSecs !== null ? `${Math.floor(timeCeilingSecs/60)}:${String(timeCeilingSecs%60).padStart(2,"0")}` : null}
-              />
+              {(() => {
+                const editTime = editingGroupId
+                  ? getGroupById(editingGroupId).find(e => e.event === "penalty_tech" || e.event === "penalty_min")?.penaltyTime
+                  : null;
+                const latestLabel = editTime
+                  || (timeCeilingSecs !== null ? `${Math.floor(timeCeilingSecs/60)}:${String(timeCeilingSecs%60).padStart(2,"0")}` : null);
+                return (
+                  <TimeKeypad
+                    maxSeconds={isOT(currentQuarter) ? 240 : 720}
+                    ceilingSecs={timeCeilingSecs}
+                    allowEqualToCeiling={true}
+                    onConfirm={handlePenaltyTime}
+                    showSameAsLatest={true}
+                    latestLabel={latestLabel}
+                  />
+                );
+              })()}
             </div>
           )}
 
@@ -1935,7 +1992,7 @@ export default function LaxStats({
                 { label: "Successful MDD", key: "mdd_success" }, { label: "Failed MDD", key: "mdd_fail" },
                 { label: "MDD %", custom: mddPct },
                 { label: "Saves", key: "shot_saved" }, { label: "Save %", custom: savePct },
-                { label: "Forced TOs", key: "forced_to" },
+                { label: "Caused TOs", key: "forced_to" },
                 { heading: "Shooting" },
                 { label: "Total Shots", key: "shot" }, { label: "Shot %", custom: shotPct },
                 { label: "Shots on Goal", key: "sog" }, { label: "SOG %", custom: sogPct },

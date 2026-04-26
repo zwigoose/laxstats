@@ -1088,7 +1088,7 @@ export default function GameList() {
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px" }}>
           <div style={{ display: "flex", gap: 4, padding: "12px 0 0", marginBottom: 16, borderBottom: "1px solid #e8e8e8" }}>
             {[
-              ["games", orgMemberships?.length ? "Personal" : "My Games"],
+              ["games", "My Games"],
               ...(orgMemberships?.length ? [["orgs", "Orgs"]] : []),
               ["rosters", "Rosters"],
             ].map(([id, label]) => (

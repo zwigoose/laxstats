@@ -20,6 +20,227 @@ const S = {
   err:    { background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "10px 14px", color: "#c0392b", fontSize: 13, marginBottom: 16 },
 };
 
+// ── Roster import helpers ────────────────────────────────────────────────────
+
+function parseTextRoster(text) {
+  return text.split("\n").map(l => l.trim()).filter(Boolean).map(line => {
+    const m = line.match(/^#?(\d+)\s+(.+)$/) || line.match(/^(.+)\s+#?(\d+)$/);
+    if (m) {
+      if (/^\d+$/.test(m[1])) return { number: m[1], name: m[2].trim(), position: null };
+      return { number: m[2], name: m[1].trim(), position: null };
+    }
+    const n = line.match(/^#?(\d+)$/);
+    if (n) return { number: n[1], name: `#${n[1]}`, position: null };
+    return { number: null, name: line, position: null };
+  }).filter(p => p.name);
+}
+
+function parseCsvText(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  const sep = lines[0].includes("\t") ? "\t" : ",";
+  const rows = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g, "")));
+
+  // Detect header row
+  const first = rows[0];
+  const hasHeader = first.some(c => /^(number|num|#|name|position|pos)$/i.test(c));
+
+  if (hasHeader) {
+    const hdr = first.map(h => h.toLowerCase());
+    const numIdx  = hdr.findIndex(h => /^(number|num|#)$/.test(h));
+    const nameIdx = hdr.findIndex(h => h === "name");
+    const posIdx  = hdr.findIndex(h => /^(position|pos)$/.test(h));
+    return rows.slice(1).map(row => ({
+      number:   numIdx  >= 0 ? (row[numIdx]?.replace(/\D/g, "") || null) : null,
+      name:     nameIdx >= 0 ? (row[nameIdx] || "") : "",
+      position: posIdx  >= 0 ? (row[posIdx]  || null) : null,
+    })).filter(p => p.name.trim());
+  }
+
+  // No header: heuristic — first numeric-looking cell = number, first text cell = name, short leftover = position
+  return rows.map(row => {
+    let number = null, name = "", position = null;
+    for (const cell of row) {
+      const clean = cell.replace(/^#/, "");
+      if (!number && /^\d{1,3}$/.test(clean))                    { number = clean; continue; }
+      if (!name   && cell && !/^\d+$/.test(clean))               { name = cell;   continue; }
+      if (name    && !position && cell && cell.length <= 6)      { position = cell; }
+    }
+    return { number, name, position };
+  }).filter(p => p.name.trim());
+}
+
+// ── ImportRoster component ───────────────────────────────────────────────────
+
+function ImportRoster({ teamId, orgId, existingPlayers, onImported, onCancel }) {
+  const [mode, setMode]         = useState("csv");
+  const [rows, setRows]         = useState(null);   // null = not yet parsed
+  const [textBlob, setTextBlob] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState(null);
+  const [savedTeams, setSavedTeams]   = useState([]);
+
+  useEffect(() => {
+    supabase.from("saved_teams").select("id, name, roster").order("name")
+      .then(({ data }) => { if (data) setSavedTeams(data); });
+  }, []);
+
+  const existingNums = new Set((existingPlayers || []).map(p => String(p.number)));
+
+  function handleFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => setRows(parseCsvText(e.target.result).map(r => ({ ...r })));
+    reader.readAsText(file);
+  }
+
+  function handleSavedTeamSelect(stId) {
+    const t = savedTeams.find(s => s.id === stId);
+    if (t) setRows(parseTextRoster(t.roster).map(r => ({ ...r })));
+  }
+
+  async function handleImport() {
+    if (!rows?.length) return;
+    setImporting(true);
+    setImportError(null);
+    const toInsert = rows.map(r => ({
+      team_id:  teamId,
+      org_id:   orgId,
+      name:     r.name,
+      number:   r.number ? parseInt(r.number, 10) : null,
+      position: r.position || null,
+    }));
+    const { data, error: err } = await supabase
+      .from("players").insert(toInsert).select("id, name, number, position");
+    setImporting(false);
+    if (err) { setImportError(err.message); return; }
+    onImported(data);
+  }
+
+  const dupeNums = rows ? rows.filter(r => r.number && existingNums.has(r.number)).map(r => `#${r.number}`) : [];
+
+  const modeTab = (id, label) => (
+    <button key={id} onClick={() => { setMode(id); setRows(null); setTextBlob(""); }}
+      style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: "pointer",
+        background: mode === id ? "#111" : "transparent", color: mode === id ? "#fff" : "#555",
+        border: mode === id ? "none" : "1px solid #ddd" }}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div style={{ background: "#f7f8fa", border: "1px solid #e0e0e0", borderRadius: 12, padding: 14, marginTop: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Import Roster</div>
+        <button style={S.btnOut} onClick={onCancel}>Cancel</button>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {modeTab("csv",   "CSV file")}
+        {modeTab("text",  "Text")}
+        {modeTab("saved", "Saved team")}
+      </div>
+
+      {/* ── Input panels ── */}
+      {!rows && mode === "csv" && (
+        <div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
+            Upload a CSV — columns: <code>number, name, position</code> (position optional). Header row auto-detected.
+          </div>
+          <label style={{ display: "inline-block", padding: "8px 14px", fontSize: 12, fontWeight: 600,
+            background: "#111", color: "#fff", borderRadius: 8, cursor: "pointer" }}>
+            Choose CSV file
+            <input type="file" accept=".csv,text/csv" style={{ display: "none" }}
+              onChange={e => { handleFile(e.target.files[0]); e.target.value = ""; }} />
+          </label>
+        </div>
+      )}
+
+      {!rows && mode === "text" && (
+        <div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>
+            One player per line — <code>#22 First Last</code>. Position can be filled in after preview.
+          </div>
+          <textarea value={textBlob} onChange={e => setTextBlob(e.target.value)}
+            placeholder={"#2 First Last\n#7 First Last\n#11 First Last"}
+            style={{ width: "100%", height: 120, padding: 10, fontSize: 13, fontFamily: "monospace",
+              border: "1px solid #ddd", borderRadius: 8, background: "#fff", resize: "vertical",
+              boxSizing: "border-box" }} />
+          <button style={{ ...S.btnSm, marginTop: 8, opacity: !textBlob.trim() ? 0.4 : 1 }}
+            disabled={!textBlob.trim()}
+            onClick={() => setRows(parseTextRoster(textBlob).map(r => ({ ...r })))}>
+            Preview →
+          </button>
+        </div>
+      )}
+
+      {!rows && mode === "saved" && (
+        <div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>
+            Saved teams don't include position — you can fill it in after preview.
+          </div>
+          <select style={{ ...S.input, maxWidth: 300, marginTop: 0 }} defaultValue=""
+            onChange={e => e.target.value && handleSavedTeamSelect(e.target.value)}>
+            <option value="" disabled>Select a saved team…</option>
+            {savedTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      {/* ── Preview ── */}
+      {rows !== null && (
+        <div>
+          {rows.length === 0 ? (
+            <div style={{ fontSize: 13, color: "#c0392b", marginBottom: 8 }}>
+              No players found — check the format and try again.
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>
+                {rows.length} player{rows.length !== 1 ? "s" : ""} · Edit the Pos. column as needed
+              </div>
+              {dupeNums.length > 0 && (
+                <div style={{ fontSize: 11, color: "#7a5c00", background: "#fffbf0",
+                  border: "1px solid #e0d080", borderRadius: 6, padding: "5px 10px", marginBottom: 8 }}>
+                  Already on roster: {dupeNums.join(", ")}
+                </div>
+              )}
+              <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid #e5e5e5", borderRadius: 8, background: "#fff" }}>
+                {rows.map((r, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
+                    borderBottom: i < rows.length - 1 ? "1px solid #f0f0f0" : "none" }}>
+                    <span style={{ fontSize: 12, color: "#bbb", width: 32, textAlign: "right", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+                      {r.number ? `#${r.number}` : "—"}
+                    </span>
+                    <span style={{ flex: 1, fontSize: 13, color: "#111" }}>{r.name}</span>
+                    <input value={r.position || ""} placeholder="Pos."
+                      onChange={e => setRows(prev => prev.map((row, j) => j === i ? { ...row, position: e.target.value || null } : row))}
+                      style={{ width: 52, padding: "3px 6px", fontSize: 12, border: "1px solid #e0e0e0",
+                        borderRadius: 6, fontFamily: "system-ui, sans-serif" }} />
+                    <button onClick={() => setRows(prev => prev.filter((_, j) => j !== i))}
+                      style={{ fontSize: 11, color: "#c0392b", background: "none", border: "none",
+                        cursor: "pointer", padding: "2px 4px", flexShrink: 0, lineHeight: 1 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {importError && <div style={{ ...S.err, marginTop: 8 }}>{importError}</div>}
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <button style={S.btnOut} onClick={() => { setRows(null); setImportError(null); }}>← Back</button>
+            {rows.length > 0 && (
+              <button style={{ ...S.btn, opacity: importing ? 0.5 : 1, marginLeft: "auto" }}
+                disabled={importing} onClick={handleImport}>
+                {importing ? "Adding…" : `Add ${rows.length} player${rows.length !== 1 ? "s" : ""} →`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ColorPicker({ value, onChange }) {
   return (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
@@ -106,7 +327,7 @@ function PlayerForm({ teamId, initial, onSave, onCancel, saving }) {
   );
 }
 
-function TeamCard({ team, canManage, onUpdate, onDelete }) {
+function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [players, setPlayers] = useState(null);
@@ -116,6 +337,7 @@ function TeamCard({ team, canManage, onUpdate, onDelete }) {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [playerError, setPlayerError] = useState(null);
+  const [importingRoster, setImportingRoster] = useState(false);
 
   async function loadPlayers() {
     if (players !== null) return;
@@ -137,6 +359,7 @@ function TeamCard({ team, canManage, onUpdate, onDelete }) {
     setAddingPlayer(false);
     setEditingPlayerId(null);
     setConfirmDelete(false);
+    setImportingRoster(false);
   }
 
   async function handleSaveTeam(fields) {
@@ -151,7 +374,7 @@ function TeamCard({ team, canManage, onUpdate, onDelete }) {
     setPlayerError(null);
     const { data, error: err } = await supabase
       .from("players")
-      .insert({ team_id: team.id, ...fields })
+      .insert({ team_id: team.id, org_id: orgId, ...fields })
       .select("id, name, number, position")
       .single();
     if (err) { setPlayerError(err.message); setSaving(false); return; }
@@ -256,14 +479,38 @@ function TeamCard({ team, canManage, onUpdate, onDelete }) {
                 <div style={{ fontSize: 13, color: "#aaa", marginBottom: 10 }}>No players yet.</div>
               )}
 
-              {canManage && !addingPlayer && (
-                <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => setAddingPlayer(true)}>+ Add player</button>
+              {canManage && !addingPlayer && !importingRoster && (
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => setAddingPlayer(true)}>+ Add player</button>
+                  <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => { setAddingPlayer(false); setImportingRoster(true); }}>Import roster</button>
+                </div>
               )}
 
               {canManage && addingPlayer && (
                 <PlayerForm teamId={team.id} saving={saving}
                   onSave={handleAddPlayer}
                   onCancel={() => setAddingPlayer(false)} />
+              )}
+
+              {canManage && importingRoster && (
+                <ImportRoster
+                  teamId={team.id}
+                  orgId={orgId}
+                  existingPlayers={players || []}
+                  onImported={newPlayers => {
+                    setPlayers(prev => {
+                      const merged = [...(prev || []), ...newPlayers].sort((a, b) => {
+                        if (a.number != null && b.number != null) return a.number - b.number;
+                        if (a.number != null) return -1;
+                        if (b.number != null) return 1;
+                        return a.name.localeCompare(b.name);
+                      });
+                      return merged;
+                    });
+                    setImportingRoster(false);
+                  }}
+                  onCancel={() => setImportingRoster(false)}
+                />
               )}
             </>
           )}
@@ -374,7 +621,7 @@ export default function TeamManager() {
           </div>
         ) : (
           teams.map(team => (
-            <TeamCard key={team.id} team={team} canManage={isCoach}
+            <TeamCard key={team.id} team={team} orgId={org.id} canManage={isCoach}
               onUpdate={handleUpdateTeam}
               onDelete={handleDeleteTeam} />
           ))
