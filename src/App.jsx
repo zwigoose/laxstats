@@ -100,7 +100,7 @@ function AppRoutes() {
   return (
     <>
       <AppNav />
-      <div style={{ paddingBottom: FOOTER_H, paddingTop: showNav ? NAV_H : 0 }}>
+      <div style={{ position: "fixed", top: showNav ? NAV_H : 0, bottom: FOOTER_H, left: 0, right: 0, overflowY: "auto" }}>
         <Routes>
           <Route path="/login"                    element={<Login />} />
           <Route path="/"                         element={<GameList />} />

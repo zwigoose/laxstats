@@ -1019,7 +1019,7 @@ export default function GameList() {
   }
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5" }}>
+    <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100%", background: "#f5f5f5" }}>
 
       {/* ── Hero ── */}
       <div style={{
@@ -1028,7 +1028,9 @@ export default function GameList() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         padding: "16px 24px 20px",
-        position: "relative",
+        position: "sticky",
+        top: 0,
+        zIndex: 10,
         overflow: "hidden",
       }}>
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 0%, transparent 40%, rgba(0,0,0,0.6) 100%)", pointerEvents: "none" }} />

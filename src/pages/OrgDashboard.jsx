@@ -30,7 +30,7 @@ function getGameInfo(game, v2Scores) {
 }
 
 const S = {
-  page:    { fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5" },
+  page:    { fontFamily: "system-ui, sans-serif", minHeight: "100%", background: "#f5f5f5" },
   header:  { background: "#111", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12 },
   back:    { fontSize: 13, color: "rgba(255,255,255,0.5)", background: "none", border: "none", cursor: "pointer" },
   orgName: { fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.01em", flex: 1 },
@@ -806,24 +806,30 @@ export default function OrgDashboard() {
 
   return (
     <div style={S.page}>
-      <div style={S.header}>
-        <span style={S.orgName}>{org.name}</span>
-        {role && <span style={S.badge(role)}>{ROLE_LABELS[role] ?? role}</span>}
-        {isOrgAdmin && (
-          <button style={{ ...S.btnOutline, fontSize: 12, color: "rgba(255,255,255,0.6)", borderColor: "rgba(255,255,255,0.2)", background: "transparent" }}
-            onClick={() => navigate(`/orgs/${slug}/teams`)}>
-            Manage Teams
-          </button>
-        )}
+      {/* Sticky header + tab bar */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10 }}>
+        <div style={S.header}>
+          <span style={S.orgName}>{org.name}</span>
+          {role && <span style={S.badge(role)}>{ROLE_LABELS[role] ?? role}</span>}
+          {isOrgAdmin && (
+            <button style={{ ...S.btnOutline, fontSize: 12, color: "rgba(255,255,255,0.6)", borderColor: "rgba(255,255,255,0.2)", background: "transparent" }}
+              onClick={() => navigate(`/orgs/${slug}/teams`)}>
+              Manage Teams
+            </button>
+          )}
+        </div>
+        <div style={{ background: "#fff" }}>
+          <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 16px" }}>
+            <div style={{ ...S.tabBar, marginBottom: 0 }}>
+              {tabs.map(([id, label]) => (
+                <button key={id} style={S.tab(tab === id)} onClick={() => setTab(id)}>{label}</button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div style={S.body}>
-        <div style={S.tabBar}>
-          {tabs.map(([id, label]) => (
-            <button key={id} style={S.tab(tab === id)} onClick={() => setTab(id)}>{label}</button>
-          ))}
-        </div>
-
         {tab === "games"   && <GamesTab   org={org} canScore={canScore} orgMembership={orgMembership} />}
         {tab === "seasons" && <SeasonsTab org={org} slug={slug} isOrgAdmin={isOrgAdmin} />}
         {tab === "teams"   && <TeamsTab   org={org} slug={slug} isOrgAdmin={isOrgAdmin} />}

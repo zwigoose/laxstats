@@ -1709,20 +1709,23 @@ export default function Admin() {
   }
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5" }}>
-      {/* Header */}
-      <div style={{ background: "#111", padding: "16px 24px", display: "flex", alignItems: "center", gap: 16 }}>
-        <button onClick={() => navigate("/")} style={{
-          background: "none", border: "none", color: "rgba(255,255,255,0.5)", fontSize: 13,
-          fontWeight: 500, cursor: "pointer", padding: 0, fontFamily: "system-ui, sans-serif",
-        }}>← Games</button>
-        <span style={{ fontSize: 17, fontWeight: 700, color: "#fff", flex: 1 }}>Admin</span>
-        <span style={{ fontSize: 10, fontWeight: 700, color: "#d4820a", background: "rgba(212,130,10,0.2)", borderRadius: 6, padding: "3px 8px", letterSpacing: "0.08em", textTransform: "uppercase" }}>Admin</span>
-      </div>
+    <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100%", background: "#f5f5f5" }}>
+      {/* Sticky header + tabs */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10 }}>
+        {/* Header */}
+        <div style={{ background: "#111", padding: "16px 24px", display: "flex", alignItems: "center", gap: 16 }}>
+          <button onClick={() => navigate("/")} style={{
+            background: "none", border: "none", color: "rgba(255,255,255,0.5)", fontSize: 13,
+            fontWeight: 500, cursor: "pointer", padding: 0, fontFamily: "system-ui, sans-serif",
+          }}>← Games</button>
+          <span style={{ fontSize: 17, fontWeight: 700, color: "#fff", flex: 1 }}>Admin</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#d4820a", background: "rgba(212,130,10,0.2)", borderRadius: 6, padding: "3px 8px", letterSpacing: "0.08em", textTransform: "uppercase" }}>Admin</span>
+        </div>
 
-      {/* Tabs */}
-      <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px" }}>
-        <div style={{ display: "flex", gap: 4, padding: "12px 0 0", marginBottom: 16, borderBottom: "1px solid #e8e8e8" }}>
+        {/* Tabs */}
+        <div style={{ background: "#fff" }}>
+        <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px" }}>
+        <div style={{ display: "flex", gap: 4, padding: "12px 0 0", marginBottom: 0, borderBottom: "1px solid #e8e8e8" }}>
           {[["games", "All Games"], ["users", "Users"], ["rosters", "Rosters"], ["orgs", "Orgs"], ["migration", "Migration"]].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)} style={{
               padding: "8px 18px", fontSize: 14, fontWeight: tab === id ? 700 : 500,
@@ -1733,7 +1736,12 @@ export default function Admin() {
             }}>{label}</button>
           ))}
         </div>
+        </div>
+        </div>
+      </div>
 
+      {/* Tab content */}
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "16px 16px 32px" }}>
         {tab === "games"     && <AllGamesTab />}
         {tab === "users"     && <UsersTab />}
         {tab === "rosters"   && <RostersAdminTab />}

@@ -12,8 +12,8 @@ function formatDate(str) {
 }
 
 const S = {
-  page:   { fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5" },
-  wrap:   { maxWidth: 600, margin: "0 auto", padding: "32px 20px" },
+  page:   { fontFamily: "system-ui, sans-serif", minHeight: "100%", background: "#f5f5f5" },
+  wrap:   { maxWidth: 600, margin: "0 auto", padding: "0 20px 32px" },
   back:   { fontSize: 13, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "0 0 20px", display: "block" },
   h1:     { fontSize: 24, fontWeight: 800, color: "#111", margin: "0 0 4px", letterSpacing: "-0.02em" },
   sub:    { fontSize: 13, color: "#888", margin: "0 0 28px" },
@@ -259,7 +259,7 @@ export default function SeasonView() {
 
   if (error) return (
     <div style={S.page}>
-      <div style={S.wrap}>
+      <div style={{ ...S.wrap, paddingTop: 24 }}>
         <button style={S.back} onClick={() => navigate(-1)}>← Back</button>
         <div style={S.err}>{error}</div>
       </div>
@@ -286,46 +286,52 @@ export default function SeasonView() {
 
   return (
     <div style={S.page}>
-      <div style={S.wrap}>
-        <button style={S.back} onClick={() => navigate(`/orgs/${slug}`)}>← {org?.name}</button>
+      {/* Sticky hero */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "#f5f5f5", borderBottom: "1px solid #e8e8e8" }}>
+        <div style={{ maxWidth: 600, margin: "0 auto", padding: "16px 20px 12px" }}>
+          <button style={{ ...S.back, padding: "0 0 8px" }} onClick={() => navigate(`/orgs/${slug}`)}>← {org?.name}</button>
 
-        <h1 style={S.h1}>{season?.name}</h1>
-        <p style={S.sub}>
-          {season?.start_date && season?.end_date
-            ? `${formatDate(season.start_date)} – ${formatDate(season.end_date)}`
-            : org?.name}
-        </p>
+          <h1 style={{ ...S.h1, marginBottom: 2 }}>{season?.name}</h1>
+          <p style={{ ...S.sub, marginBottom: filterTeams.length > 0 ? 10 : 0 }}>
+            {season?.start_date && season?.end_date
+              ? `${formatDate(season.start_date)} – ${formatDate(season.end_date)}`
+              : org?.name}
+          </p>
 
-        {/* Team filter pills */}
-        {filterTeams.length > 0 && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
-            <button
-              onClick={() => setSelectedTeamId(null)}
-              style={{
-                padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", border: "1px solid",
-                background: !selectedTeamId ? "#111" : "transparent",
-                color: !selectedTeamId ? "#fff" : "#555",
-                borderColor: !selectedTeamId ? "#111" : "#ddd",
-              }}
-            >
-              All
-            </button>
-            {filterTeams.map(t => (
+          {/* Team filter pills */}
+          {filterTeams.length > 0 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <button
-                key={t.team_id}
-                onClick={() => setSelectedTeamId(prev => prev === t.team_id ? null : t.team_id)}
+                onClick={() => setSelectedTeamId(null)}
                 style={{
                   padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", border: "1px solid",
-                  background: selectedTeamId === t.team_id ? (t.team_color || "#111") : "transparent",
-                  color: selectedTeamId === t.team_id ? "#fff" : "#555",
-                  borderColor: selectedTeamId === t.team_id ? (t.team_color || "#111") : "#ddd",
+                  background: !selectedTeamId ? "#111" : "transparent",
+                  color: !selectedTeamId ? "#fff" : "#555",
+                  borderColor: !selectedTeamId ? "#111" : "#ddd",
                 }}
               >
-                {t.team_name}
+                All
               </button>
-            ))}
-          </div>
-        )}
+              {filterTeams.map(t => (
+                <button
+                  key={t.team_id}
+                  onClick={() => setSelectedTeamId(prev => prev === t.team_id ? null : t.team_id)}
+                  style={{
+                    padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", border: "1px solid",
+                    background: selectedTeamId === t.team_id ? (t.team_color || "#111") : "transparent",
+                    color: selectedTeamId === t.team_id ? "#fff" : "#555",
+                    borderColor: selectedTeamId === t.team_id ? (t.team_color || "#111") : "#ddd",
+                  }}
+                >
+                  {t.team_name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={S.wrap}>
 
         {/* Standings */}
         <div style={S.sectionTitle}>Standings</div>

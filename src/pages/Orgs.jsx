@@ -357,16 +357,16 @@ export default function Orgs() {
   }
 
   if (authLoading || loading) return (
-    <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100%", background: "#f5f5f5", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ fontSize: 14, color: "#aaa" }}>Loading…</div>
     </div>
   );
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5" }}>
+    <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100%", background: "#f5f5f5" }}>
 
       {/* Section header */}
-      <div style={{ background: "#fff", borderBottom: "1px solid #eee" }}>
+      <div style={{ background: "#fff", borderBottom: "1px solid #eee", position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "24px 20px 20px" }}>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
             <div>
