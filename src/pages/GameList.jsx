@@ -275,7 +275,7 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage, orgMemberships =
 }
 
 // ── Live Card (public, no edit/delete) ───────────────────────────────────────
-function LiveCard({ game, isOwner }) {
+function LiveCard({ game, isOwner, hasPressbox }) {
   const navigate = useNavigate();
   const info = getGameInfo(game);
   const c0 = info?.t0?.color || "#444";
@@ -303,8 +303,10 @@ function LiveCard({ game, isOwner }) {
           <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
             <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
               onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
-            <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
-              onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
+            {hasPressbox && (
+              <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
+                onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
+            )}
             {isOwner && (
               <button style={{ padding: "7px 15px", fontSize: 13, fontWeight: 600, background: "#111", border: "none", borderRadius: 8, cursor: "pointer", color: "#fff" }}
                 onClick={() => navigate(`/games/${game.id}/score`)}>Score</button>
@@ -319,6 +321,7 @@ function LiveCard({ game, isOwner }) {
 // ── Live Games Section (public) ───────────────────────────────────────────────
 function LiveGamesSection({ user }) {
   const [liveGames, setLiveGames] = useState([]);
+  const [pressboxOrgs, setPressboxOrgs] = useState(new Set());
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -332,7 +335,7 @@ function LiveGamesSection({ user }) {
   async function load() {
     const { data } = await supabase
       .from("games")
-      .select("id, created_at, name, state, user_id")
+      .select("id, created_at, name, state, user_id, org_id")
       .not("state", "is", null)
       .order("created_at", { ascending: false });
     const live = (data || []).filter(g => {
@@ -340,6 +343,16 @@ function LiveGamesSection({ user }) {
       return info?.started && !info?.gameOver;
     });
     setLiveGames(live);
+
+    // Check pressbox access for each unique org represented in live games
+    const orgIds = [...new Set(live.map(g => g.org_id).filter(Boolean))];
+    if (orgIds.length > 0) {
+      const results = await Promise.all(
+        orgIds.map(id => supabase.rpc("org_feature_limit", { p_org_id: id, p_feature_id: "pressbox" }).then(({ data }) => ({ id, limit: data })))
+      );
+      setPressboxOrgs(new Set(results.filter(r => r.limit !== 0).map(r => r.id)));
+    }
+
     setLoaded(true);
   }
 
@@ -351,7 +364,8 @@ function LiveGamesSection({ user }) {
         ● Live Now
       </div>
       {liveGames.map(game => (
-        <LiveCard key={game.id} game={game} isOwner={user?.id === game.user_id} />
+        <LiveCard key={game.id} game={game} isOwner={user?.id === game.user_id}
+          hasPressbox={game.org_id ? pressboxOrgs.has(game.org_id) : false} />
       ))}
     </div>
   );
