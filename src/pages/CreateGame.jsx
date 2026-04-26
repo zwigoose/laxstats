@@ -61,7 +61,7 @@ export default function CreateGame() {
     const name = `Game — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
     const { data, error: err } = await supabase
       .from("games")
-      .insert({ name, state: null, user_id: user.id })
+      .insert({ name, state: null, user_id: user.id, schema_ver: 2 })
       .select("id").single();
     if (err) { setError(err.message); setStep("choice"); return; }
     navigate(`/games/${data.id}/score`);
