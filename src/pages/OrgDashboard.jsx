@@ -47,7 +47,7 @@ const S = {
 };
 
 // ── Org game card ─────────────────────────────────────────────────────────────
-function OrgGameCard({ game, canScore, v2Scores }) {
+function OrgGameCard({ game, canScore, v2Scores, hasPressbox }) {
   const navigate = useNavigate();
   const info = getGameInfo(game, v2Scores);
   const c0 = info?.t0?.color || "#444";
@@ -82,7 +82,9 @@ function OrgGameCard({ game, canScore, v2Scores }) {
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <button style={S.btnOutline} onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
-            <button style={S.btnOutline} onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
+            {hasPressbox && (
+              <button style={S.btnOutline} onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
+            )}
             {canScore && (
               <button style={S.btnPrimary} onClick={() => navigate(`/games/${game.id}/score`)}>
                 {info?.started ? "Score" : "Setup"}
@@ -98,11 +100,16 @@ function OrgGameCard({ game, canScore, v2Scores }) {
 // ── Games tab ─────────────────────────────────────────────────────────────────
 function GamesTab({ org, canScore, orgMembership }) {
   const navigate = useNavigate();
-  const [games, setGames]     = useState([]);
-  const [v2Scores, setV2Scores] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [games, setGames]         = useState([]);
+  const [v2Scores, setV2Scores]   = useState({});
+  const [hasPressbox, setHasPressbox] = useState(false);
+  const [loading, setLoading]     = useState(true);
 
   useEffect(() => {
+    // Check pressbox feature for this org
+    supabase.rpc("org_feature_limit", { p_org_id: org.id, p_feature_id: "pressbox" })
+      .then(({ data: limit }) => setHasPressbox(limit !== 0));
+
     supabase.from("games")
       .select("id, created_at, name, state, schema_ver, game_date, user_id, org_id")
       .eq("org_id", org.id).order("created_at", { ascending: false })
@@ -142,12 +149,12 @@ function GamesTab({ org, canScore, orgMembership }) {
         </div>
       )}
       {games.length === 0 && <div style={{ color: "#aaa", fontSize: 14, padding: "32px 0", textAlign: "center" }}>No games yet.</div>}
-      {live.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} />)}
-      {pending.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} />)}
+      {live.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} hasPressbox={hasPressbox} />)}
+      {pending.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} hasPressbox={hasPressbox} />)}
       {final.length > 0 && (
         <>
           <div style={S.sectionHead}>Completed</div>
-          {final.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} />)}
+          {final.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} hasPressbox={hasPressbox} />)}
         </>
       )}
     </div>

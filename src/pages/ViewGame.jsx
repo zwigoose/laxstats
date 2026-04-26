@@ -63,6 +63,7 @@ export default function ViewGame() {
   const [statsQtr, setStatsQtr] = useState("all");
   const [sortKey, setSortKey] = useState("goal");
   const [copied, setCopied] = useState(false);
+  const [hasPressbox, setHasPressbox] = useState(false);
 
   function copyUrl() {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -114,11 +115,19 @@ export default function ViewGame() {
     setError(null);
     const { data, error: err } = await supabase
       .from("games")
-      .select("id, created_at, name, state, schema_ver")
+      .select("id, created_at, name, state, schema_ver, org_id")
       .eq("id", id)
       .single();
     if (err) { setError(err.message); setLoading(false); return; }
     setGame(data);
+
+    // Check pressbox feature access for the org
+    if (data?.org_id) {
+      const { data: limit } = await supabase.rpc("org_feature_limit", {
+        p_org_id: data.org_id, p_feature_id: "pressbox",
+      });
+      setHasPressbox(limit !== 0);
+    }
 
     // v2: load event log from game_events table
     if (data?.schema_ver === 2) {
@@ -219,7 +228,9 @@ export default function ViewGame() {
           ? <span style={S.finalBadge}>Final</span>
           : <span style={S.liveBadge}>● Live</span>
         }
-        <button style={S.copyBtn} onClick={() => window.open(`/games/${id}/pressbox`, "_blank")}>Press Box ↗</button>
+        {hasPressbox && (
+          <button style={S.copyBtn} onClick={() => window.open(`/games/${id}/pressbox`, "_blank")}>Press Box ↗</button>
+        )}
         <button style={copied ? S.copyBtnDone : S.copyBtn} onClick={copyUrl}>
           {copied ? "✓ Copied" : "Copy link"}
         </button>

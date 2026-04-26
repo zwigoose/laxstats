@@ -31,7 +31,7 @@ function GameStatusBadge({ game }) {
   return <span style={{ fontSize: 11, fontWeight: 600, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "3px 9px" }}>Scheduled</span>;
 }
 
-function GameRow({ game, navigate }) {
+function GameRow({ game, navigate, hasPressbox }) {
   const s = game.state;
   const homeTeam = game.home_team;
   const awayTeam = game.away_team;
@@ -77,10 +77,12 @@ function GameRow({ game, navigate }) {
           style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}>
           View
         </button>
-        <button onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}
-          style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}>
-          Press Box
-        </button>
+        {hasPressbox && (
+          <button onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}
+            style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}>
+            Press Box
+          </button>
+        )}
       </div>
     </div>
   );
@@ -170,6 +172,7 @@ export default function SeasonView() {
   const [games, setGames] = useState([]);
   const [teamStats, setTeamStats] = useState([]);
   const [playerStats, setPlayerStats] = useState([]);
+  const [hasPressbox, setHasPressbox] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -189,6 +192,12 @@ export default function SeasonView() {
       .single();
     if (orgErr || !orgData) { setError("Organization not found."); setLoading(false); return; }
     setOrg(orgData);
+
+    // Check pressbox feature for this org
+    const { data: pbLimit } = await supabase.rpc("org_feature_limit", {
+      p_org_id: orgData.id, p_feature_id: "pressbox",
+    });
+    setHasPressbox(pbLimit !== 0);
 
     // Load season
     const { data: seasonData, error: seasonErr } = await supabase
@@ -265,21 +274,21 @@ export default function SeasonView() {
         {inProgress.length > 0 && (
           <>
             <div style={{ ...S.sectionTitle, color: "#2a7a3b" }}>● Live</div>
-            {inProgress.map(g => <GameRow key={g.id} game={g} navigate={navigate} />)}
+            {inProgress.map(g => <GameRow key={g.id} game={g} navigate={navigate} hasPressbox={hasPressbox} />)}
           </>
         )}
 
         {upcoming.length > 0 && (
           <>
             <div style={S.sectionTitle}>Schedule</div>
-            {upcoming.map(g => <GameRow key={g.id} game={g} navigate={navigate} />)}
+            {upcoming.map(g => <GameRow key={g.id} game={g} navigate={navigate} hasPressbox={hasPressbox} />)}
           </>
         )}
 
         {completed.length > 0 && (
           <>
             <div style={S.sectionTitle}>Results</div>
-            {completed.map(g => <GameRow key={g.id} game={g} navigate={navigate} />)}
+            {completed.map(g => <GameRow key={g.id} game={g} navigate={navigate} hasPressbox={hasPressbox} />)}
           </>
         )}
 
