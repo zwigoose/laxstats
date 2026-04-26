@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -31,14 +31,21 @@ const S = {
 
 export default function CreateGame() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, orgMemberships } = useAuth();
 
-  // step: "choice" | "org-org" | "org-season" | "org-teams" | "org-details" | "creating"
-  const [step, setStep]         = useState(orgMemberships.length > 0 ? "choice" : "creating-personal");
+  // If launched from OrgDashboard, a membership object is passed via router state
+  const preselected = location.state?.orgMembership ?? null;
+
+  // step: "choice" | "org-season" | "org-teams" | "org-details" | "creating-personal"
+  const initialStep = preselected
+    ? "org-season"
+    : orgMemberships.length > 0 ? "choice" : "creating-personal";
+  const [step, setStep]         = useState(initialStep);
   const [error, setError]       = useState(null);
 
   // Org wizard state
-  const [selectedOrg, setSelectedOrg] = useState(null);
+  const [selectedOrg, setSelectedOrg] = useState(preselected);
   const [seasons, setSeasons]         = useState([]);
   const [selectedSeason, setSelectedSeason] = useState(null);
   const [newSeasonName, setNewSeasonName]   = useState("");
@@ -53,8 +60,10 @@ export default function CreateGame() {
   const [gameType, setGameType]         = useState("regular");
 
   // Auto-create personal game on mount if no org memberships
+  // Also pre-load seasons if launched with a pre-selected org
   useEffect(() => {
     if (step === "creating-personal") createPersonalGame();
+    if (preselected) selectOrg(preselected);
   }, []);
 
   async function createPersonalGame() {

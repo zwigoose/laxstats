@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useOrgRole } from "../hooks/useOrgRole";
 import { qLabel } from "../components/LaxStats";
+import { dbRowToEntry } from "../hooks/useGameEvents";
 
 const ROLE_LABELS = { org_admin: "Admin", coach: "Coach", scorekeeper: "Scorekeeper", viewer: "Viewer" };
 const ROLE_COLORS = { org_admin: { bg: "#fff3e0", color: "#d4820a" }, coach: { bg: "#e8f5e9", color: "#2a7a3b" }, scorekeeper: { bg: "#e3f2fd", color: "#1a6bab" }, viewer: { bg: "#f5f5f5", color: "#888" } };
@@ -15,13 +16,14 @@ function formatDate(str) {
   if (!str) return "";
   return parseDate(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
-function getGameInfo(game) {
+function getGameInfo(game, v2Scores) {
   const s = game.state;
   if (!s?.teams) return null;
-  const score0 = (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
-  const score1 = (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
-  const started = !!s.trackingStarted;
-  const gameDate = s.gameDate || game.created_at?.split("T")[0];
+  const isV2 = game.schema_ver === 2;
+  const score0 = isV2 ? (v2Scores?.[game.id]?.[0] ?? 0) : (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
+  const score1 = isV2 ? (v2Scores?.[game.id]?.[1] ?? 0) : (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
+  const started = isV2 ? (score0 > 0 || score1 > 0 || !!s.trackingStarted) : !!s.trackingStarted;
+  const gameDate = game.game_date || s.gameDate || game.created_at?.split("T")[0];
   const currentQuarter = s.currentQuarter || 1;
   return { t0: s.teams[0], t1: s.teams[1], score0, score1, gameOver: s.gameOver, started, gameDate, currentQuarter };
 }
@@ -45,9 +47,9 @@ const S = {
 };
 
 // ── Org game card ─────────────────────────────────────────────────────────────
-function OrgGameCard({ game, canScore }) {
+function OrgGameCard({ game, canScore, v2Scores }) {
   const navigate = useNavigate();
-  const info = getGameInfo(game);
+  const info = getGameInfo(game, v2Scores);
   const c0 = info?.t0?.color || "#444";
   const c1 = info?.t1?.color || "#888";
 
@@ -94,37 +96,58 @@ function OrgGameCard({ game, canScore }) {
 }
 
 // ── Games tab ─────────────────────────────────────────────────────────────────
-function GamesTab({ org, canScore }) {
+function GamesTab({ org, canScore, orgMembership }) {
   const navigate = useNavigate();
-  const [games, setGames]   = useState([]);
+  const [games, setGames]     = useState([]);
+  const [v2Scores, setV2Scores] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("games").select("id, created_at, name, state, user_id, org_id")
+    supabase.from("games")
+      .select("id, created_at, name, state, schema_ver, game_date, user_id, org_id")
       .eq("org_id", org.id).order("created_at", { ascending: false })
-      .then(({ data }) => { setGames(data || []); setLoading(false); });
+      .then(async ({ data }) => {
+        const games = data || [];
+        setGames(games);
+
+        // Fetch goal counts from game_events for v2 games
+        const v2Ids = games.filter(g => g.schema_ver === 2).map(g => g.id);
+        if (v2Ids.length > 0) {
+          const { data: totals } = await supabase
+            .from("v_game_team_totals")
+            .select("game_id, team_idx, goals")
+            .in("game_id", v2Ids);
+          const scoreMap = {};
+          (totals || []).forEach(r => {
+            if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];
+            scoreMap[r.game_id][r.team_idx] = r.goals;
+          });
+          setV2Scores(scoreMap);
+        }
+        setLoading(false);
+      });
   }, [org.id]);
 
   if (loading) return <div style={S.loading}>Loading…</div>;
 
-  const live    = games.filter(g => { const i = getGameInfo(g); return i?.started && !i?.gameOver; });
-  const pending = games.filter(g => { const i = getGameInfo(g); return !i?.started; });
-  const final   = games.filter(g => { const i = getGameInfo(g); return i?.gameOver; });
+  const live    = games.filter(g => { const i = getGameInfo(g, v2Scores); return i?.started && !i?.gameOver; });
+  const pending = games.filter(g => { const i = getGameInfo(g, v2Scores); return !i?.started; });
+  const final   = games.filter(g => { const i = getGameInfo(g, v2Scores); return i?.gameOver; });
 
   return (
     <div>
       {canScore && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-          <button style={S.btnPrimary} onClick={() => navigate("/games/new")}>＋ New Game</button>
+          <button style={S.btnPrimary} onClick={() => navigate("/games/new", { state: { orgMembership: orgMembership } })}>＋ New Game</button>
         </div>
       )}
       {games.length === 0 && <div style={{ color: "#aaa", fontSize: 14, padding: "32px 0", textAlign: "center" }}>No games yet.</div>}
-      {live.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} />)}
-      {pending.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} />)}
+      {live.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} />)}
+      {pending.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} />)}
       {final.length > 0 && (
         <>
           <div style={S.sectionHead}>Completed</div>
-          {final.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} />)}
+          {final.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} />)}
         </>
       )}
     </div>
@@ -303,7 +326,7 @@ function MembersTab({ org, isOrgAdmin }) {
 export default function OrgDashboard() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, orgMemberships } = useAuth();
   const [org, setOrg]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(null);
@@ -320,6 +343,7 @@ export default function OrgDashboard() {
   }, [slug]);
 
   const { role, isOrgAdmin, canScore } = useOrgRole(org?.id);
+  const orgMembership = org ? orgMemberships.find(m => m.org_id === org.id) ?? null : null;
 
   if (loading) return <div style={{ ...S.page, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ color: "#aaa", fontSize: 14 }}>Loading…</div></div>;
   if (error || !org) return <div style={{ ...S.page, padding: 40, textAlign: "center", color: "#c0392b", fontSize: 14 }}>{error || "Not found."}</div>;
@@ -352,7 +376,7 @@ export default function OrgDashboard() {
           ))}
         </div>
 
-        {tab === "games"   && <GamesTab   org={org} canScore={canScore} />}
+        {tab === "games"   && <GamesTab   org={org} canScore={canScore} orgMembership={orgMembership} />}
         {tab === "seasons" && <SeasonsTab org={org} slug={slug} isOrgAdmin={isOrgAdmin} />}
         {tab === "teams"   && (
           <div>
