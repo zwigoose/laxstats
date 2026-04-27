@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import LaxStats from "../components/LaxStats";
@@ -87,15 +87,40 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
   const pendingMeta  = useRef(null);
   const saveInFlight = useRef(false);
   const [gameName, setGameName]   = useState(game?.name || "");
+  const [inviteLink,  setInviteLink]  = useState(null);
+  const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
+  const [inviteError, setInviteError] = useState(null);
+
+  async function generateInviteLink() {
+    setInviteState("generating");
+    setInviteError(null);
+    const { data: token, error } = await supabase.rpc("create_scorekeeper_invite", { p_game_id: id });
+    if (error || !token) {
+      setInviteError(error?.message || "Failed to generate link");
+      setInviteState("error");
+      return;
+    }
+    setInviteLink(`${window.location.origin}/games/${id}/score?token=${token}`);
+    setInviteState("ready");
+  }
+
+  function copyInviteLink() {
+    navigator.clipboard.writeText(inviteLink).then(() => {
+      setInviteState("copied");
+      setTimeout(() => setInviteState("ready"), 2000);
+    });
+  }
 
   const {
     entries,
-    loading:    eventsLoading,
+    loading:       eventsLoading,
     commitGroup,
     softDeleteGroup,
+    broadcastMeta,
     isPrimary,
     presenceList,
-    error:      eventsError,
+    remoteQuarterState,
+    error:         eventsError,
   } = useGameEvents(id, userId);
 
   // Build initialState: use game.state for meta (teams, quarter, etc.)
@@ -131,8 +156,12 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
       .eq("id", id);
 
     if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
-    else { setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000); }
-  }, [id]);
+    else {
+      setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000);
+      // Broadcast quarter/game-over state so secondary scorers update immediately
+      broadcastMeta({ currentQuarter: meta.currentQuarter, completedQuarters: meta.completedQuarters, gameOver: !!meta.gameOver });
+    }
+  }, [id, broadcastMeta]);
 
   // State change handler: persist team/meta changes (NOT the log — that's in game_events)
   const handleStateChange = useCallback(async (newState) => {
@@ -181,8 +210,36 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
           {saveStatus === "error"  && "Save failed"}
           {eventsError && !saveStatus && "Event error"}
         </span>
+        {game?.multi_scorer_enabled && (
+          <button style={S.viewBtn} onClick={() => {
+            if (inviteLink || inviteState === "error") { setInviteLink(null); setInviteState("idle"); setInviteError(null); }
+            else generateInviteLink();
+          }} disabled={inviteState === "generating"}>
+            {inviteState === "generating" ? "…" : (inviteLink || inviteState === "error") ? "Hide" : "Invite scorer"}
+          </button>
+        )}
         <button style={S.viewBtn} onClick={() => navigate(`/games/${id}/view`)}>Live view →</button>
       </div>
+
+      {inviteState === "error" && (
+        <div style={{ padding: "8px 16px", background: "#fff5f5", borderBottom: "1px solid #fdd", fontFamily: "system-ui, sans-serif", fontSize: 12, color: "#c0392b" }}>
+          Could not generate invite link: {inviteError}
+        </div>
+      )}
+
+      {inviteLink && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", background: "#f0f7ff", borderBottom: "1px solid #c8dff5", fontFamily: "system-ui, sans-serif" }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#1a6bab", whiteSpace: "nowrap" }}>Scorer invite link</span>
+          <span style={{ flex: 1, fontSize: 11, color: "#444", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "monospace" }}>{inviteLink}</span>
+          <button onClick={copyInviteLink} style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, background: inviteState === "copied" ? "#2a7a3b" : "#1a6bab", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
+            {inviteState === "copied" ? "Copied ✓" : "Copy"}
+          </button>
+          <button onClick={generateInviteLink} style={{ padding: "4px 10px", fontSize: 11, color: "#1a6bab", background: "transparent", border: "1px solid #b3d4f0", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
+            New link
+          </button>
+          <span style={{ fontSize: 10, color: "#999", whiteSpace: "nowrap" }}>Expires 24h</span>
+        </div>
+      )}
 
       {eventsLoading ? (
         <div style={S.loading}>Loading events…</div>
@@ -195,6 +252,7 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
           onEventSoftDelete={softDeleteGroup}
           onMetaEvent={handleMetaEvent}
           remoteEntries={entries}
+          remoteQuarterState={remoteQuarterState}
           scorekeeperRole={isPrimary ? "primary" : "secondary"}
           orgContext={orgContext}
           onOrgTeamSelected={async (teamIdx, teamId) => {
@@ -221,11 +279,45 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
 export default function Scorekeeper() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
   const [game, setGame]           = useState(null);
   const [orgContext, setOrgContext] = useState(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
+  const [tokenClaimed, setTokenClaimed] = useState(false);
+  const [anonPending, setAnonPending]   = useState(false);
+
+  // Read invite token from URL — present when landing via a shared scoring link
+  const inviteToken = new URLSearchParams(location.search).get("token");
+
+  // Auth gate: if no token and no user, redirect to login preserving the URL
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user && !inviteToken) {
+      navigate(`/login?next=${encodeURIComponent(location.pathname + location.search)}`, { replace: true });
+    }
+  }, [authLoading, user, inviteToken]);
+
+  // Token flow: if token present but no user, sign in anonymously so we get a real auth.uid()
+  useEffect(() => {
+    if (authLoading || user || !inviteToken || anonPending) return;
+    setAnonPending(true);
+    supabase.auth.signInAnonymously().catch(() => {
+      // Anon auth not enabled — fall back to login page
+      navigate(`/login?next=${encodeURIComponent(location.pathname + location.search)}`, { replace: true });
+    });
+  }, [authLoading, user, inviteToken, anonPending]);
+
+  // Claim the invite token once we have any user (anon or real)
+  useEffect(() => {
+    if (!inviteToken || !user || tokenClaimed) return;
+    supabase.rpc("claim_scorekeeper_invite", { p_token: inviteToken }).then(({ error: err }) => {
+      setTokenClaimed(true);
+      if (!err) navigate(`/games/${id}/score`, { replace: true });
+      // Expired/invalid: still proceed — may have org/owner access already
+    });
+  }, [inviteToken, user, tokenClaimed, id]);
 
   useEffect(() => { loadGame(); }, [id]);
 
@@ -234,7 +326,7 @@ export default function Scorekeeper() {
     setError(null);
     const { data, error: err } = await supabase
       .from("games")
-      .select("id, created_at, name, state, schema_ver, org_id, season_id")
+      .select("id, created_at, name, state, schema_ver, org_id, season_id, user_id, multi_scorer_enabled")
       .eq("id", id)
       .single();
     if (err) { setError(err.message); setLoading(false); return; }
@@ -242,7 +334,7 @@ export default function Scorekeeper() {
     let orgCtx = null;
     if (data?.org_id) {
       const [orgRes, seasonRes] = await Promise.all([
-        supabase.from("orgs").select("name").eq("id", data.org_id).single(),
+        supabase.from("organizations").select("name").eq("id", data.org_id).single(),
         data.season_id
           ? supabase.from("seasons").select("name").eq("id", data.season_id).single()
           : Promise.resolve({ data: null }),
@@ -259,7 +351,7 @@ export default function Scorekeeper() {
     setLoading(false);
   }
 
-  if (loading) return <div style={S.loading}>Loading game…</div>;
+  if (loading || authLoading || (inviteToken && !user)) return <div style={S.loading}>Loading game…</div>;
   if (error)   return <div style={S.error}>{error}</div>;
 
   if (game?.schema_ver === 2) {

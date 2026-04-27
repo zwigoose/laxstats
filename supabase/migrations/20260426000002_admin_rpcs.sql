@@ -2,6 +2,11 @@
 -- Admin RPC functions (platform admin only throughout)
 -- =============================================================================
 
+-- Drop functions whose return type signature changed from v1.
+-- CREATE OR REPLACE cannot change return types; drop first.
+DROP FUNCTION IF EXISTS admin_get_users() CASCADE;
+DROP FUNCTION IF EXISTS admin_get_all_rosters() CASCADE;
+
 -- ── admin_get_users ───────────────────────────────────────────────────────────
 -- Returns all auth users joined with their profile (is_admin flag).
 CREATE OR REPLACE FUNCTION admin_get_users()

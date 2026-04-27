@@ -74,10 +74,11 @@ function entryToDbRow(entry, gameId, userId) {
  * Pass gameId=null to disable (v1 games).
  */
 export function useGameEvents(gameId, userId) {
-  const [entries, setEntries]         = useState([]);
-  const [loading, setLoading]         = useState(true);
+  const [entries, setEntries]           = useState([]);
+  const [loading, setLoading]           = useState(true);
   const [presenceList, setPresenceList] = useState([]);
-  const [error, setError]             = useState(null);
+  const [remoteQuarterState, setRemoteQuarterState] = useState(null);
+  const [error, setError]               = useState(null);
 
   const channelRef = useRef(null);
 
@@ -111,23 +112,41 @@ export function useGameEvents(gameId, userId) {
     });
 
     // Track presence (who else is scoring this game)
+    // One entry per unique key (userId) — take the earliest joinedAt if multiple objects exist.
     channel.on("presence", { event: "sync" }, () => {
       const state = channel.presenceState();
-      const list = Object.entries(state).flatMap(([uid, presences]) =>
-        presences.map(p => ({ userId: uid, joinedAt: p.online_at ?? p.joined_at }))
-      );
+      const list = Object.entries(state).map(([uid, presences]) => ({
+        userId: uid,
+        joinedAt: presences.reduce((earliest, p) => {
+          const t = p.online_at ?? p.joined_at ?? "";
+          return !earliest || t < earliest ? t : earliest;
+        }, ""),
+      }));
       list.sort((a, b) => (a.joinedAt < b.joinedAt ? -1 : 1));
       setPresenceList(list);
     });
 
-    // New event_type from another scorer: merge into entries
+    // New entries broadcast by another scorer — primary sync path (instant WebSocket delivery)
+    channel.on("broadcast", { event: "new_events" }, ({ payload }) => {
+      if (payload?.scorerId === userId) return; // skip our own broadcast
+      const incoming = (payload?.entries ?? []).map(dbRowToEntry);
+      if (!incoming.length) return;
+      setEntries(prev => {
+        const existingIds = new Set(prev.map(e => e.dbId));
+        const toAdd = incoming.filter(e => !existingIds.has(e.dbId));
+        if (!toAdd.length) return prev;
+        return [...prev, ...toAdd].sort((a, b) => a.seq - b.seq);
+      });
+    });
+
+    // postgres_changes for INSERT kept as a fallback (covers cases where
+    // broadcast is missed, e.g. brief disconnects).
     channel.on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "game_events", filter: `game_id=eq.${gameId}` },
       (payload) => {
         const row = payload.new;
-        // Skip events we created ourselves (already in optimistic state)
-        if (row.created_by === userId) return;
+        if (row.created_by === userId) return; // skip own events
         if (row.deleted_at) return;
         const entry = dbRowToEntry(row);
         setEntries(prev => {
@@ -137,7 +156,23 @@ export function useGameEvents(gameId, userId) {
       }
     );
 
-    // Soft-delete from another scorer
+    // Quarter/game-over state broadcast by the primary scorer
+    channel.on("broadcast", { event: "meta_update" }, ({ payload }) => {
+      if (payload?.scorerId === userId) return;
+      setRemoteQuarterState({
+        currentQuarter:    payload?.currentQuarter    ?? 1,
+        completedQuarters: payload?.completedQuarters ?? [],
+        gameOver:          payload?.gameOver          ?? false,
+      });
+    });
+
+    // Deletion broadcast by another scorer
+    channel.on("broadcast", { event: "delete_group" }, ({ payload }) => {
+      if (payload?.scorerId === userId) return;
+      setEntries(prev => prev.filter(e => e.groupId !== payload?.groupId));
+    });
+
+    // postgres_changes UPDATE as fallback for soft-deletes
     channel.on(
       "postgres_changes",
       { event: "UPDATE", schema: "public", table: "game_events", filter: `game_id=eq.${gameId}` },
@@ -167,11 +202,18 @@ export function useGameEvents(gameId, userId) {
   const commitGroup = useCallback(async (stampedEntries) => {
     if (!gameId || !userId || !stampedEntries?.length) return;
     const rows = stampedEntries.map(e => entryToDbRow(e, gameId, userId));
-    const { error: err } = await supabase.from("game_events").insert(rows);
+    const { data: inserted, error: err } = await supabase
+      .from("game_events").insert(rows).select();
     if (err) {
       setError(err.message);
       throw err;
     }
+    // Broadcast to other scorers immediately (don't wait for postgres_changes delivery)
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "new_events",
+      payload: { scorerId: userId, entries: inserted ?? rows },
+    });
   }, [gameId, userId]);
 
   // ── Soft-delete all rows in a group ─────────────────────────────
@@ -190,7 +232,22 @@ export function useGameEvents(gameId, userId) {
     }
     // Optimistically remove from local state
     setEntries(prev => prev.filter(e => e.groupId !== groupIdUuid));
+    // Broadcast deletion to other scorers immediately
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "delete_group",
+      payload: { scorerId: userId, groupId: groupIdUuid },
+    });
   }, [gameId, userId]);
+
+  // Broadcast quarter/game-over state to other scorers (called by primary after DB write)
+  const broadcastMeta = useCallback((meta) => {
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "meta_update",
+      payload: { scorerId: userId, ...meta },
+    });
+  }, [userId]);
 
   // Primary scorer = first presence entry (by join order)
   const isPrimary = presenceList.length === 0 || presenceList[0]?.userId === userId;
@@ -207,8 +264,10 @@ export function useGameEvents(gameId, userId) {
     loading,
     commitGroup,
     softDeleteGroup,
+    broadcastMeta,
     isPrimary,
     presenceList,
+    remoteQuarterState,
     error,
     reload: load,
   };

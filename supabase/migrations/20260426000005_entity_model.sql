@@ -115,8 +115,11 @@ CREATE POLICY "season_teams_delete_coach"
     )
   );
 
--- 5. Make team_season_roster.jersey_num nullable ───────────────────────────────
---    Null means "use the player's canonical number". Required was too strict.
+-- 5. Fix team_season_roster.jersey_num type and nullability ──────────────────
+--    Original schema (00001) created it as text. All jersey numbers are
+--    integers; change the type so COALESCE with players.number (integer) works.
+--    Also drop NOT NULL — null means "use the player's canonical number".
+ALTER TABLE team_season_roster ALTER COLUMN jersey_num TYPE integer USING jersey_num::integer;
 ALTER TABLE team_season_roster ALTER COLUMN jersey_num DROP NOT NULL;
 
 -- 6. RPC: add_team_to_season ───────────────────────────────────────────────────

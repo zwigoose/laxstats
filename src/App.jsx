@@ -23,8 +23,12 @@ const NO_NAV = /\/games\/[^/]+\/(score|pressbox)/;
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
   return children;
 }
 
@@ -105,7 +109,7 @@ function AppRoutes() {
           <Route path="/login"                    element={<Login />} />
           <Route path="/"                         element={<GameList />} />
           <Route path="/games/new"                element={<PrivateRoute><CreateGame /></PrivateRoute>} />
-          <Route path="/games/:id/score"          element={<PrivateRoute><Scorekeeper /></PrivateRoute>} />
+          <Route path="/games/:id/score"          element={<Scorekeeper />} />
           <Route path="/games/:id/view"           element={<ViewGame />} />
           <Route path="/games/:id/pressbox"       element={<Pressbox />} />
           <Route path="/orgs"                     element={<PrivateRoute><Orgs /></PrivateRoute>} />

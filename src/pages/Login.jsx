@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 const FAKE_DOMAIN = "@laxstats.app";
@@ -11,6 +11,8 @@ function toEmail(username) {
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const nextUrl  = new URLSearchParams(location.search).get("next") || "/";
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -27,11 +29,11 @@ export default function Login() {
     if (mode === "signin") {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) setError("Invalid username or password.");
-      else navigate("/");
+      else navigate(nextUrl, { replace: true });
     } else {
       const { error: err } = await supabase.auth.signUp({ email, password });
       if (err) setError(err.message);
-      else navigate("/");
+      else navigate(nextUrl, { replace: true });
     }
 
     setLoading(false);

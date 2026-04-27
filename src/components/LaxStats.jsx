@@ -431,6 +431,7 @@ export default function LaxStats({
   onEventSoftDelete = null,  // async (groupId) => void — soft-delete group in game_events
   onMetaEvent = null,        // async (type, payload) => void — quarter/game state changes
   remoteEntries = null,      // [{...entry}] from other scorers; merged into local log
+  remoteQuarterState = null, // { currentQuarter, completedQuarters, gameOver } from primary scorer
   scorekeeperRole = "primary", // "primary" | "secondary"
   // org game props — optional; omit for personal games
   orgContext = null,          // { orgId, orgName, seasonName } — shows org banner + loads org teams
@@ -452,7 +453,7 @@ export default function LaxStats({
   // ask_assist | assist_player | ask_goal_time
   // ask_forced_to_player
   // ask_penalty_type | ask_penalty_min | ask_penalty_nr | ask_penalty_time
-  // endqtr | confirm_delete
+  // endqtr | confirm_delete | confirm_duplicate
   const [step, setStep] = useState("team");
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -468,6 +469,8 @@ export default function LaxStats({
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [deletingGroupId, setDeletingGroupId] = useState(null);
   const [lastEntry, setLastEntry] = useState(null);
+  const [pendingDuplicateCommit, setPendingDuplicateCommit] = useState(null); // { entries, flashText }
+  const commitDebounceRef = useRef(0); // ms timestamp of last accepted commit
 
   const [statsTab, setStatsTab] = useState("summary");
   const [statsQtr, setStatsQtr] = useState("all");
@@ -520,6 +523,15 @@ export default function LaxStats({
     onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, _nextId });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate]);
+
+  // v2: sync quarter/game-over state broadcast by the primary scorer
+  useEffect(() => {
+    if (!remoteQuarterState) return;
+    if (remoteQuarterState.currentQuarter != null) setCurrentQuarter(remoteQuarterState.currentQuarter);
+    if (remoteQuarterState.completedQuarters != null) setCompletedQuarters(remoteQuarterState.completedQuarters);
+    if (remoteQuarterState.gameOver) { setGameOver(true); setScreen("stats"); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteQuarterState]);
 
   // v2: merge remote entries from other scorers into local log
   useEffect(() => {
@@ -678,9 +690,31 @@ export default function LaxStats({
     setPenaltyTime(null);
     setEditingGroupId(null);
     setDeletingGroupId(null);
+    setPendingDuplicateCommit(null);
   }
 
-  function commitEntries(entries, flashText) {
+  // Check whether any of the entries being committed have the same clock-anchored
+  // key (teamIdx + event + quarter + time) as an entry already in the log.
+  // Returns the first matching log entry, or null if no duplicate found.
+  function findClockDuplicate(entries) {
+    for (const e of entries) {
+      const clockTime = e.goalTime || e.timeoutTime || null;
+      if (!clockTime) continue;
+      const q = e.quarter ?? currentQuarter;
+      const match = log.find(existing =>
+        existing.teamIdx === e.teamIdx &&
+        existing.event   === e.event   &&
+        existing.quarter === q         &&
+        (existing.goalTime === clockTime || existing.timeoutTime === clockTime)
+      );
+      if (match) return match;
+    }
+    return null;
+  }
+
+  // Inner commit — no debounce, no duplicate check. Called directly from the
+  // "Log anyway" path after the scorer consciously overrides the duplicate warning.
+  function doCommitEntries(entries, flashText) {
     // v2: use UUID so it can serve as the DB group_id
     const gid = onEventCommit ? crypto.randomUUID() : nextId();
     const isEdit = editingGroupId !== null;
@@ -732,6 +766,26 @@ export default function LaxStats({
       return;
     }
     resetEntry();
+  }
+
+  // Public commit gate: applies 500ms debounce and clock-anchored duplicate check.
+  function commitEntries(entries, flashText) {
+    // 500ms debounce — swallows accidental double-taps from the same device
+    const now = Date.now();
+    if (now - commitDebounceRef.current < 500) return;
+    commitDebounceRef.current = now;
+
+    // Clock-anchored duplicate check (v2 multi-scorer mode only)
+    if (onEventCommit) {
+      const dup = findClockDuplicate(entries);
+      if (dup) {
+        setPendingDuplicateCommit({ entries, flashText });
+        setStep("confirm_duplicate");
+        return;
+      }
+    }
+
+    doCommitEntries(entries, flashText);
   }
 
   function startEdit(gid) {
@@ -1915,6 +1969,31 @@ export default function LaxStats({
                 <button style={S.btnSecondary} onClick={resetEntry}>Cancel</button>
                 <button style={S.btnWarning} onClick={handleEndQuarter}>
                   {currentQuarter === 4 && totalScores[0] !== totalScores[1] ? "Finalize Game ✓" : currentQuarter === 4 ? "Start OT ✓" : `Confirm End ${curQLabel} ✓`}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Duplicate confirm — clock-anchored event already exists in log from another scorer */}
+          {step === "confirm_duplicate" && pendingDuplicateCommit && (
+            <div>
+              <div style={{ ...S.confirmCard, background: "#fff8ec", border: "1px solid #e0c060" }}>
+                <div style={{ fontSize: 22, marginBottom: 8 }}>⚠️</div>
+                <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 6 }}>Possible duplicate</div>
+                <div style={{ fontSize: 13, color: "#555", lineHeight: 1.5 }}>
+                  Another scorer already logged the same event at the same time. Is this a separate entry or a duplicate?
+                </div>
+              </div>
+              <div style={S.confirmBtns}>
+                <button style={S.btnSecondary} onClick={() => { setPendingDuplicateCommit(null); resetEntry(); }}>
+                  Discard
+                </button>
+                <button style={S.btnWarning} onClick={() => {
+                  const { entries: e, flashText: ft } = pendingDuplicateCommit;
+                  setPendingDuplicateCommit(null);
+                  doCommitEntries(e, ft);
+                }}>
+                  Log anyway
                 </button>
               </div>
             </div>

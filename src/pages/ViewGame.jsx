@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import {
   buildPlayerStats, buildTeamTotals,
   STAT_KEYS, STAT_LABELS,
@@ -56,6 +57,7 @@ const S = {
 export default function ViewGame() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   const [game, setGame] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -64,11 +66,34 @@ export default function ViewGame() {
   const [sortKey, setSortKey] = useState("goal");
   const [copied, setCopied] = useState(false);
   const [hasPressbox, setHasPressbox] = useState(false);
+  const [inviteLink,  setInviteLink]  = useState(null);
+  const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
+  const [inviteError, setInviteError] = useState(null);
 
   function copyUrl() {
     navigator.clipboard.writeText(window.location.href).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  async function generateInviteLink() {
+    setInviteState("generating");
+    setInviteError(null);
+    const { data: token, error: err } = await supabase.rpc("create_scorekeeper_invite", { p_game_id: id });
+    if (err || !token) {
+      setInviteError(err?.message || "Failed to generate link");
+      setInviteState("error");
+      return;
+    }
+    setInviteLink(`${window.location.origin}/games/${id}/score?token=${token}`);
+    setInviteState("ready");
+  }
+
+  function copyInviteLink() {
+    navigator.clipboard.writeText(inviteLink).then(() => {
+      setInviteState("copied");
+      setTimeout(() => setInviteState("ready"), 2000);
     });
   }
 
@@ -115,7 +140,7 @@ export default function ViewGame() {
     setError(null);
     const { data, error: err } = await supabase
       .from("games")
-      .select("id, created_at, name, state, schema_ver, org_id, pressbox_enabled")
+      .select("id, created_at, name, state, schema_ver, org_id, pressbox_enabled, user_id")
       .eq("id", id)
       .single();
     if (err) { setError(err.message); setLoading(false); return; }
@@ -233,10 +258,40 @@ export default function ViewGame() {
         {hasPressbox && (
           <button style={S.copyBtn} onClick={() => window.open(`/games/${id}/pressbox`, "_blank")}>Press Box ↗</button>
         )}
+        {(user?.id === game?.user_id || isAdmin) && game?.schema_ver === 2 && !gameOver && (
+          <button style={(inviteLink || inviteState === "error") ? { ...S.copyBtnDone, cursor: "pointer" } : S.copyBtn}
+            onClick={() => {
+              if (inviteLink || inviteState === "error") { setInviteLink(null); setInviteState("idle"); setInviteError(null); }
+              else generateInviteLink();
+            }}
+            disabled={inviteState === "generating"}>
+            {inviteState === "generating" ? "…" : (inviteLink || inviteState === "error") ? "Hide invite" : "Invite scorer"}
+          </button>
+        )}
         <button style={copied ? S.copyBtnDone : S.copyBtn} onClick={copyUrl}>
           {copied ? "✓ Copied" : "Copy link"}
         </button>
       </div>
+
+      {inviteState === "error" && (
+        <div style={{ padding: "8px 16px", background: "#fff5f5", borderBottom: "1px solid #fdd", fontFamily: "system-ui, sans-serif", fontSize: 12, color: "#c0392b", maxWidth: 600, margin: "0 auto" }}>
+          Could not generate invite link: {inviteError}
+        </div>
+      )}
+
+      {inviteLink && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", background: "#f0f7ff", borderBottom: "1px solid #c8dff5", fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto" }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#1a6bab", whiteSpace: "nowrap" }}>Scorer invite</span>
+          <span style={{ flex: 1, fontSize: 11, color: "#444", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "monospace" }}>{inviteLink}</span>
+          <button onClick={copyInviteLink} style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, background: inviteState === "copied" ? "#2a7a3b" : "#1a6bab", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
+            {inviteState === "copied" ? "Copied ✓" : "Copy"}
+          </button>
+          <button onClick={generateInviteLink} style={{ padding: "4px 10px", fontSize: 11, color: "#1a6bab", background: "transparent", border: "1px solid #b3d4f0", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
+            New link
+          </button>
+          <span style={{ fontSize: 10, color: "#999", whiteSpace: "nowrap" }}>Expires 24h</span>
+        </div>
+      )}
 
       <div style={S.body}>
         {!hasState ? (
