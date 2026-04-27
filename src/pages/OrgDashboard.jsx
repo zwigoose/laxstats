@@ -696,7 +696,9 @@ function MembersTab({ org, isOrgAdmin }) {
   useEffect(() => { loadMembers(); }, [org.id]);
 
   async function loadMembers() {
-    const { data } = await supabase.rpc("get_org_members", { p_org_id: org.id });
+    const { data, error: err } = await supabase.rpc("get_org_members", { p_org_id: org.id });
+    if (err) setError(err.message);
+    else setError(null);
     setMembers(data || []);
     setLoading(false);
   }
@@ -715,7 +717,7 @@ function MembersTab({ org, isOrgAdmin }) {
   async function handleRemove(userId) {
     setRemovingId(userId);
     await supabase.rpc("remove_org_member", { p_org_id: org.id, p_user_id: userId });
-    setMembers(prev => prev.filter(m => m.user_id !== userId));
+    setMembers(prev => prev.filter(m => m.member_user_id !== userId));
     setRemovingId(null);
   }
 
@@ -723,6 +725,7 @@ function MembersTab({ org, isOrgAdmin }) {
 
   return (
     <div>
+      {error && !showInvite && <div style={S.err}>{error}</div>}
       {isOrgAdmin && !showInvite && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
           <button style={S.btnPrimary} onClick={() => setShowInvite(true)}>＋ Invite Member</button>
@@ -752,15 +755,15 @@ function MembersTab({ org, isOrgAdmin }) {
       )}
       {members.length === 0 && <div style={{ color: "#aaa", fontSize: 14, padding: "32px 0", textAlign: "center" }}>No members yet.</div>}
       {members.map(m => (
-        <div key={m.user_id} style={{ ...S.card, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+        <div key={m.member_user_id} style={{ ...S.card, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{m.display_name}</div>
           </div>
           <span style={S.badge(m.role)}>{ROLE_LABELS[m.role] ?? m.role}</span>
           {isOrgAdmin && (
-            <button onClick={() => handleRemove(m.user_id)} disabled={removingId === m.user_id}
+            <button onClick={() => handleRemove(m.member_user_id)} disabled={removingId === m.member_user_id}
               style={{ fontSize: 11, color: "#c0392b", background: "none", border: "1px solid #f0a0a0", borderRadius: 6, cursor: "pointer", padding: "3px 8px" }}>
-              {removingId === m.user_id ? "…" : "Remove"}
+              {removingId === m.member_user_id ? "…" : "Remove"}
             </button>
           )}
         </div>

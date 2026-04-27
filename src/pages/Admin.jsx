@@ -1305,7 +1305,7 @@ function OrgCard({ org, users, onUpdated, onDeleted }) {
                 )}
                 {/* Add member */}
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                  <input style={{ ...inp, flex: 1, minWidth: 120 }} placeholder="Username" value={addUsername}
+                  <input style={{ ...inp, flex: 1, minWidth: 120 }} placeholder="Username or email" value={addUsername}
                     autoCapitalize="off" autoCorrect="off"
                     onChange={e => { setAddUsername(e.target.value); setAddSearchResult(null); setAddError(null); }}
                     onKeyDown={e => e.key === "Enter" && addUsername.trim() && handleSearch()} />
