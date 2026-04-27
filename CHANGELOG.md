@@ -5,6 +5,62 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.0.0] — 2026-04-27
+
+LaxStats v2 promotes the platform from a single-user scorebook to a full league management system. The data model is rebuilt around organizations, seasons, and registered teams. Multi-user scoring is live. All existing v1 games continue to work unchanged during the transition period.
+
+### Added
+
+**Organizations, Seasons & Teams**
+- **Organizations** — create an org at `/orgs/new`; members are assigned roles (org admin, coach, scorekeeper, viewer)
+- **Org dashboard** (`/orgs/:slug`) — tabs for Games, Seasons, and Teams; live and pending games shown with status pills
+- **Season management** — create seasons with date ranges; games can be linked to a season for aggregated stats
+- **Team manager** (`/orgs/:slug/teams`) — create and manage registered teams with colors; add players with jersey numbers; build a base roster that carries forward into each season
+- **Season rosters** — team rosters snapshot into each season; jersey number overrides per season
+- **Org games** — create games under an org from `/games/new`; games link home/away teams and optionally a season
+- **Move to org** — personal pending games can be transferred to an org from the game card
+- **Org navigation hub** (`/orgs`) — lists all your org memberships; accessible via the Orgs tab in the top nav
+
+**Multi-User Scoring**
+- **Invite scorer links** — the primary scorer can generate a 24-hour invite link from the scorekeeper header; the link works in any browser with no account required (anonymous session)
+- **Guest scoring** — following an invite link opens the scorekeeper directly; no login screen for guests
+- **Primary / Secondary roles** — the first scorer to open a game is designated Primary; all others are Secondary. Primary scorer controls quarter endings; secondary scorers can log any event
+- **Real-time sync** — events entered on any device appear instantly on all other connected scorers' screens via WebSocket broadcast
+- **Quarter sync** — when the primary ends a quarter or finalizes the game, secondary scorers' views update automatically
+- **Scorer count** — a badge in the scorekeeper header shows how many scorers are live on the game
+- **Duplicate detection** — when a scorer tries to log a clock-anchored event (goal or timeout) that another scorer already entered at the same time, a confirmation modal prompts before inserting; prevents the most common double-entry mistake
+- **Commit debounce** — a 500 ms guard on the commit button prevents accidental double-taps from inserting the same event twice in rapid succession
+
+**Press Box Access Control**
+- Press Box is now gated behind org plan features or a per-game admin override; personal games without an override no longer expose a press box link
+
+**Admin Upgrades**
+- **Per-game multi-scorer toggle** — enable or disable the scorer invite feature on any individual v2 game from the ⚙ panel in All Games
+- **Per-game pressbox toggle** — enable the press box on any game regardless of org plan (existing feature, now also in the ⚙ panel)
+- **Admin game delete fixed** — uses a `SECURITY DEFINER` RPC that correctly deletes `game_events` and `game_scorekeepers` child rows before deleting the game, bypassing RLS
+- **New game for user** — admin-created games are now v2 (schema_ver=2) by default
+- **Org management** — Orgs tab in the Admin panel for viewing and managing organizations
+- **Delete user** — account deletion now removes all associated games and data
+
+**v1 → v2 Migration**
+- **Migration tool** in the Admin panel — converts existing v1 JSONB-log games into normalized `game_events` rows; includes dry-run mode and a goal-count verification gate before committing each game; idempotent (safe to re-run)
+
+**Infrastructure**
+- Normalized `game_events` table replaces `games.state.log[]` for all new games
+- SQL views for per-game and per-season player and team stats (`v_game_player_stats`, `v_game_team_totals`, `v_season_player_stats`, `v_season_team_stats`)
+- `game_scorekeepers` table for invite token management
+- `schema_ver` column on `games` gates v1 (JSONB) vs v2 (normalized) code paths — v1 games continue to work unchanged
+- Supabase Realtime publication enabled for `game_events` and `game_scorekeepers`
+- Anonymous auth enabled for guest scorers
+
+### Changed
+- **Navigation** — top nav bar added sitewide (Home, Orgs, Admin); replaces the previous hero-embedded admin link
+- **Sticky layout** — page heroes, tab bars, and section headers pin below the top nav on all pages; only content scrolls
+- **Game creation** — `+ New Game` now opens a dedicated page with a choice between a personal game and an org game; org games include team and season selection
+- **All new games are v2** — `schema_ver` defaults to 2; the v1 JSONB path remains fully supported for existing games
+
+---
+
 ## [1.9.0] — 2026-04-24
 
 ### Changed
