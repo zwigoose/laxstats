@@ -1234,7 +1234,7 @@ export default function LaxStats({
       <div style={S.nav}>
         {[
           { id: "setup", label: "Setup" },
-          { id: "track", label: "Track", disabled: !parsedRosters[0].length || gameOver },
+          { id: "track", label: "Track", disabled: !trackingStarted || gameOver },
           { id: "stats", label: "Stats" },
           { id: "log",   label: "Event Log" },
         ].map(({ id, label, disabled }) => (
@@ -1323,7 +1323,10 @@ export default function LaxStats({
                       <div style={{ width: 12, height: 12, borderRadius: "50%", background: teams[ti].color, flexShrink: 0 }} />
                       <span style={{ fontSize: 16, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" }}>{teams[ti].name}</span>
                       <button
-                        onClick={() => setTeams(t => t.map((x, i) => i === ti ? { ...x, orgTeamId: null, roster: "", name: ti === 0 ? "Home" : "Away", color: ti === 0 ? "#1a6bab" : "#b84e1a" } : x))}
+                        onClick={() => {
+                          setTeams(t => t.map((x, i) => i === ti ? { ...x, orgTeamId: null, roster: "", name: ti === 0 ? "Home" : "Away", color: ti === 0 ? "#1a6bab" : "#b84e1a" } : x));
+                          if (onOrgTeamSelected) onOrgTeamSelected(ti, null);
+                        }}
                         style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #ddd", borderRadius: 6, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
                       >
                         Change
