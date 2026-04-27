@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import {  useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -6,7 +6,8 @@ import {
   buildPlayerStats, buildTeamTotals,
   STAT_KEYS, STAT_LABELS,
   qLabel, isOT,
-} from "../components/LaxStats";
+ } from "../utils/game";
+import { buildPlayerStats, buildTeamTotals } from "../utils/stats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
 import GameTimeline from "../components/GameTimeline";
 
