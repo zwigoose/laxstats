@@ -1086,6 +1086,7 @@ function OrgCard({ org, users, onUpdated, onDeleted }) {
   const [members, setMembers]         = useState([]);
   const [features, setFeatures]       = useState([]);
   const [teams, setTeams]             = useState([]);
+  const [orgGames, setOrgGames]       = useState([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError]             = useState(null);
 
@@ -1119,15 +1120,17 @@ function OrgCard({ org, users, onUpdated, onDeleted }) {
 
   async function loadDetail() {
     setLoadingDetail(true);
-    const [mRes, fRes, tRes] = await Promise.all([
+    const [mRes, fRes, tRes, gRes] = await Promise.all([
       supabase.rpc("admin_get_org_members", { p_org_id: org.id }),
       supabase.rpc("admin_get_org_features", { p_org_id: org.id }),
       supabase.from("teams").select("id, name, color").eq("org_id", org.id).order("name"),
+      supabase.from("games").select("id, name, created_at, state, schema_ver, game_date, user_id, pressbox_enabled, multi_scorer_enabled").eq("org_id", org.id).order("created_at", { ascending: false }),
     ]);
     if (mRes.error) setError(mRes.error.message);
     else setMembers(mRes.data || []);
     if (fRes.data) setFeatures(fRes.data);
     if (tRes.data) setTeams(tRes.data);
+    if (gRes.data) setOrgGames(gRes.data);
     setLoadingDetail(false);
   }
 
@@ -1434,6 +1437,39 @@ function OrgCard({ org, users, onUpdated, onDeleted }) {
                   </div>
                 )}
               </div>
+
+              {/* ── Games ── */}
+              {orgGames.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Games</div>
+                  {orgGames.map(g => {
+                    const info = getGameInfo(g);
+                    const started = info?.started && !info?.gameOver;
+                    const over = info?.gameOver;
+                    return (
+                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: over ? "#ccc" : started ? "#2a7a3b" : "#f0a500" }} />
+                        <span style={{ flex: 1, fontSize: 13, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {g.name || (info ? `${info.t0?.name} vs ${info.t1?.name}` : "Untitled")}
+                        </span>
+                        <span style={{ fontSize: 11, color: "#bbb", flexShrink: 0 }}>
+                          {over ? "Final" : started ? "Live" : "Pending"}
+                        </span>
+                        {!over && (
+                          <button onClick={() => navigate(`/games/${g.id}/score`)}
+                            style={{ padding: "3px 10px", fontSize: 11, fontWeight: 700, background: "#111", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}>
+                            {started ? "Score" : "Setup"}
+                          </button>
+                        )}
+                        <button onClick={() => navigate(`/games/${g.id}/view`)}
+                          style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, background: "transparent", color: "#555", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}>
+                          View
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* ── Create Game ── */}
               <div style={{ marginBottom: 20 }}>
