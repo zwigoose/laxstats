@@ -785,9 +785,10 @@ function AdminSharePanel({ rosterId }) {
   async function handleSearch() {
     setSearching(true); setSearchResult(null); setSearchError(null);
     const { data, error: err } = await supabase.rpc("find_user_by_username", { p_username: username.trim() });
-    if (err || !data?.length) setSearchError("User not found.");
-    else if (shares.some(s => s.shared_with_user_id === data[0].id)) setSearchError("Already shared with this user.");
-    else setSearchResult(data[0]);
+    if (err) { setSearchError(err.message); setSearching(false); return; }
+    if (!data?.length) { setSearchError("User not found."); setSearching(false); return; }
+    if (shares.some(s => s.shared_with_user_id === data[0].id)) { setSearchError("Already shared with this user."); setSearching(false); return; }
+    setSearchResult(data[0]);
     setSearching(false);
   }
 
@@ -1176,9 +1177,10 @@ function OrgCard({ org, users, onUpdated, onDeleted }) {
   async function handleSearch() {
     setSearching(true); setAddSearchResult(null); setAddError(null);
     const { data, error: err } = await supabase.rpc("find_user_by_username", { p_username: addUsername.trim() });
-    if (err || !data?.length) setAddError("User not found.");
-    else if (members.some(m => m.user_id === data[0].id)) setAddError("Already a member.");
-    else setAddSearchResult(data[0]);
+    if (err) { setAddError(err.message); setSearching(false); return; }
+    if (!data?.length) { setAddError("User not found."); setSearching(false); return; }
+    if (members.some(m => m.user_id === data[0].id)) { setAddError("Already a member."); setSearching(false); return; }
+    setAddSearchResult(data[0]);
     setSearching(false);
   }
 
