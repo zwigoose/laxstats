@@ -110,7 +110,7 @@ function RecentGameRow({ game, canScore, navigate }) {
             onClick={() => navigate(`/games/${game.id}/score`)}
             style={{ padding: "3px 10px", fontSize: 11, fontWeight: 700, background: "#111", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}
           >
-            Score
+            {started ? "Score" : "Setup"}
           </button>
         )}
         {over && (
