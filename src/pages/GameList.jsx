@@ -2,10 +2,13 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { qLabel } from "../components/LaxStats";
+import { qLabel } from "../utils/stats";
 import { useOrgRole } from "../hooks/useOrgRole";
-
-const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
+import { PRESET_COLORS } from "../constants/lacrosse";
+import { getGameInfo, getLatestTime, formatDate, formatDateLong, formatDateTime } from "../utils/game";
+import RosterEditor from "../components/RosterEditor";
+import SharePanel from "../components/SharePanel";
+export { RosterEditor, SharePanel };
 
 // ── Men's lacrosse field SVG (110yd × 60yd) ──────────────────────────────────
 // Scale: 820px / 110yd = 7.45 px/yd (H), 420px / 60yd = 7.0 px/yd (V)
@@ -48,58 +51,11 @@ const FIELD_SVG = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 880 480'
 </svg>`;
 const FIELD_BG = `url("data:image/svg+xml,${encodeURIComponent(FIELD_SVG)}")`;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-// Parse a date string safely — YYYY-MM-DD strings are treated as local noon
-// to prevent UTC midnight from rolling back to the previous day.
-function parseDate(str) {
-  return str.length === 10 ? new Date(str + "T12:00:00") : new Date(str);
-}
-function formatDate(str) {
-  return parseDate(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-function formatDateLong(str) {
-  return parseDate(str).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-}
-function formatDateTime(iso) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
-}
 function playerCount(roster) {
   if (!roster) return 0;
   return roster.split("\n").map(l => l.trim()).filter(Boolean).length;
 }
 
-function findDuplicateNums(rosterText) {
-  if (!rosterText) return [];
-  const lines = rosterText.split("\n").map(l => l.trim()).filter(Boolean);
-  const nums = lines.map(line => { const m = line.match(/^#?(\d+)/); return m ? m[1] : null; }).filter(Boolean);
-  const seen = new Set(), dupes = new Set();
-  nums.forEach(n => { if (seen.has(n)) dupes.add(`#${n}`); else seen.add(n); });
-  return [...dupes];
-}
-function getLatestTime(state) {
-  if (!state?.log || !state.currentQuarter) return null;
-  const q = state.currentQuarter;
-  const toS = t => { const [m, s] = t.split(":").map(Number); return m * 60 + s; };
-  const timed = (state.log || [])
-    .filter(e => e.quarter === q && (e.goalTime || e.timeoutTime))
-    .map(e => ({ str: e.goalTime || e.timeoutTime, secs: toS(e.goalTime || e.timeoutTime) }));
-  if (!timed.length) return null;
-  return timed.reduce((min, t) => t.secs < min.secs ? t : min).str;
-}
-
-function getGameInfo(game) {
-  const s = game.state;
-  if (!s?.teams) return null;
-  const t0 = s.teams[0], t1 = s.teams[1];
-  const score0 = (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
-  const score1 = (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
-  const started = !!s.trackingStarted;
-  const latestTime = getLatestTime(s);
-  const currentQuarter = s.currentQuarter || 1;
-  // gameDate: explicit date set during setup, else fall back to created_at date
-  const gameDate = s.gameDate || game.created_at.split("T")[0];
-  return { t0, t1, score0, score1, gameOver: s.gameOver, started, latestTime, currentQuarter, gameDate };
-}
 
 // ── Game Card ─────────────────────────────────────────────────────────────────
 function GameCard({ game, onDelete, deleteStage, onDeleteStage, orgMemberships = [], onMovedToOrg }) {
@@ -713,166 +669,6 @@ function GamesTab({ onNewGame, user, orgMemberships = [] }) {
   );
 }
 
-// ── Roster Editor ─────────────────────────────────────────────────────────────
-export function RosterEditor({ initial, onSave, onDelete, onCancel, isNew }) {
-  const [name, setName] = useState(initial?.name || "");
-  const [roster, setRoster] = useState(initial?.roster || "");
-  const [color, setColor] = useState(initial?.color || PRESET_COLORS[0]);
-  const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const dupes = findDuplicateNums(roster);
-
-  async function handleSave() {
-    if (!name.trim() || dupes.length > 0) return;
-    setSaving(true);
-    await onSave({ name: name.trim(), roster, color });
-    setSaving(false);
-  }
-
-  const labelStyle = { fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, marginTop: 14, display: "block" };
-  const inputStyle = { width: "100%", padding: "8px 10px", fontSize: 14, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", boxSizing: "border-box" };
-  const textareaStyle = { width: "100%", height: 130, padding: 10, fontSize: 13, fontFamily: "monospace", border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box" };
-
-  return (
-    <div>
-      <span style={labelStyle}>Team name</span>
-      <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} placeholder="Team name" />
-
-      <span style={labelStyle}>Color</span>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-        {PRESET_COLORS.map(c => (
-          <div key={c} style={{ width: 24, height: 24, borderRadius: "50%", background: c, border: color === c ? "3px solid #111" : "2px solid transparent", cursor: "pointer", boxSizing: "border-box", boxShadow: color === c ? "none" : "0 0 0 1px #ddd" }}
-            onClick={() => setColor(c)} />
-        ))}
-        <input type="color" style={{ width: 28, height: 24, border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", padding: 2 }} value={color} onChange={e => setColor(e.target.value)} />
-      </div>
-
-      <span style={labelStyle}>Roster</span>
-      <textarea style={{ ...textareaStyle, borderColor: dupes.length > 0 ? "#f0a0a0" : "#e0e0e0" }}
-        value={roster} onChange={e => setRoster(e.target.value)}
-        placeholder={"#2 First Last\n#7 First Last\n#11 First Last"} />
-      {dupes.length > 0
-        ? <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4, fontWeight: 500 }}>Duplicate number{dupes.length > 1 ? "s" : ""}: {dupes.join(", ")}</div>
-        : <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>One player per line — #number Name</div>
-      }
-
-      <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center" }}>
-        {!isNew && !confirmDelete && (
-          <button style={{ padding: "9px 14px", fontSize: 13, background: "transparent", border: "1px solid #f0a0a0", borderRadius: 9, cursor: "pointer", color: "#c0392b" }}
-            onClick={() => setConfirmDelete(true)}>Delete</button>
-        )}
-        {!isNew && confirmDelete && (
-          <button style={{ padding: "9px 14px", fontSize: 13, background: "#c0392b", border: "none", borderRadius: 9, cursor: "pointer", color: "#fff", fontWeight: 600 }}
-            onClick={onDelete}>Confirm delete</button>
-        )}
-        {onCancel && (
-          <button style={{ padding: "9px 14px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 9, cursor: "pointer", color: "#555" }}
-            onClick={onCancel}>Cancel</button>
-        )}
-        <button style={{ marginLeft: "auto", padding: "9px 18px", fontSize: 13, fontWeight: 600, background: name.trim() && !saving && !dupes.length ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 9, cursor: name.trim() && !saving && !dupes.length ? "pointer" : "not-allowed" }}
-          disabled={!name.trim() || saving || dupes.length > 0} onClick={handleSave}>
-          {saving ? "Saving…" : isNew ? "Save team" : "Save changes"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Share Panel ───────────────────────────────────────────────────────────────
-export function SharePanel({ rosterId }) {
-  const [shares, setShares] = useState([]);
-  const [loaded, setLoaded] = useState(false);
-  const [username, setUsername] = useState("");
-  const [searchResult, setSearchResult] = useState(null);
-  const [searchError, setSearchError] = useState(null);
-  const [searching, setSearching] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [removingId, setRemovingId] = useState(null);
-
-  useEffect(() => {
-    supabase.rpc("get_roster_shares", { p_roster_id: rosterId })
-      .then(({ data }) => { setShares(data || []); setLoaded(true); });
-  }, [rosterId]);
-
-  async function handleSearch() {
-    setSearching(true); setSearchResult(null); setSearchError(null);
-    const { data, error: err } = await supabase.rpc("find_user_by_username", { p_username: username.trim() });
-    if (err || !data?.length) setSearchError("User not found.");
-    else if (shares.some(s => s.shared_with_user_id === data[0].id)) setSearchError("Already shared with this user.");
-    else setSearchResult(data[0]);
-    setSearching(false);
-  }
-
-  async function handleAdd() {
-    if (!searchResult) return;
-    setAdding(true);
-    const { error: err } = await supabase.from("roster_shares").insert({ roster_id: rosterId, shared_with_user_id: searchResult.id });
-    if (!err) {
-      setShares(prev => [...prev, { share_id: null, shared_with_user_id: searchResult.id, display_name: searchResult.display_name }]);
-      setSearchResult(null); setUsername("");
-      // Reload to get real share_id
-      supabase.rpc("get_roster_shares", { p_roster_id: rosterId }).then(({ data }) => setShares(data || []));
-    }
-    setAdding(false);
-  }
-
-  async function handleRemove(shareId) {
-    setRemovingId(shareId);
-    await supabase.from("roster_shares").delete().eq("id", shareId);
-    setShares(prev => prev.filter(s => s.share_id !== shareId));
-    setRemovingId(null);
-  }
-
-  if (!loaded) return <div style={{ fontSize: 12, color: "#aaa", paddingTop: 12 }}>Loading shares…</div>;
-
-  return (
-    <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e8e8e8" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Sharing</div>
-
-      {shares.length > 0 && (
-        <ul style={{ listStyle: "none", padding: 0, margin: "0 0 10px" }}>
-          {shares.map(s => (
-            <li key={s.share_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f5f5f5" }}>
-              <span style={{ fontSize: 13, color: "#444" }}>{s.display_name}</span>
-              <button onClick={() => handleRemove(s.share_id)} disabled={removingId === s.share_id}
-                style={{ fontSize: 11, color: "#c0392b", background: "none", border: "1px solid #f0a0a0", borderRadius: 6, cursor: "pointer", padding: "2px 8px" }}>
-                {removingId === s.share_id ? "…" : "Remove"}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-        <input
-          style={{ flex: 1, padding: "7px 10px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", boxSizing: "border-box" }}
-          placeholder="Username or email"
-          value={username}
-          autoCapitalize="off" autoCorrect="off"
-          onChange={e => { setUsername(e.target.value); setSearchResult(null); setSearchError(null); }}
-          onKeyDown={e => e.key === "Enter" && username.trim() && handleSearch()}
-        />
-        <button onClick={handleSearch} disabled={!username.trim() || searching}
-          style={{ padding: "7px 12px", fontSize: 13, fontWeight: 600, background: username.trim() && !searching ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
-          {searching ? "…" : "Find"}
-        </button>
-      </div>
-
-      {searchError && <div style={{ fontSize: 12, color: "#c0392b", marginBottom: 6 }}>{searchError}</div>}
-
-      {searchResult && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", background: "#f5f5f5", borderRadius: 8 }}>
-          <span style={{ fontSize: 13, color: "#111" }}>{searchResult.display_name}</span>
-          <button onClick={handleAdd} disabled={adding}
-            style={{ fontSize: 12, fontWeight: 600, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #b5e0c0", borderRadius: 6, cursor: "pointer", padding: "3px 10px" }}>
-            {adding ? "…" : "Share"}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Rosters Tab ───────────────────────────────────────────────────────────────
 function RostersTab({ showNewInit = false }) {
