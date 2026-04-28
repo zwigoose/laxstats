@@ -9,9 +9,10 @@ import MigrationTab from "./MigrationTab";
 
 export default function Admin() {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, loading } = useAuth();
   const [tab, setTab] = useState("games");
 
+  if (loading) return null;
   if (!isAdmin) {
     navigate("/");
     return null;
