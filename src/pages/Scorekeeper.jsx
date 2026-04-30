@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import {
+  fetchGame, fetchGameMeta, updateGame, deleteGame,
+  fetchOrgContext, createScorekeeperInvite, claimScorekeeperInvite,
+  deleteAllGameEvents, canScoreGame,
+} from "../services/games";
 import { useAuth } from "../contexts/AuthContext";
 import LaxStats from "../components/LaxStats";
 import { useGameEvents } from "../hooks/useGameEvents";
@@ -42,7 +47,7 @@ function ScorekeeperV1({ game, id, navigate, orgContext }) {
       if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
         updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
       }
-      const { error: err } = await supabase.from("games").update(updatePayload).eq("id", id);
+      const { error: err } = await updateGame(id, updatePayload);
       saveInFlight.current = false;
       if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
       else {
@@ -72,16 +77,16 @@ function ScorekeeperV1({ game, id, navigate, orgContext }) {
         orgContext={orgContext}
         onOrgTeamSelected={async (teamIdx, teamId) => {
           const col = teamIdx === 0 ? "home_team_id" : "away_team_id";
-          await supabase.from("games").update({ [col]: teamId }).eq("id", id);
+          await updateGame(id, { [col]: teamId });
         }}
-        onCancel={async () => { await supabase.from("games").delete().eq("id", id); navigate("/"); }}
+        onCancel={async () => { await deleteGame(id); navigate("/"); }}
       />
     </div>
   );
 }
 
 // ── v2 path — game_events table + Realtime ────────────────────────────────────
-function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
+function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) {
   const [saveStatus, setSaveStatus] = useState("");
   const saveTimer    = useRef(null);
   const pendingMeta  = useRef(null);
@@ -94,7 +99,7 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
   async function generateInviteLink() {
     setInviteState("generating");
     setInviteError(null);
-    const { data: token, error } = await supabase.rpc("create_scorekeeper_invite", { p_game_id: id });
+    const { data: token, error } = await createScorekeeperInvite(id);
     if (error || !token) {
       setInviteError(error?.message || "Failed to generate link");
       setInviteState("error");
@@ -121,6 +126,7 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
     presenceList,
     remoteQuarterState,
     error:         eventsError,
+    channelStatus,
   } = useGameEvents(id, userId);
 
   // Build initialState: use game.state for meta (teams, quarter, etc.)
@@ -134,11 +140,7 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
   // Meta-event handler: persist quarter/gameOver changes to games.state
   const handleMetaEvent = useCallback(async (type, payload) => {
     setSaveStatus("saving");
-    const { data: current } = await supabase
-      .from("games")
-      .select("state, name")
-      .eq("id", id)
-      .single();
+    const { data: current } = await fetchGameMeta(id);
     const meta = current?.state ? { ...current.state } : {};
     delete meta.log; // v2 games don't store log in state
 
@@ -150,10 +152,7 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
       meta.gameOver          = true;
     }
 
-    const { error: err } = await supabase
-      .from("games")
-      .update({ state: meta })
-      .eq("id", id);
+    const { error: err } = await updateGame(id, { state: meta });
 
     if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
     else {
@@ -168,8 +167,10 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
     if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
       setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
     }
-    // Build meta payload (no log)
+    // Build meta payload (no log); compute score from log so game list can display it
     const { log: _log, ...meta } = newState;
+    meta.score0 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
+    meta.score1 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
     pendingMeta.current = meta;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
@@ -183,7 +184,7 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
       if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
         updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
       }
-      const { error: err } = await supabase.from("games").update(updatePayload).eq("id", id);
+      const { error: err } = await updateGame(id, updatePayload);
       saveInFlight.current = false;
       if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
       else { setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000); }
@@ -208,9 +209,9 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
           {saveStatus === "saving" && "Saving…"}
           {saveStatus === "saved"  && "Saved ✓"}
           {saveStatus === "error"  && "Save failed"}
-          {eventsError && !saveStatus && "Event error"}
+          {eventsError && !saveStatus && (channelStatus === "error" || channelStatus === "timed_out" ? "Sync error" : "Event error")}
         </span>
-        {game?.multi_scorer_enabled && (
+        {game?.multi_scorer_enabled && !isAnonymous && (
           <button style={S.viewBtn} onClick={() => {
             if (inviteLink || inviteState === "error") { setInviteLink(null); setInviteState("idle"); setInviteError(null); }
             else generateInviteLink();
@@ -257,16 +258,11 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
           orgContext={orgContext}
           onOrgTeamSelected={async (teamIdx, teamId) => {
             const col = teamIdx === 0 ? "home_team_id" : "away_team_id";
-            await supabase.from("games").update({ [col]: teamId }).eq("id", id);
+            await updateGame(id, { [col]: teamId });
           }}
           onCancel={async () => {
-            // Soft-delete all events and delete the game row
-            await supabase
-              .from("game_events")
-              .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
-              .eq("game_id", id)
-              .is("deleted_at", null);
-            await supabase.from("games").delete().eq("id", id);
+            await deleteAllGameEvents(id, userId);
+            await deleteGame(id);
             navigate("/");
           }}
         />
@@ -287,6 +283,7 @@ export default function Scorekeeper() {
   const [error, setError]         = useState(null);
   const [tokenClaimed, setTokenClaimed] = useState(false);
   const [anonPending, setAnonPending]   = useState(false);
+  const [inviteError, setInviteError]   = useState(null);
 
   // Read invite token from URL — present when landing via a shared scoring link
   const inviteToken = new URLSearchParams(location.search).get("token");
@@ -312,50 +309,50 @@ export default function Scorekeeper() {
   // Claim the invite token once we have any user (anon or real)
   useEffect(() => {
     if (!inviteToken || !user || tokenClaimed) return;
-    supabase.rpc("claim_scorekeeper_invite", { p_token: inviteToken }).then(({ error: err }) => {
+    claimScorekeeperInvite(inviteToken).then(({ error: err }) => {
       setTokenClaimed(true);
-      if (!err) navigate(`/games/${id}/score`, { replace: true });
-      // Expired/invalid: still proceed — may have org/owner access already
+      if (!err) {
+        navigate(`/games/${id}/score`, { replace: true });
+      } else if (user.is_anonymous) {
+        // Expired/invalid token and no other auth — show a clear error instead of a silent redirect
+        setInviteError("This invite link has expired or is invalid. Ask the game organizer to send a new one.");
+      }
+      // Non-anonymous users may still have org/owner access — let loadGame's auth check decide
     });
   }, [inviteToken, user, tokenClaimed, id]);
 
-  useEffect(() => { loadGame(); }, [id]);
+  // Defer load until token claim is settled — otherwise can_score_game runs before the
+  // invite row is written and the anonymous user would be denied.
+  useEffect(() => {
+    if (inviteToken && !tokenClaimed) return;
+    if (inviteError) return;
+    loadGame();
+  }, [id, tokenClaimed, inviteError]);
 
   async function loadGame() {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from("games")
-      .select("id, created_at, name, state, schema_ver, org_id, season_id, user_id, multi_scorer_enabled")
-      .eq("id", id)
-      .single();
+    const { data, error: err } = await fetchGame(id);
     if (err) { setError(err.message); setLoading(false); return; }
 
-    let orgCtx = null;
-    if (data?.org_id) {
-      const [orgRes, seasonRes] = await Promise.all([
-        supabase.from("organizations").select("name").eq("id", data.org_id).single(),
-        data.season_id
-          ? supabase.from("seasons").select("name").eq("id", data.season_id).single()
-          : Promise.resolve({ data: null }),
-      ]);
-      orgCtx = {
-        orgId:      data.org_id,
-        orgName:    orgRes.data?.name ?? null,
-        seasonName: seasonRes.data?.name ?? null,
-      };
+    const { data: allowed } = await canScoreGame(data.id);
+    if (!allowed) {
+      setError("You don't have permission to score this game.");
+      setLoading(false);
+      return;
     }
 
-    setOrgContext(orgCtx);
+    setOrgContext(data?.org_id ? await fetchOrgContext(data.org_id, data.season_id) : null);
     setGame(data);
     setLoading(false);
   }
 
+  if (inviteError) return <div style={S.error}>{inviteError}</div>;
   if (loading || authLoading || (inviteToken && !user)) return <div style={S.loading}>Loading game…</div>;
   if (error)   return <div style={S.error}>{error}</div>;
 
   if (game?.schema_ver === 2) {
-    return <ScorekeeperV2 game={game} id={id} navigate={navigate} userId={user?.id} orgContext={orgContext} />;
+    return <ScorekeeperV2 game={game} id={id} navigate={navigate} userId={user?.id} isAnonymous={user?.is_anonymous ?? false} orgContext={orgContext} />;
   }
   return <ScorekeeperV1 game={game} id={id} navigate={navigate} orgContext={orgContext} />;
 }

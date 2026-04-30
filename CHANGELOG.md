@@ -5,6 +5,41 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.1.0] — 2026-04-29
+
+### Added
+
+**Test Coverage** (closes #10)
+- Vitest + React Testing Library configured; 249 tests across 10 test files
+- Unit tests for `src/utils/stats.js` — `buildPlayerStats`, `buildTeamTotals`, EMO/MDD derivation, edge cases
+- Unit tests for `src/utils/game.js` — `getGameInfo`, `getLatestTime`, `formatDate` (UTC midnight trap), `formatDateLong`, `formatDateTime`
+- Component tests for `LaxStats.jsx` — full step-flow (Team → Event → Player), undo logic, penalty box display (active/expired, NR badge, multi-player rows), remote entry merge and deduplication
+- Component tests for `TimeKeypad.jsx` — digit entry, backspace, 4-digit cap, `maxSeconds` validation, ceiling enforcement (`allowEqualToCeiling`), `onConfirm` callback, "Same as latest" shortcut, invalid input display
+- Integration tests for `useGameEvents.js` — `dbRowToEntry` translation for all field types, hook loading and error states
+- Integration tests for `Scorekeeper.jsx` — presence badge visibility, Primary/Secondary role badges, scorer count, invite button gating by `isAnonymous` and `multi_scorer_enabled`, RPC invocation, invite link panel, sync and event error display
+
+**Service Layer**
+- `src/services/games.js` — `fetchGame`, `fetchGameMeta`, `updateGame`, `deleteGame`, `fetchOrgContext`, `canScoreGame`, `createScorekeeperInvite`, `claimScorekeeperInvite`, `deleteAllGameEvents`
+- `src/services/gameEvents.js` — `fetchGameEvents`, `insertGameEvents`, `softDeleteGameEvents`
+- `src/services/teams.js` — `fetchSavedTeams`
+- All service functions accept an optional `db` parameter for dependency injection; service-level tests inject fake clients directly without `vi.mock`
+- `useGameEvents` hook updated to accept `db` and pass it through to all service calls
+
+### Fixed
+- v2 games on the home screen showed 0–0 because scores were computed from `state.log`, which is empty for v2 games; `handleStateChange` now stores `score0`/`score1` in game state on every save; `getGameInfo` prefers stored scores when present
+- `TimeKeypad` hid the user's typed digits when showing a "Seconds must be 00–59" error; the invalid parse (e.g. `0:90`) is now displayed in red so the input remains visible for backspacing
+- Live game cards on `/` now show both scores in their team color (dimming of the trailing score is reserved for completed games)
+
+### Security
+- **Privilege escalation — `profiles` UPDATE policy** (`20260429000000`): the `profiles_update_own` RLS policy had no column restriction, allowing any authenticated user to self-elevate to admin via `supabase.from("profiles").update({ is_admin: true })`. Policy dropped; `REVOKE UPDATE ON profiles FROM authenticated` added as a belt-and-suspenders guard. `admin_set_admin` (SECURITY DEFINER) remains the only valid path.
+- **Unauthorized scorekeeper access** (`20260429000001`): any authenticated user who knew a game UUID could open the scorekeeper UI; `game_events` SELECT was unrestricted; `create_scorekeeper_invite` did not check `multi_scorer_enabled`. Fixed by:
+  - New `can_score_game(uuid)` RPC mirroring the INSERT policy (owner / org scorer / claimed invite); called in `loadGame` to gate the UI
+  - `create_scorekeeper_invite` now rejects if `multi_scorer_enabled = false`
+  - Deferred `loadGame` until token claim settles (prevents anonymous invite users from failing the auth check before their invite row is written)
+  - Expired/invalid invite token now shows a clear error message instead of silently redirecting an anonymous user to the login screen
+
+---
+
 ## [2.0.0] — 2026-04-27
 
 LaxStats v2 promotes the platform from a single-user scorebook to a full league management system. The data model is rebuilt around organizations, seasons, and registered teams. Multi-user scoring is live. All existing v1 games continue to work unchanged during the transition period.

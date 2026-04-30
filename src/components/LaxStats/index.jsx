@@ -1,424 +1,19 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../lib/supabase";
+import { fetchSavedTeams } from "../../services/teams";
+import { EVENTS, STAT_KEYS, STAT_LABELS, PENALTY_OPTIONS, PRESET_COLORS } from "../../constants/lacrosse";
+import {
+  qLabel, isOT, toSecs, qLenSecs, absElapsedSecs, absSecsToQtrTime, penaltyDurSecs,
+  parseRoster, findDuplicateNums, buildPlayerStats, buildTeamTotals,
+  computePenaltyWindows, getTimeoutsLeft, entryDisplayInfo,
+} from "../../utils/stats";
+import S from "../../styles/laxStats";
+import TimeKeypad from "./TimeKeypad";
 
-// caused_to / forced_to — label is "Caused TO"
-export const EVENTS = [
-  { id: "goal",        label: "Goal",         icon: "🥍" },
-  { id: "shot",        label: "Shot",         icon: "🎯" },
-  { id: "ground_ball", label: "Ground Ball",  icon: "🪣" },
-  { id: "faceoff_win", label: "Faceoff W",    icon: "🔄" },
-  { id: "turnover",    label: "Turnover",     icon: "↩️" },
-  { id: "forced_to",   label: "Caused TO",    icon: "🥊" },
-  { id: "penalty",     label: "Penalty",      icon: "🟨" },
-  { id: "mdd_success", label: "MDD Stop",     icon: "🛡️", teamStat: true },
-  { id: "timeout",     label: "Timeout",      icon: "⏸️" },
-  { id: "clear",        label: "Successful Clear", icon: "⬆️", teamStat: true },
-  { id: "failed_clear", label: "Failed Clear",     icon: "⬇️", teamStat: true },
-];
-
-export const STAT_KEYS =["goal","emo_goal","emo_fail","mdd_success","mdd_fail","shot","sog","shot_saved","shot_post","shot_blocked","ground_ball","faceoff_win","turnover","forced_to","penalty_tech","penalty_min","assist","clear","failed_clear","successful_ride","failed_ride"];
-export const STAT_LABELS ={ goal:"G", emo_goal:"EMO", emo_fail:"FEMO", mdd_success:"MDD", mdd_fail:"FMDD", shot:"Sh", sog:"SOG", shot_saved:"Sv", shot_post:"Post", shot_blocked:"Blk", ground_ball:"GB", faceoff_win:"FW", turnover:"TO", forced_to:"CTO", penalty_tech:"Tech", penalty_min:"PF Min", assist:"A", clear:"Clr", failed_clear:"FCl", successful_ride:"SRide", failed_ride:"FRide" };
-
-const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
-
-const PENALTY_OPTIONS = [
-  { name: "Conduct",                 type: "tech" },
-  { name: "Cross Check",             type: "personal" },
-  { name: "Holding",                 type: "tech" },
-  { name: "Illegal Body Check",      type: "personal" },
-  { name: "Illegal Equipment",       type: "personal" },
-  { name: "Illegal Procedure",       type: "tech" },
-  { name: "Interference",            type: "tech" },
-  { name: "Offsides",                type: "tech" },
-  { name: "Pushing",                 type: "tech" },
-  { name: "Slashing",                type: "personal" },
-  { name: "Tripping",                type: "personal" },
-  { name: "Unnecessary Roughness",   type: "personal" },
-  { name: "Unsportsmanlike Conduct", type: "personal" },
-];
+export { EVENTS, STAT_KEYS, STAT_LABELS, buildPlayerStats, buildTeamTotals, qLabel, isOT, toSecs, entryDisplayInfo };
 
 let _nextId = 1;
 function nextId() { return _nextId++; }
-
-function parseRoster(text) {
-  return text.split("\n").map(l => l.trim()).filter(Boolean).map(line => {
-    const m = line.match(/^#?(\d+)\s+(.+)$/) || line.match(/^(.+)\s+#?(\d+)$/);
-    if (m) { if (/^\d+$/.test(m[1])) return { num: m[1], name: m[2].trim() }; return { num: m[2], name: m[1].trim() }; }
-    const n = line.match(/^#?(\d+)$/);
-    if (n) return { num: n[1], name: `#${n[1]}` };
-    return { num: "", name: line };
-  }).filter(p => p.name).sort((a, b) => parseInt(a.num, 10) - parseInt(b.num, 10));
-}
-
-function findDuplicateNums(rosterText) {
-  const players = parseRoster(rosterText);
-  const seen = new Set(), dupes = new Set();
-  players.forEach(p => {
-    if (!p.num) return;
-    if (seen.has(p.num)) dupes.add(`#${p.num}`);
-    else seen.add(p.num);
-  });
-  return [...dupes];
-}
-
-export function buildPlayerStats(entries) {
-  // Build group lookup so we can determine SOG per shot
-  const groups = {};
-  entries.forEach(e => {
-    if (!groups[e.groupId]) groups[e.groupId] = [];
-    groups[e.groupId].push(e);
-  });
-
-  const map = {};
-  entries.forEach(e => {
-    if (e.teamStat) return;
-    const k = `${e.teamIdx}__${e.player.num}__${e.player.name}`;
-    if (!map[k]) map[k] = { teamIdx: e.teamIdx, player: e.player, ...Object.fromEntries(STAT_KEYS.map(s => [s, 0])) };
-    if (e.event === "penalty_tech") map[k].penalty_tech++;
-    else if (e.event === "penalty_min") map[k].penalty_min += e.penaltyMin || 0;
-    else if (e.event === "goal") {
-      map[k].goal++;
-      if (e.emo) map[k].emo_goal++;
-      map[k].sog++; // a goal is always on goal
-    }
-    else if (e.event === "shot") {
-      map[k].shot++;
-      // SOG: saved (group has shot_saved) or hit the post (group has shot_post for same team)
-      const group = groups[e.groupId] || [];
-      const onGoal = group.some(ge => ge.event === "shot_saved")
-                  || group.some(ge => ge.event === "shot_post" && ge.teamIdx === e.teamIdx);
-      if (onGoal) map[k].sog++;
-    }
-    else if (map[k][e.event] !== undefined) map[k][e.event]++;
-  });
-  return Object.values(map);
-}
-
-export function buildTeamTotals(entries) {
-  const totals = [0, 1].map(ti => {
-    const tot = Object.fromEntries(STAT_KEYS.map(k => [k, 0]));
-    entries.filter(e => e.teamIdx === ti).forEach(e => {
-      if (e.event === "penalty_tech") tot.penalty_tech++;
-      else if (e.event === "penalty_min") tot.penalty_min += e.penaltyMin || 0;
-      else if (e.event === "goal") { tot.goal++; if (e.emo) tot.emo_goal++; }
-      else if (tot[e.event] !== undefined) tot[e.event]++;
-    });
-    return tot;
-  });
-  // Ride stats mirror the opposing team's clear stats
-  totals[0].successful_ride = totals[1].failed_clear;
-  totals[0].failed_ride     = totals[1].clear;
-  totals[1].successful_ride = totals[0].failed_clear;
-  totals[1].failed_ride     = totals[0].clear;
-  // MDD fail mirrors the opposing team's EMO goals
-  totals[0].mdd_fail = entries.filter(e => e.event === "goal" && e.emo && e.teamIdx === 1).length;
-  totals[1].mdd_fail = entries.filter(e => e.event === "goal" && e.emo && e.teamIdx === 0).length;
-  // EMO fail mirrors the opposing team's MDD stops (a stopped EMO = a successful MDD)
-  totals[0].emo_fail = totals[1].mdd_success;
-  totals[1].emo_fail = totals[0].mdd_success;
-  // SOG = goals + shots off post + saves by the opposing goalie (goals are always on goal)
-  totals[0].sog = totals[0].goal + totals[0].shot_post + totals[1].shot_saved;
-  totals[1].sog = totals[1].goal + totals[1].shot_post + totals[0].shot_saved;
-  return totals;
-}
-
-export function qLabel(q) { return q <= 4 ? `Q${q}` : `OT${q - 4}`; }
-export function isOT(q) { return q > 4; }
-
-// ── Penalty time math helpers ─────────────────────────────────────────────────
-export function toSecs(t) { const [m, s] = t.split(":").map(Number); return m * 60 + s; }
-const qLenSecs = q => q <= 4 ? 720 : 240;
-function absElapsedSecs(quarter, remainSecs) {
-  let base = 0;
-  for (let i = 1; i < quarter; i++) base += qLenSecs(i);
-  return base + (qLenSecs(quarter) - remainSecs);
-}
-function absSecsToQtrTime(absSeconds) {
-  let q = 1, elapsed = 0;
-  while (q <= 20) {
-    const ql = qLenSecs(q);
-    if (absSeconds <= elapsed + ql) return { q, remainSecs: Math.max(0, elapsed + ql - absSeconds) };
-    elapsed += ql;
-    q++;
-  }
-  return { q: 20, remainSecs: 0 };
-}
-function penaltyDurSecs(e) { return e.event === "penalty_tech" ? 30 : (e.penaltyMin || 1) * 60; }
-
-// Derives all penalty serving windows from the log, handling:
-//   Consecutive fouls  — same player, same team, same dead-ball time → NR-first ordering, chained release
-//   Simultaneous fouls — different teams, same dead-ball time → overlapping window is forced NR for both
-// Returns an array of windows: { entry, absStart, absEnd, nrEnd }
-//   nrEnd = absEnd  → fully NR (either explicit or forced by simultaneous)
-//   nrEnd = absStart → fully releasable
-//   absStart < nrEnd < absEnd → split: [absStart,nrEnd) NR + [nrEnd,absEnd) releasable
-function computePenaltyWindows(log) {
-  const penalties = log.filter(e => e.penaltyTime && (e.event === "penalty_tech" || e.event === "penalty_min"));
-  // Group by dead-ball cycle: same quarter + same penaltyTime
-  const cycles = new Map();
-  for (const p of penalties) {
-    const key = `${p.quarter}:${p.penaltyTime}`;
-    if (!cycles.has(key)) cycles.set(key, []);
-    cycles.get(key).push(p);
-  }
-  const allWindows = [];
-  for (const cyclePens of cycles.values()) {
-    const absPen = absElapsedSecs(cyclePens[0].quarter, toSecs(cyclePens[0].penaltyTime));
-    // Build windows per team
-    const teamWindows = [0, 1].map(ti => {
-      const wins = [];
-      const byPlayer = new Map();
-      for (const p of cyclePens.filter(p => p.teamIdx === ti)) {
-        const pid = p.player?.num ?? p.id; // jersey # is unique per team; no id on player objects
-        if (!byPlayer.has(pid)) byPlayer.set(pid, []);
-        byPlayer.get(pid).push(p);
-      }
-      for (const [, playerPens] of byPlayer) {
-        // NR-first ordering for consecutive fouls on same player
-        const sorted = [...playerPens].sort((a, b) => {
-          if (!!a.nonReleasable !== !!b.nonReleasable) return a.nonReleasable ? -1 : 1;
-          return penaltyDurSecs(b) - penaltyDurSecs(a);
-        });
-        let cur = absPen;
-        for (const p of sorted) {
-          const dur = penaltyDurSecs(p);
-          // forcedNREnd starts at absStart (no forced NR yet); updated by simultaneous detection below
-          wins.push({ entry: p, absStart: cur, absEnd: cur + dur, isNRBase: !!p.nonReleasable, forcedNREnd: cur });
-          cur += dur;
-        }
-      }
-      return wins;
-    });
-    // Simultaneous: cross-team window overlaps → force NR up to the overlap end
-    for (const wA of teamWindows[0]) {
-      for (const wB of teamWindows[1]) {
-        const oStart = Math.max(wA.absStart, wB.absStart);
-        const oEnd   = Math.min(wA.absEnd,   wB.absEnd);
-        if (oEnd > oStart) {
-          if (!wA.isNRBase) wA.forcedNREnd = Math.max(wA.forcedNREnd, oEnd);
-          if (!wB.isNRBase) wB.forcedNREnd = Math.max(wB.forcedNREnd, oEnd);
-        }
-      }
-    }
-    // Resolve nrEnd for each window
-    for (const w of [...teamWindows[0], ...teamWindows[1]]) {
-      w.nrEnd = w.isNRBase ? w.absEnd : w.forcedNREnd;
-      allWindows.push(w);
-    }
-  }
-  return allWindows;
-}
-
-// Returns [timeoutsLeftTeam0, timeoutsLeftTeam1] for the current timeout period.
-// Q1+Q2 = first half (2 each), Q3+Q4 = second half (2 each), each OT quarter = 1 each.
-// Unused timeouts do not carry between periods.
-function getTimeoutsLeft(log, currentQuarter) {
-  let periodQuarters, allowed;
-  if (currentQuarter <= 2)      { periodQuarters = [1, 2]; allowed = 2; }
-  else if (currentQuarter <= 4) { periodQuarters = [3, 4]; allowed = 2; }
-  else                          { periodQuarters = [currentQuarter]; allowed = 1; }
-  return [0, 1].map(ti =>
-    Math.max(0, allowed - log.filter(e => e.event === "timeout" && e.teamIdx === ti && periodQuarters.includes(e.quarter)).length)
-  );
-}
-
-export function entryDisplayInfo(entry) {
-  let icon = EVENTS.find(e => e.id === entry.event)?.icon || "•";
-  let label = EVENTS.find(e => e.id === entry.event)?.label || entry.event;
-  if (entry.event === "shot_saved") { icon = "🧤"; label = "Save"; }
-  if (entry.event === "penalty_tech") { icon = "🟨"; label = entry.foulName ? `${entry.foulName} (Technical)` : "Technical foul"; }
-  if (entry.event === "penalty_min") { icon = "🟥"; label = entry.foulName ? `${entry.foulName} (${entry.penaltyMin}min)` : `Personal foul (${entry.penaltyMin}min)`; }
-  if (entry.event === "goal" && entry.emo) label = "Goal (EMO)";
-  return { icon, label, player: entry.teamStat ? null : entry.player };
-}
-
-// ── Styles ─────────────────────────────────────────────────────────────────
-const S = {
-  app: { fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto", padding: "0 16px 40px", background: "#fff" },
-  nav: { display: "flex", borderBottom: "1px solid #e5e5e5", marginBottom: 20 },
-  navBtn: (active, disabled) => ({ flex: 1, padding: "10px 4px", fontSize: 13, fontWeight: 500, border: "none", background: "transparent", cursor: disabled ? "default" : "pointer", color: active ? "#111" : "#888", borderBottom: active ? "2px solid #111" : "2px solid transparent", opacity: disabled ? 0.35 : 1 }),
-  setupGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 },
-  setupCard: (c) => ({ border: "1px solid #e5e5e5", borderTop: `3px solid ${c}`, borderRadius: 12, padding: 16 }),
-  teamLabel: (c) => ({ fontSize: 11, fontWeight: 600, color: c, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }),
-  textInput: { width: "100%", padding: "8px 10px", fontSize: 15, fontWeight: 500, border: "1px solid #ddd", borderRadius: 8, background: "#f7f7f7", marginBottom: 12, boxSizing: "border-box" },
-  textarea: { width: "100%", height: 160, padding: 10, fontSize: 13, fontFamily: "monospace", border: "1px solid #ddd", borderRadius: 8, background: "#f7f7f7", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box" },
-  hint: { fontSize: 11, color: "#aaa", marginTop: 6 },
-  chip: { display: "inline-block", background: "#f5f5f5", border: "1px solid #e5e5e5", borderRadius: 20, padding: "3px 10px", fontSize: 12, margin: "3px" },
-  chipNum: { fontWeight: 600, color: "#888", marginRight: 4 },
-  colorRow: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" },
-  colorSwatch: (c, sel) => ({ width: 26, height: 26, borderRadius: "50%", background: c, border: sel ? "3px solid #111" : "2px solid #e5e5e5", cursor: "pointer", flexShrink: 0, boxSizing: "border-box" }),
-  colorPickerInput: { width: 32, height: 26, border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", padding: 2 },
-  startBtn: (disabled) => ({ width: "100%", marginTop: 20, padding: 14, fontSize: 16, fontWeight: 500, background: disabled ? "#ccc" : "#111", color: "#fff", border: "none", borderRadius: 10, cursor: disabled ? "not-allowed" : "pointer" }),
-  stepLabel: { fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 },
-  teamBtns: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 },
-  teamBigBtn: (c, isHome) => isHome
-    ? { padding: "28px 12px", fontWeight: 600, border: `5px solid ${c}`, borderRadius: 14, background: "#fff", color: c, cursor: "pointer", textAlign: "center", lineHeight: 1.3, width: "100%", boxSizing: "border-box" }
-    : { padding: "28px 12px", fontWeight: 500, border: "none", borderRadius: 14, background: c, color: "#fff", cursor: "pointer", textAlign: "center", lineHeight: 1.3, width: "100%" },
-  endQtrBtn: (disabled) => ({ width: "100%", padding: 13, fontSize: 14, fontWeight: 500, border: "1px solid #e0d0b0", borderRadius: 10, background: disabled ? "#f5f5f5" : "#fffbf0", color: disabled ? "#bbb" : "#7a5c00", cursor: disabled ? "default" : "pointer", marginTop: 4, opacity: disabled ? 0.5 : 1 }),
-  eventGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10 },
-  eventBtn: (sel) => ({ padding: "18px 10px", fontSize: 13, fontWeight: 500, border: sel ? "2px solid #111" : "1px solid #ddd", borderRadius: 12, background: sel ? "#f0f0f0" : "#fff", color: "#111", cursor: "pointer", textAlign: "center", width: "100%" }),
-  evIcon: { fontSize: 24, display: "block", marginBottom: 6 },
-  playerGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 10, maxHeight: "calc(100dvh - 260px)", overflowY: "auto" },
-  playerBtn: (sel, color, isHome) => ({
-    padding: "18px 10px", fontSize: 14, borderRadius: 12, cursor: "pointer", textAlign: "center", width: "100%",
-    background: isHome ? (sel ? (color || "#555") : "#fff") : (color || "#555"),
-    border: isHome
-      ? (sel ? "3px solid #fff" : `4px solid ${color || "#555"}`)
-      : (sel ? "3px solid #fff" : "2px solid transparent"),
-    outline: sel ? "2px solid " + (color || "#555") : "none",
-    boxSizing: "border-box",
-  }),
-  playerNum: (sel, isHome, color) => ({ fontSize: 20, fontWeight: 600, display: "block", color: (isHome && !sel) ? (color || "#555") : "#fff" }),
-  playerName: (sel, isHome, color) => ({ fontSize: 12, color: (isHome && !sel) ? "#aaa" : "rgba(255,255,255,0.75)", marginTop: 3, wordBreak: "break-word" }),
-  backBtn: { fontSize: 13, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: 14 },
-  confirmCard: { background: "#f7f7f7", borderRadius: 12, padding: 24, textAlign: "center", marginBottom: 14 },
-  confirmBtns: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
-  yesNoRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 },
-  threeColRow: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10 },
-  btnPrimary: { padding: 13, fontSize: 15, fontWeight: 500, border: "none", borderRadius: 10, background: "#111", color: "#fff", cursor: "pointer", width: "100%" },
-  btnSecondary: { padding: 13, fontSize: 15, fontWeight: 500, border: "1px solid #ddd", borderRadius: 10, background: "transparent", color: "#111", cursor: "pointer", width: "100%" },
-  btnWarning: { padding: 13, fontSize: 15, fontWeight: 500, border: "1px solid #e0c060", borderRadius: 10, background: "#fffbf0", color: "#7a5c00", cursor: "pointer", width: "100%" },
-  btnDanger: { padding: 13, fontSize: 15, fontWeight: 500, border: "1px solid #f0a0a0", borderRadius: 10, background: "#fff5f5", color: "#c0392b", cursor: "pointer", width: "100%" },
-  btnYes: { padding: 13, fontSize: 15, fontWeight: 500, border: "none", borderRadius: 10, background: "#111", color: "#fff", cursor: "pointer", width: "100%" },
-  btnNo: { padding: 13, fontSize: 15, fontWeight: 500, border: "1px solid #ddd", borderRadius: 10, background: "transparent", color: "#555", cursor: "pointer", width: "100%" },
-  qtrPill: { display: "inline-flex", alignItems: "center", gap: 6, background: "#f5f5f5", border: "1px solid #e5e5e5", borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600, color: "#555" },
-  scoreHeader: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", marginBottom: 16, gap: 12 },
-  scoreBig: { fontSize: 38, fontWeight: 500, textAlign: "center", letterSpacing: 2 },
-  tabsRow: { display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" },
-  tabBtn: (active) => ({ padding: "6px 14px", fontSize: 13, border: "1px solid #ddd", borderRadius: 20, background: active ? "#111" : "transparent", color: active ? "#fff" : "#888", cursor: "pointer" }),
-  summaryGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 },
-  summaryCard: { background: "#f7f7f7", borderRadius: 10, padding: "12px 14px" },
-  summaryLabel: { fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 },
-  summaryRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 },
-  tableWrap: { border: "1px solid #e5e5e5", borderRadius: 12, overflow: "hidden", marginBottom: 20 },
-  tableTitle: { fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888", padding: "10px 14px 8px", borderBottom: "1px solid #e5e5e5", background: "#f9f9f9", display: "flex", justifyContent: "space-between", alignItems: "center" },
-  table: { width: "100%", fontSize: 13, borderCollapse: "collapse" },
-  thLeft: { padding: "8px 14px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid #e5e5e5", background: "#f5f5f5", whiteSpace: "nowrap" },
-  th: (sorted) => ({ padding: "8px 8px", textAlign: "right", fontWeight: 600, fontSize: 11, color: sorted ? "#111" : "#888", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid #e5e5e5", background: "#f5f5f5", cursor: "pointer", whiteSpace: "nowrap" }),
-  tdLeft: { padding: "9px 14px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "left", whiteSpace: "nowrap" },
-  td: { padding: "9px 8px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "right" },
-  numBadge: { display: "inline-block", width: 24, height: 24, borderRadius: "50%", background: "#f0f0f0", fontSize: 11, fontWeight: 600, textAlign: "center", lineHeight: "24px", marginRight: 6, color: "#888" },
-  logList: { maxHeight: 380, overflowY: "auto" },
-  logGroup: { borderBottom: "1px solid #f0f0f0" },
-  logGroupMain: { display: "flex", alignItems: "center", gap: 8, padding: "9px 14px 4px", fontSize: 13 },
-  logGroupSub: { display: "flex", flexWrap: "wrap", gap: 4, padding: "0 14px 8px 30px" },
-  logSubChip: { fontSize: 11, color: "#888", background: "#f5f5f5", borderRadius: 10, padding: "2px 8px" },
-  logDot: (c) => ({ width: 8, height: 8, borderRadius: "50%", background: c, flexShrink: 0 }),
-  qtrDivider: { display: "flex", alignItems: "center", padding: "6px 14px", background: "#f5f5f5", borderBottom: "1px solid #e5e5e5", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" },
-  logActionBtn: (c) => ({ fontSize: 12, background: "none", border: `1px solid ${c || "#e5e5e5"}`, borderRadius: 4, padding: "2px 7px", cursor: "pointer", color: c || "#888", flexShrink: 0, lineHeight: 1.4 }),
-  undoBtn: { fontSize: 11, fontWeight: 700, background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 4, padding: "2px 6px", cursor: "pointer", color: "#c0392b", flexShrink: 0, letterSpacing: "0.03em" },
-  emptyState: { textAlign: "center", padding: "40px 16px", color: "#aaa", fontSize: 14 },
-  questionCard: { background: "#f7f7f7", borderRadius: 12, padding: "20px 20px 16px", marginBottom: 14 },
-  questionText: { fontSize: 17, fontWeight: 500, textAlign: "center", marginBottom: 4 },
-  questionSub: { fontSize: 13, color: "#888", textAlign: "center" },
-  pendingBubble: (c) => ({ background: "#f7f7f7", borderLeft: `3px solid ${c}`, borderRadius: "0 8px 8px 0", padding: "8px 12px", marginBottom: 12, fontSize: 13, color: "#555" }),
-  finalBanner: { background: "#1a1a1a", color: "#fff", borderRadius: 12, padding: "20px", textAlign: "center", marginBottom: 20 },
-  editBanner: { background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "8px 14px", marginBottom: 14, fontSize: 13, color: "#7a5c00", display: "flex", alignItems: "center", gap: 8 },
-  timeConfirmBtn: { width: "100%", marginTop: 10, padding: 13, fontSize: 15, fontWeight: 500, border: "none", borderRadius: 10, background: "#111", color: "#fff", cursor: "pointer" },
-  // Timeline styles
-  timelineTable: { width: "100%", fontSize: 13, borderCollapse: "collapse" },
-  timelineRow: (c) => ({ borderBottom: "1px solid #f0f0f0", background: "transparent" }),
-};
-
-// ── TimeKeypad ───────────────────────────────────────────────────────────────
-function parseClockDigits(digits) {
-  if (!digits) return { valid: false };
-  if (!/^\d{1,4}$/.test(digits)) return { valid: false, error: "Enter up to 4 digits" };
-  let minutes, seconds;
-  if (digits.length <= 2) {
-    minutes = 0;
-    seconds = Number(digits);
-  } else {
-    seconds = Number(digits.slice(-2));
-    minutes = Number(digits.slice(0, -2));
-  }
-  if (seconds > 59) return { valid: false, error: "Seconds must be 00–59" };
-  const totalSeconds = minutes * 60 + seconds;
-  return { valid: true, minutes, seconds, totalSeconds, label: `${minutes}:${String(seconds).padStart(2, "0")}` };
-}
-
-function timeStringToDigits(str) {
-  const [m, s] = str.split(":").map(Number);
-  return m === 0 ? String(s) : String(m) + String(s).padStart(2, "0");
-}
-
-function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeiling = false, onConfirm, showSameAsLatest = false, latestLabel = null }) {
-  const [digits, setDigits] = useState("");
-  const parsed = parseClockDigits(digits);
-  const exceedsMax = parsed.valid && parsed.totalSeconds > maxSeconds;
-  const violatesCeiling = parsed.valid && ceilingSecs != null && (
-    allowEqualToCeiling ? parsed.totalSeconds > ceilingSecs : parsed.totalSeconds >= ceilingSecs
-  );
-  const canUse = parsed.valid && !exceedsMax && !violatesCeiling;
-
-  const errorMsg = digits.length > 0 && !parsed.valid
-    ? (parsed.error || "Invalid time")
-    : exceedsMax
-    ? `Max is ${Math.floor(maxSeconds / 60)}:${String(maxSeconds % 60).padStart(2, "0")}`
-    : violatesCeiling
-    ? `Must be ${allowEqualToCeiling ? "at or before" : "before"} ${Math.floor(ceilingSecs / 60)}:${String(ceilingSecs % 60).padStart(2, "0")}`
-    : null;
-
-  function pressDigit(d) {
-    if (digits.length >= 4) return;
-    setDigits(prev => prev + d);
-  }
-
-  const keyStyle = (special) => ({
-    padding: "16px 0",
-    fontSize: special ? 18 : 22,
-    fontWeight: special ? 500 : 400,
-    background: special ? "#f0f0f0" : "#f7f7f7",
-    border: "1px solid #e8e8e8",
-    borderRadius: 10,
-    cursor: "pointer",
-    color: "#111",
-    fontFamily: "system-ui, sans-serif",
-    userSelect: "none",
-    WebkitUserSelect: "none",
-  });
-
-  return (
-    <div style={{ marginTop: 12 }}>
-      {/* Clock display */}
-      <div style={{ textAlign: "center", marginBottom: 4 }}>
-        <span style={{ fontSize: 48, fontWeight: 300, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums", color: canUse ? "#111" : digits.length > 0 ? "#111" : "#ccc" }}>
-          {parsed.valid ? parsed.label : digits.length > 0 ? "—:——" : "--:--"}
-        </span>
-      </div>
-      {/* Typed digits helper + error */}
-      <div style={{ textAlign: "center", height: 18, marginBottom: 10 }}>
-        {errorMsg
-          ? <span style={{ fontSize: 12, color: "#c0392b" }}>{errorMsg}</span>
-          : digits.length > 0
-          ? <span style={{ fontSize: 12, color: "#aaa" }}>Typed: {digits}</span>
-          : <span style={{ fontSize: 12, color: "#ddd" }}>Enter time remaining</span>}
-      </div>
-      {/* Same as latest shortcut */}
-      {showSameAsLatest && latestLabel && (
-        <button
-          onClick={() => setDigits(timeStringToDigits(latestLabel))}
-          style={{ width: "100%", marginBottom: 10, padding: "10px 0", fontSize: 13, fontWeight: 600, background: "#f0f8ff", border: "1px solid #c0d8f0", borderRadius: 10, cursor: "pointer", color: "#1a6bab" }}>
-          Same as latest: {latestLabel}
-        </button>
-      )}
-      {/* Keypad */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-        {[1,2,3,4,5,6,7,8,9].map(d => (
-          <button key={d} style={keyStyle(false)} onClick={() => pressDigit(String(d))}>{d}</button>
-        ))}
-        <button style={keyStyle(true)} onClick={() => setDigits(prev => prev.slice(0, -1))}>⌫</button>
-        <button style={keyStyle(false)} onClick={() => pressDigit("0")}>0</button>
-        <button
-          style={{ ...keyStyle(true), background: canUse ? "#111" : "#ccc", color: "#fff", fontWeight: 600, fontSize: 15 }}
-          disabled={!canUse}
-          onClick={() => canUse && onConfirm(parsed.label)}>
-          Use
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function LaxStats({
@@ -819,8 +414,7 @@ export default function LaxStats({
   const [currentUserId, setCurrentUserId] = useState(null);
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setCurrentUserId(session?.user?.id ?? null));
-    supabase.from("saved_teams").select("id, name, roster, color, user_id").order("name")
-      .then(({ data }) => { if (data) setSavedTeams(data); });
+    fetchSavedTeams().then(({ data }) => { if (data) setSavedTeams(data); });
   }, []);
 
   // ── Org teams (for org games) ────────────────────────────────────
@@ -1005,8 +599,6 @@ export default function LaxStats({
   function handleShotOutcome(outcome) {
     if (outcome === "missed") {
       commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
-    } else if (outcome === "post") {
-      commitEntries([...pendingEntries, mkEntry(selectedTeam, "shot_post", selectedPlayer)], `Shot off post — #${selectedPlayer.num} ${selectedPlayer.name}`);
     } else if (outcome === "saved") {
       setStep("save_player");
     } else if (outcome === "blocked") {
@@ -1773,8 +1365,7 @@ export default function LaxStats({
                 const g = getGroupById(editingGroupId);
                 const prevSaved = g.some(e => e.event === "shot_saved");
                 const prevBlocked = g.some(e => e.event === "shot_blocked");
-                const prevPost = g.some(e => e.event === "shot_post");
-                const cur = prevSaved ? "Saved" : prevBlocked ? "Blocked" : prevPost ? "Off the post" : "Missed";
+                const cur = prevSaved ? "Saved" : prevBlocked ? "Blocked" : "Missed";
                 return <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>Currently: {cur}</div>;
               })()}
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
@@ -1782,7 +1373,6 @@ export default function LaxStats({
                   { outcome: "missed",  label: "Missed / wide" },
                   { outcome: "saved",   label: `Saved — by ${teams[1 - selectedTeam]?.name}` },
                   { outcome: "blocked", label: `Blocked — by ${teams[1 - selectedTeam]?.name}` },
-                  { outcome: "post",    label: "Off the post / crossbar (SOG)" },
                 ].map(({ outcome, label }) => (
                   <button key={outcome} style={{ ...S.btnNo, textAlign: "center", padding: "14px 16px" }} onClick={() => handleShotOutcome(outcome)}>{label}</button>
                 ))}

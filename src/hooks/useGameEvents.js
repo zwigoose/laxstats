@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase as _supabase } from "../lib/supabase";
+import { fetchGameEvents, insertGameEvents, softDeleteGameEvents } from "../services/gameEvents";
 
 // ── Translation: DB row ↔ LaxStats log entry ─────────────────────────────────
 
@@ -73,7 +74,7 @@ function entryToDbRow(entry, gameId, userId) {
  *
  * Pass gameId=null to disable (v1 games).
  */
-export function useGameEvents(gameId, userId) {
+export function useGameEvents(gameId, userId, db = _supabase) {
   const [entries, setEntries]           = useState([]);
   const [loading, setLoading]           = useState(true);
   const [presenceList, setPresenceList] = useState([]);
@@ -81,6 +82,7 @@ export function useGameEvents(gameId, userId) {
   const [error, setError]               = useState(null);
 
   const channelRef = useRef(null);
+  const [channelStatus, setChannelStatus] = useState("idle"); // idle | subscribed | error | timed_out
 
   // ── Initial load ─────────────────────────────────────────────────
   useEffect(() => {
@@ -92,12 +94,7 @@ export function useGameEvents(gameId, userId) {
   async function load() {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from("game_events")
-      .select("*")
-      .eq("game_id", gameId)
-      .is("deleted_at", null)
-      .order("seq");
+    const { data, error: err } = await fetchGameEvents(gameId, db);
     if (err) { setError(err.message); setLoading(false); return; }
     setEntries((data || []).map(dbRowToEntry));
     setLoading(false);
@@ -107,7 +104,7 @@ export function useGameEvents(gameId, userId) {
   useEffect(() => {
     if (!gameId || !userId) return;
 
-    const channel = supabase.channel(`game-events-${gameId}`, {
+    const channel = db.channel(`game-events-${gameId}`, {
       config: { presence: { key: userId } },
     });
 
@@ -186,14 +183,24 @@ export function useGameEvents(gameId, userId) {
 
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
+        setChannelStatus("subscribed");
+        setError(prev => (prev?.startsWith("Realtime") ? null : prev));
         await channel.track({ online_at: new Date().toISOString() });
+      } else if (status === "CHANNEL_ERROR") {
+        setChannelStatus("error");
+        setError("Realtime channel error — live sync unavailable");
+      } else if (status === "TIMED_OUT") {
+        setChannelStatus("timed_out");
+        setError("Realtime channel timed out — live sync unavailable");
+      } else if (status === "CLOSED") {
+        setChannelStatus("idle");
       }
     });
 
     channelRef.current = channel;
 
     return () => {
-      supabase.removeChannel(channel);
+      db.removeChannel(channel);
       channelRef.current = null;
     };
   }, [gameId, userId]);
@@ -202,8 +209,7 @@ export function useGameEvents(gameId, userId) {
   const commitGroup = useCallback(async (stampedEntries) => {
     if (!gameId || !userId || !stampedEntries?.length) return;
     const rows = stampedEntries.map(e => entryToDbRow(e, gameId, userId));
-    const { data: inserted, error: err } = await supabase
-      .from("game_events").insert(rows).select();
+    const { data: inserted, error: err } = await insertGameEvents(rows, db);
     if (err) {
       setError(err.message);
       throw err;
@@ -219,13 +225,7 @@ export function useGameEvents(gameId, userId) {
   // ── Soft-delete all rows in a group ─────────────────────────────
   const softDeleteGroup = useCallback(async (groupIdUuid) => {
     if (!gameId || !userId) return;
-    const now = new Date().toISOString();
-    const { error: err } = await supabase
-      .from("game_events")
-      .update({ deleted_at: now, deleted_by: userId })
-      .eq("game_id", gameId)
-      .eq("group_id", groupIdUuid)
-      .is("deleted_at", null);
+    const { error: err } = await softDeleteGameEvents(gameId, groupIdUuid, userId, db);
     if (err) {
       setError(err.message);
       throw err;
@@ -269,6 +269,7 @@ export function useGameEvents(gameId, userId) {
     presenceList,
     remoteQuarterState,
     error,
+    channelStatus,
     reload: load,
   };
 }
