@@ -12,6 +12,7 @@ import SeasonView from "./pages/SeasonView";
 import TeamManager from "./pages/TeamManager";
 import CreateGame from "./pages/CreateGame";
 import Orgs from "./pages/Orgs";
+import Profile from "./pages/Profile";
 import { version } from "../package.json";
 
 // Single source of truth for layout heights — consumed here and via CSS variables.
@@ -61,6 +62,7 @@ function AppNav() {
   if (!user || path === "/login" || NO_NAV.test(path)) return null;
 
   const hasOrgs = orgMemberships?.length > 0;
+  const initials = user.email ? user.email[0].toUpperCase() : "?";
 
   return (
     <div style={{
@@ -91,6 +93,24 @@ function AppNav() {
       {isAdmin && (
         <NavItem label="Admin" active={path === "/admin"}        onClick={() => navigate("/admin")} />
       )}
+
+      {/* Profile avatar — pinned to right */}
+      <div style={{ flex: 1 }} />
+      <button
+        onClick={() => navigate("/profile")}
+        title="Profile"
+        style={{
+          width: 30, height: 30, borderRadius: "50%",
+          background: path === "/profile" ? "#111" : "#e8e8e8",
+          color: path === "/profile" ? "#fff" : "#555",
+          border: "none", cursor: "pointer",
+          fontSize: 12, fontWeight: 700, fontFamily: "system-ui, sans-serif",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        {initials}
+      </button>
     </div>
   );
 }
@@ -118,6 +138,7 @@ function AppRoutes() {
           <Route path="/orgs/:slug/seasons/:id"   element={<SeasonView />} />
           <Route path="/orgs/:slug/teams"         element={<PrivateRoute><TeamManager /></PrivateRoute>} />
           <Route path="/admin"                    element={<PrivateRoute><Admin /></PrivateRoute>} />
+          <Route path="/profile"                  element={<PrivateRoute><Profile /></PrivateRoute>} />
         </Routes>
       </div>
     </>
