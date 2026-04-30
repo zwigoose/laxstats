@@ -128,9 +128,9 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage, orgMemberships =
               </div>
               {/* Score */}
               <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
-                <span style={{ fontSize: 30, fontWeight: 700, color: info.score0 >= info.score1 ? c0 : "#bbb", lineHeight: 1, minWidth: 28, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{info.score0}</span>
+                <span style={{ fontSize: 30, fontWeight: 700, color: info.gameOver && info.score0 < info.score1 ? "#bbb" : c0, lineHeight: 1, minWidth: 28, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{info.score0}</span>
                 <span style={{ fontSize: 18, color: "#ccc", fontWeight: 300 }}>—</span>
-                <span style={{ fontSize: 30, fontWeight: 700, color: info.score1 >= info.score0 ? c1 : "#bbb", lineHeight: 1, minWidth: 28, textAlign: "left", fontVariantNumeric: "tabular-nums" }}>{info.score1}</span>
+                <span style={{ fontSize: 30, fontWeight: 700, color: info.gameOver && info.score1 < info.score0 ? "#bbb" : c1, lineHeight: 1, minWidth: 28, textAlign: "left", fontVariantNumeric: "tabular-nums" }}>{info.score1}</span>
               </div>
               {/* Team 1 */}
               <div style={{ textAlign: "right" }}>
@@ -245,9 +245,9 @@ function LiveCard({ game, isOwner, hasPressbox }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <div style={{ fontSize: 30, fontWeight: 700, color: c0, lineHeight: 1 }}>{info.t0.name}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
-              <span style={{ fontSize: 30, fontWeight: 700, color: info.score0 >= info.score1 ? c0 : "#bbb", lineHeight: 1, minWidth: 28, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{info.score0}</span>
+              <span style={{ fontSize: 30, fontWeight: 700, color: c0, lineHeight: 1, minWidth: 28, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{info.score0}</span>
               <span style={{ fontSize: 18, color: "#ccc", fontWeight: 300 }}>—</span>
-              <span style={{ fontSize: 30, fontWeight: 700, color: info.score1 >= info.score0 ? c1 : "#bbb", lineHeight: 1, minWidth: 28, textAlign: "left", fontVariantNumeric: "tabular-nums" }}>{info.score1}</span>
+              <span style={{ fontSize: 30, fontWeight: 700, color: c1, lineHeight: 1, minWidth: 28, textAlign: "left", fontVariantNumeric: "tabular-nums" }}>{info.score1}</span>
             </div>
             <div style={{ textAlign: "right", fontSize: 30, fontWeight: 700, color: c1, lineHeight: 1 }}>{info.t1.name}</div>
           </div>

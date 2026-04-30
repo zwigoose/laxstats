@@ -11,7 +11,7 @@ function parseClockDigits(digits) {
     seconds = Number(digits.slice(-2));
     minutes = Number(digits.slice(0, -2));
   }
-  if (seconds > 59) return { valid: false, error: "Seconds must be 00–59" };
+  if (seconds > 59) return { valid: false, error: "Seconds must be 00–59", label: `${minutes}:${String(seconds).padStart(2, "0")}` };
   const totalSeconds = minutes * 60 + seconds;
   return { valid: true, minutes, seconds, totalSeconds, label: `${minutes}:${String(seconds).padStart(2, "0")}` };
 }
@@ -60,15 +60,15 @@ export default function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeilin
   return (
     <div style={{ marginTop: 12 }}>
       <div style={{ textAlign: "center", marginBottom: 4 }}>
-        <span style={{ fontSize: 48, fontWeight: 300, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums", color: canUse ? "#111" : digits.length > 0 ? "#111" : "#ccc" }}>
-          {parsed.valid ? parsed.label : digits.length > 0 ? "—:——" : "--:--"}
+        <span style={{ fontSize: 48, fontWeight: 300, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums", color: canUse ? "#111" : errorMsg ? "#c0392b" : digits.length > 0 ? "#111" : "#ccc" }}>
+          {parsed.label ?? (digits.length > 0 ? "—:——" : "--:--")}
         </span>
       </div>
       <div style={{ textAlign: "center", height: 18, marginBottom: 10 }}>
-        {errorMsg
-          ? <span style={{ fontSize: 12, color: "#c0392b" }}>{errorMsg}</span>
-          : digits.length > 0
-          ? <span style={{ fontSize: 12, color: "#aaa" }}>Typed: {digits}</span>
+        {digits.length > 0
+          ? <span style={{ fontSize: 12, color: errorMsg ? "#c0392b" : "#aaa" }}>
+              Typed: {digits}{errorMsg ? ` — ${errorMsg}` : ""}
+            </span>
           : <span style={{ fontSize: 12, color: "#ddd" }}>Enter time remaining</span>}
       </div>
       {showSameAsLatest && latestLabel && (

@@ -31,8 +31,9 @@ export function getGameInfo(game) {
   const s = game.state;
   if (!s?.teams) return null;
   const t0 = s.teams[0], t1 = s.teams[1];
-  const score0 = (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
-  const score1 = (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
+  // v2 games store log in game_events, not state — use pre-computed scores when present
+  const score0 = s.score0 != null ? s.score0 : (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
+  const score1 = s.score1 != null ? s.score1 : (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
   const started = !!s.trackingStarted;
   const latestTime = getLatestTime(s);
   const currentQuarter = s.currentQuarter || 1;

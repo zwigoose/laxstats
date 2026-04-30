@@ -105,10 +105,18 @@ describe("TimeKeypad — digit entry", () => {
     expect(screen.getByText("Enter time remaining")).toBeInTheDocument();
   });
 
-  it("shows —:—— for invalid seconds (e.g. '99')", () => {
+  it("keeps typed digits visible alongside the error for invalid input", () => {
+    renderKeypad();
+    pressDigits("90"); // 90 seconds → invalid
+    expect(screen.getByText(/Typed: 90/)).toBeInTheDocument();
+    expect(screen.getByText(/Seconds must be 00–59/)).toBeInTheDocument();
+  });
+
+  it("shows the attempted parse in red for invalid seconds (e.g. '99' → 0:99)", () => {
     renderKeypad();
     pressDigits("99");
-    expect(screen.getByText("—:——")).toBeInTheDocument();
+    expect(screen.getByText("0:99")).toBeInTheDocument();
+    expect(screen.queryByText("—:——")).not.toBeInTheDocument();
   });
 });
 
