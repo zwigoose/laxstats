@@ -81,7 +81,7 @@ function ScorekeeperV1({ game, id, navigate, orgContext }) {
 }
 
 // ── v2 path — game_events table + Realtime ────────────────────────────────────
-function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
+function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) {
   const [saveStatus, setSaveStatus] = useState("");
   const saveTimer    = useRef(null);
   const pendingMeta  = useRef(null);
@@ -121,6 +121,7 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
     presenceList,
     remoteQuarterState,
     error:         eventsError,
+    channelStatus,
   } = useGameEvents(id, userId);
 
   // Build initialState: use game.state for meta (teams, quarter, etc.)
@@ -208,9 +209,9 @@ function ScorekeeperV2({ game, id, navigate, userId, orgContext }) {
           {saveStatus === "saving" && "Saving…"}
           {saveStatus === "saved"  && "Saved ✓"}
           {saveStatus === "error"  && "Save failed"}
-          {eventsError && !saveStatus && "Event error"}
+          {eventsError && !saveStatus && (channelStatus === "error" || channelStatus === "timed_out" ? "Sync error" : "Event error")}
         </span>
-        {game?.multi_scorer_enabled && (
+        {game?.multi_scorer_enabled && !isAnonymous && (
           <button style={S.viewBtn} onClick={() => {
             if (inviteLink || inviteState === "error") { setInviteLink(null); setInviteState("idle"); setInviteError(null); }
             else generateInviteLink();
@@ -355,7 +356,7 @@ export default function Scorekeeper() {
   if (error)   return <div style={S.error}>{error}</div>;
 
   if (game?.schema_ver === 2) {
-    return <ScorekeeperV2 game={game} id={id} navigate={navigate} userId={user?.id} orgContext={orgContext} />;
+    return <ScorekeeperV2 game={game} id={id} navigate={navigate} userId={user?.id} isAnonymous={user?.is_anonymous ?? false} orgContext={orgContext} />;
   }
   return <ScorekeeperV1 game={game} id={id} navigate={navigate} orgContext={orgContext} />;
 }

@@ -14,14 +14,14 @@ export const EVENTS = [
 
 export const STAT_KEYS = [
   "goal","emo_goal","emo_fail","mdd_success","mdd_fail","shot","sog",
-  "shot_saved","shot_post","shot_blocked","ground_ball","faceoff_win",
+  "shot_saved","shot_blocked","ground_ball","faceoff_win",
   "turnover","forced_to","penalty_tech","penalty_min","assist",
   "clear","failed_clear","successful_ride","failed_ride",
 ];
 
 export const STAT_LABELS = {
   goal:"G", emo_goal:"EMO", emo_fail:"FEMO", mdd_success:"MDD", mdd_fail:"FMDD",
-  shot:"Sh", sog:"SOG", shot_saved:"Sv", shot_post:"Post", shot_blocked:"Blk",
+  shot:"Sh", sog:"SOG", shot_saved:"Sv", shot_blocked:"Blk",
   ground_ball:"GB", faceoff_win:"FW", turnover:"TO", forced_to:"CTO",
   penalty_tech:"Tech", penalty_min:"PF Min", assist:"A",
   clear:"Clr", failed_clear:"FCl", successful_ride:"SRide", failed_ride:"FRide",

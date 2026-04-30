@@ -81,6 +81,7 @@ export function useGameEvents(gameId, userId) {
   const [error, setError]               = useState(null);
 
   const channelRef = useRef(null);
+  const [channelStatus, setChannelStatus] = useState("idle"); // idle | subscribed | error | timed_out
 
   // ── Initial load ─────────────────────────────────────────────────
   useEffect(() => {
@@ -186,7 +187,17 @@ export function useGameEvents(gameId, userId) {
 
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
+        setChannelStatus("subscribed");
+        setError(prev => (prev?.startsWith("Realtime") ? null : prev));
         await channel.track({ online_at: new Date().toISOString() });
+      } else if (status === "CHANNEL_ERROR") {
+        setChannelStatus("error");
+        setError("Realtime channel error — live sync unavailable");
+      } else if (status === "TIMED_OUT") {
+        setChannelStatus("timed_out");
+        setError("Realtime channel timed out — live sync unavailable");
+      } else if (status === "CLOSED") {
+        setChannelStatus("idle");
       }
     });
 
@@ -269,6 +280,7 @@ export function useGameEvents(gameId, userId) {
     presenceList,
     remoteQuarterState,
     error,
+    channelStatus,
     reload: load,
   };
 }

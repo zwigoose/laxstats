@@ -69,8 +69,7 @@ export function buildPlayerStats(entries) {
     else if (e.event === "shot") {
       map[k].shot++;
       const group = groups[e.groupId] || [];
-      const onGoal = group.some(ge => ge.event === "shot_saved")
-                  || group.some(ge => ge.event === "shot_post" && ge.teamIdx === e.teamIdx);
+      const onGoal = group.some(ge => ge.event === "shot_saved");
       if (onGoal) map[k].sog++;
     }
     else if (map[k][e.event] !== undefined) map[k][e.event]++;
@@ -97,8 +96,8 @@ export function buildTeamTotals(entries) {
   totals[1].mdd_fail = entries.filter(e => e.event === "goal" && e.emo && e.teamIdx === 0).length;
   totals[0].emo_fail = totals[1].mdd_success;
   totals[1].emo_fail = totals[0].mdd_success;
-  totals[0].sog = totals[0].goal + totals[0].shot_post + totals[1].shot_saved;
-  totals[1].sog = totals[1].goal + totals[1].shot_post + totals[0].shot_saved;
+  totals[0].sog = totals[0].goal + totals[1].shot_saved;
+  totals[1].sog = totals[1].goal + totals[0].shot_saved;
   return totals;
 }
 

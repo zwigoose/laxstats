@@ -599,8 +599,6 @@ export default function LaxStats({
   function handleShotOutcome(outcome) {
     if (outcome === "missed") {
       commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
-    } else if (outcome === "post") {
-      commitEntries([...pendingEntries, mkEntry(selectedTeam, "shot_post", selectedPlayer)], `Shot off post — #${selectedPlayer.num} ${selectedPlayer.name}`);
     } else if (outcome === "saved") {
       setStep("save_player");
     } else if (outcome === "blocked") {
@@ -1367,8 +1365,7 @@ export default function LaxStats({
                 const g = getGroupById(editingGroupId);
                 const prevSaved = g.some(e => e.event === "shot_saved");
                 const prevBlocked = g.some(e => e.event === "shot_blocked");
-                const prevPost = g.some(e => e.event === "shot_post");
-                const cur = prevSaved ? "Saved" : prevBlocked ? "Blocked" : prevPost ? "Off the post" : "Missed";
+                const cur = prevSaved ? "Saved" : prevBlocked ? "Blocked" : "Missed";
                 return <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>Currently: {cur}</div>;
               })()}
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
@@ -1376,7 +1373,6 @@ export default function LaxStats({
                   { outcome: "missed",  label: "Missed / wide" },
                   { outcome: "saved",   label: `Saved — by ${teams[1 - selectedTeam]?.name}` },
                   { outcome: "blocked", label: `Blocked — by ${teams[1 - selectedTeam]?.name}` },
-                  { outcome: "post",    label: "Off the post / crossbar (SOG)" },
                 ].map(({ outcome, label }) => (
                   <button key={outcome} style={{ ...S.btnNo, textAlign: "center", padding: "14px 16px" }} onClick={() => handleShotOutcome(outcome)}>{label}</button>
                 ))}
