@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
+import { fetchSavedTeams } from "../../services/teams";
 import { EVENTS, STAT_KEYS, STAT_LABELS, PENALTY_OPTIONS, PRESET_COLORS } from "../../constants/lacrosse";
 import {
   qLabel, isOT, toSecs, qLenSecs, absElapsedSecs, absSecsToQtrTime, penaltyDurSecs,
@@ -413,8 +414,7 @@ export default function LaxStats({
   const [currentUserId, setCurrentUserId] = useState(null);
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setCurrentUserId(session?.user?.id ?? null));
-    supabase.from("saved_teams").select("id, name, roster, color, user_id").order("name")
-      .then(({ data }) => { if (data) setSavedTeams(data); });
+    fetchSavedTeams().then(({ data }) => { if (data) setSavedTeams(data); });
   }, []);
 
   // ── Org teams (for org games) ────────────────────────────────────

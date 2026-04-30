@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
+import { fetchGameEvents, insertGameEvents, softDeleteGameEvents } from "../services/gameEvents";
 
 // ── Translation: DB row ↔ LaxStats log entry ─────────────────────────────────
 
@@ -93,12 +94,7 @@ export function useGameEvents(gameId, userId) {
   async function load() {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from("game_events")
-      .select("*")
-      .eq("game_id", gameId)
-      .is("deleted_at", null)
-      .order("seq");
+    const { data, error: err } = await fetchGameEvents(gameId);
     if (err) { setError(err.message); setLoading(false); return; }
     setEntries((data || []).map(dbRowToEntry));
     setLoading(false);
@@ -213,8 +209,7 @@ export function useGameEvents(gameId, userId) {
   const commitGroup = useCallback(async (stampedEntries) => {
     if (!gameId || !userId || !stampedEntries?.length) return;
     const rows = stampedEntries.map(e => entryToDbRow(e, gameId, userId));
-    const { data: inserted, error: err } = await supabase
-      .from("game_events").insert(rows).select();
+    const { data: inserted, error: err } = await insertGameEvents(rows);
     if (err) {
       setError(err.message);
       throw err;
@@ -230,13 +225,7 @@ export function useGameEvents(gameId, userId) {
   // ── Soft-delete all rows in a group ─────────────────────────────
   const softDeleteGroup = useCallback(async (groupIdUuid) => {
     if (!gameId || !userId) return;
-    const now = new Date().toISOString();
-    const { error: err } = await supabase
-      .from("game_events")
-      .update({ deleted_at: now, deleted_by: userId })
-      .eq("game_id", gameId)
-      .eq("group_id", groupIdUuid)
-      .is("deleted_at", null);
+    const { error: err } = await softDeleteGameEvents(gameId, groupIdUuid, userId);
     if (err) {
       setError(err.message);
       throw err;

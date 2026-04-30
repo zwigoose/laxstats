@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import {
+  fetchGame, fetchGameMeta, updateGame, deleteGame,
+  fetchOrgContext, createScorekeeperInvite, claimScorekeeperInvite,
+  deleteAllGameEvents,
+} from "../services/games";
 import { useAuth } from "../contexts/AuthContext";
 import LaxStats from "../components/LaxStats";
 import { useGameEvents } from "../hooks/useGameEvents";
@@ -42,7 +47,7 @@ function ScorekeeperV1({ game, id, navigate, orgContext }) {
       if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
         updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
       }
-      const { error: err } = await supabase.from("games").update(updatePayload).eq("id", id);
+      const { error: err } = await updateGame(id, updatePayload);
       saveInFlight.current = false;
       if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
       else {
@@ -72,9 +77,9 @@ function ScorekeeperV1({ game, id, navigate, orgContext }) {
         orgContext={orgContext}
         onOrgTeamSelected={async (teamIdx, teamId) => {
           const col = teamIdx === 0 ? "home_team_id" : "away_team_id";
-          await supabase.from("games").update({ [col]: teamId }).eq("id", id);
+          await updateGame(id, { [col]: teamId });
         }}
-        onCancel={async () => { await supabase.from("games").delete().eq("id", id); navigate("/"); }}
+        onCancel={async () => { await deleteGame(id); navigate("/"); }}
       />
     </div>
   );
@@ -94,7 +99,7 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
   async function generateInviteLink() {
     setInviteState("generating");
     setInviteError(null);
-    const { data: token, error } = await supabase.rpc("create_scorekeeper_invite", { p_game_id: id });
+    const { data: token, error } = await createScorekeeperInvite(id);
     if (error || !token) {
       setInviteError(error?.message || "Failed to generate link");
       setInviteState("error");
@@ -135,11 +140,7 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
   // Meta-event handler: persist quarter/gameOver changes to games.state
   const handleMetaEvent = useCallback(async (type, payload) => {
     setSaveStatus("saving");
-    const { data: current } = await supabase
-      .from("games")
-      .select("state, name")
-      .eq("id", id)
-      .single();
+    const { data: current } = await fetchGameMeta(id);
     const meta = current?.state ? { ...current.state } : {};
     delete meta.log; // v2 games don't store log in state
 
@@ -151,10 +152,7 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
       meta.gameOver          = true;
     }
 
-    const { error: err } = await supabase
-      .from("games")
-      .update({ state: meta })
-      .eq("id", id);
+    const { error: err } = await updateGame(id, { state: meta });
 
     if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
     else {
@@ -186,7 +184,7 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
       if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
         updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
       }
-      const { error: err } = await supabase.from("games").update(updatePayload).eq("id", id);
+      const { error: err } = await updateGame(id, updatePayload);
       saveInFlight.current = false;
       if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
       else { setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000); }
@@ -260,16 +258,11 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
           orgContext={orgContext}
           onOrgTeamSelected={async (teamIdx, teamId) => {
             const col = teamIdx === 0 ? "home_team_id" : "away_team_id";
-            await supabase.from("games").update({ [col]: teamId }).eq("id", id);
+            await updateGame(id, { [col]: teamId });
           }}
           onCancel={async () => {
-            // Soft-delete all events and delete the game row
-            await supabase
-              .from("game_events")
-              .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
-              .eq("game_id", id)
-              .is("deleted_at", null);
-            await supabase.from("games").delete().eq("id", id);
+            await deleteAllGameEvents(id, userId);
+            await deleteGame(id);
             navigate("/");
           }}
         />
@@ -315,7 +308,7 @@ export default function Scorekeeper() {
   // Claim the invite token once we have any user (anon or real)
   useEffect(() => {
     if (!inviteToken || !user || tokenClaimed) return;
-    supabase.rpc("claim_scorekeeper_invite", { p_token: inviteToken }).then(({ error: err }) => {
+    claimScorekeeperInvite(inviteToken).then(({ error: err }) => {
       setTokenClaimed(true);
       if (!err) navigate(`/games/${id}/score`, { replace: true });
       // Expired/invalid: still proceed — may have org/owner access already
@@ -327,29 +320,10 @@ export default function Scorekeeper() {
   async function loadGame() {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from("games")
-      .select("id, created_at, name, state, schema_ver, org_id, season_id, user_id, multi_scorer_enabled")
-      .eq("id", id)
-      .single();
+    const { data, error: err } = await fetchGame(id);
     if (err) { setError(err.message); setLoading(false); return; }
 
-    let orgCtx = null;
-    if (data?.org_id) {
-      const [orgRes, seasonRes] = await Promise.all([
-        supabase.from("organizations").select("name").eq("id", data.org_id).single(),
-        data.season_id
-          ? supabase.from("seasons").select("name").eq("id", data.season_id).single()
-          : Promise.resolve({ data: null }),
-      ]);
-      orgCtx = {
-        orgId:      data.org_id,
-        orgName:    orgRes.data?.name ?? null,
-        seasonName: seasonRes.data?.name ?? null,
-      };
-    }
-
-    setOrgContext(orgCtx);
+    setOrgContext(data?.org_id ? await fetchOrgContext(data.org_id, data.season_id) : null);
     setGame(data);
     setLoading(false);
   }
