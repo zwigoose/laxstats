@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import {
   fetchGame, fetchGameMeta, updateGame, deleteGame,
   fetchOrgContext, createScorekeeperInvite, claimScorekeeperInvite,
-  deleteAllGameEvents,
+  deleteAllGameEvents, canScoreGame,
 } from "../services/games";
 import { useAuth } from "../contexts/AuthContext";
 import LaxStats from "../components/LaxStats";
@@ -283,6 +283,7 @@ export default function Scorekeeper() {
   const [error, setError]         = useState(null);
   const [tokenClaimed, setTokenClaimed] = useState(false);
   const [anonPending, setAnonPending]   = useState(false);
+  const [inviteError, setInviteError]   = useState(null);
 
   // Read invite token from URL — present when landing via a shared scoring link
   const inviteToken = new URLSearchParams(location.search).get("token");
@@ -310,12 +311,23 @@ export default function Scorekeeper() {
     if (!inviteToken || !user || tokenClaimed) return;
     claimScorekeeperInvite(inviteToken).then(({ error: err }) => {
       setTokenClaimed(true);
-      if (!err) navigate(`/games/${id}/score`, { replace: true });
-      // Expired/invalid: still proceed — may have org/owner access already
+      if (!err) {
+        navigate(`/games/${id}/score`, { replace: true });
+      } else if (user.is_anonymous) {
+        // Expired/invalid token and no other auth — show a clear error instead of a silent redirect
+        setInviteError("This invite link has expired or is invalid. Ask the game organizer to send a new one.");
+      }
+      // Non-anonymous users may still have org/owner access — let loadGame's auth check decide
     });
   }, [inviteToken, user, tokenClaimed, id]);
 
-  useEffect(() => { loadGame(); }, [id]);
+  // Defer load until token claim is settled — otherwise can_score_game runs before the
+  // invite row is written and the anonymous user would be denied.
+  useEffect(() => {
+    if (inviteToken && !tokenClaimed) return;
+    if (inviteError) return;
+    loadGame();
+  }, [id, tokenClaimed, inviteError]);
 
   async function loadGame() {
     setLoading(true);
@@ -323,11 +335,19 @@ export default function Scorekeeper() {
     const { data, error: err } = await fetchGame(id);
     if (err) { setError(err.message); setLoading(false); return; }
 
+    const { data: allowed } = await canScoreGame(data.id);
+    if (!allowed) {
+      setError("You don't have permission to score this game.");
+      setLoading(false);
+      return;
+    }
+
     setOrgContext(data?.org_id ? await fetchOrgContext(data.org_id, data.season_id) : null);
     setGame(data);
     setLoading(false);
   }
 
+  if (inviteError) return <div style={S.error}>{inviteError}</div>;
   if (loading || authLoading || (inviteToken && !user)) return <div style={S.loading}>Loading game…</div>;
   if (error)   return <div style={S.error}>{error}</div>;
 

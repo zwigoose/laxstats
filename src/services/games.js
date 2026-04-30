@@ -34,6 +34,10 @@ export async function fetchOrgContext(orgId, seasonId, db = _supabase) {
   };
 }
 
+export async function canScoreGame(gameId, db = _supabase) {
+  return db.rpc("can_score_game", { p_game_id: gameId });
+}
+
 export async function createScorekeeperInvite(gameId, db = _supabase) {
   return db.rpc("create_scorekeeper_invite", { p_game_id: gameId });
 }
