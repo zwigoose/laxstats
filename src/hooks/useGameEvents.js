@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase as _supabase } from "../lib/supabase";
 import { fetchGameEvents, insertGameEvents, softDeleteGameEvents } from "../services/gameEvents";
 
 // ── Translation: DB row ↔ LaxStats log entry ─────────────────────────────────
@@ -74,7 +74,7 @@ function entryToDbRow(entry, gameId, userId) {
  *
  * Pass gameId=null to disable (v1 games).
  */
-export function useGameEvents(gameId, userId) {
+export function useGameEvents(gameId, userId, db = _supabase) {
   const [entries, setEntries]           = useState([]);
   const [loading, setLoading]           = useState(true);
   const [presenceList, setPresenceList] = useState([]);
@@ -94,7 +94,7 @@ export function useGameEvents(gameId, userId) {
   async function load() {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await fetchGameEvents(gameId);
+    const { data, error: err } = await fetchGameEvents(gameId, db);
     if (err) { setError(err.message); setLoading(false); return; }
     setEntries((data || []).map(dbRowToEntry));
     setLoading(false);
@@ -104,7 +104,7 @@ export function useGameEvents(gameId, userId) {
   useEffect(() => {
     if (!gameId || !userId) return;
 
-    const channel = supabase.channel(`game-events-${gameId}`, {
+    const channel = db.channel(`game-events-${gameId}`, {
       config: { presence: { key: userId } },
     });
 
@@ -200,7 +200,7 @@ export function useGameEvents(gameId, userId) {
     channelRef.current = channel;
 
     return () => {
-      supabase.removeChannel(channel);
+      db.removeChannel(channel);
       channelRef.current = null;
     };
   }, [gameId, userId]);
@@ -209,7 +209,7 @@ export function useGameEvents(gameId, userId) {
   const commitGroup = useCallback(async (stampedEntries) => {
     if (!gameId || !userId || !stampedEntries?.length) return;
     const rows = stampedEntries.map(e => entryToDbRow(e, gameId, userId));
-    const { data: inserted, error: err } = await insertGameEvents(rows);
+    const { data: inserted, error: err } = await insertGameEvents(rows, db);
     if (err) {
       setError(err.message);
       throw err;
@@ -225,7 +225,7 @@ export function useGameEvents(gameId, userId) {
   // ── Soft-delete all rows in a group ─────────────────────────────
   const softDeleteGroup = useCallback(async (groupIdUuid) => {
     if (!gameId || !userId) return;
-    const { error: err } = await softDeleteGameEvents(gameId, groupIdUuid, userId);
+    const { error: err } = await softDeleteGameEvents(gameId, groupIdUuid, userId, db);
     if (err) {
       setError(err.message);
       throw err;

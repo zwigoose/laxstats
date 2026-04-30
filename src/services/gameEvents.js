@@ -1,7 +1,7 @@
-import { supabase } from "../lib/supabase";
+import { supabase as _supabase } from "../lib/supabase";
 
-export async function fetchGameEvents(gameId) {
-  return supabase
+export async function fetchGameEvents(gameId, db = _supabase) {
+  return db
     .from("game_events")
     .select("*")
     .eq("game_id", gameId)
@@ -9,12 +9,12 @@ export async function fetchGameEvents(gameId) {
     .order("seq");
 }
 
-export async function insertGameEvents(rows) {
-  return supabase.from("game_events").insert(rows).select();
+export async function insertGameEvents(rows, db = _supabase) {
+  return db.from("game_events").insert(rows).select();
 }
 
-export async function softDeleteGameEvents(gameId, groupId, userId) {
-  return supabase
+export async function softDeleteGameEvents(gameId, groupId, userId, db = _supabase) {
+  return db
     .from("game_events")
     .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
     .eq("game_id", gameId)
