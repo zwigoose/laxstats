@@ -64,8 +64,13 @@ export default function Profile() {
   const [emailStatus, setEmailStatus] = useState(null);
 
   async function changeEmail() {
+    const trimmed = newEmail.trim();
+    if (trimmed.toLowerCase().endsWith(FAKE)) {
+      setEmailStatus({ error: "Enter a real email address, not a LaxStats username." });
+      return;
+    }
     setEmailStatus("saving");
-    const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+    const { error } = await supabase.auth.updateUser({ email: trimmed });
     if (error) { setEmailStatus({ error: error.message }); return; }
     setEmailStatus("sent");
     setNewEmail("");
