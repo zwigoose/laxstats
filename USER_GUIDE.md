@@ -8,22 +8,23 @@ LaxStats is an electronic scorebook and league management platform for men's lac
 
 1. [Accounts & Login](#1-accounts--login)
 2. [Navigation](#2-navigation)
-3. [Organizations](#3-organizations)
-4. [Season & Team Management](#4-season--team-management)
-5. [Roster Management](#5-roster-management)
-6. [Creating and Managing Games](#6-creating-and-managing-games)
-7. [Scorekeeper — Setup](#7-scorekeeper--setup)
-8. [Scorekeeper — Tracking Events](#8-scorekeeper--tracking-events)
-9. [Event Reference](#9-event-reference)
-10. [Timeouts](#10-timeouts)
-11. [Quarter & Game Management](#11-quarter--game-management)
-12. [Multi-User Scoring](#12-multi-user-scoring)
-13. [Editing and Deleting Entries](#13-editing-and-deleting-entries)
-14. [Stats Views](#14-stats-views)
-15. [Live View](#15-live-view)
-16. [Press Box](#16-press-box)
-17. [Admin Panel](#17-admin-panel)
-18. [Stat Definitions](#18-stat-definitions)
+3. [Your Profile](#3-your-profile)
+4. [Organizations](#4-organizations)
+5. [Season & Team Management](#5-season--team-management)
+6. [Roster Management](#6-roster-management)
+7. [Creating and Managing Games](#7-creating-and-managing-games)
+8. [Scorekeeper — Setup](#8-scorekeeper--setup)
+9. [Scorekeeper — Tracking Events](#9-scorekeeper--tracking-events)
+10. [Event Reference](#10-event-reference)
+11. [Timeouts](#11-timeouts)
+12. [Quarter & Game Management](#12-quarter--game-management)
+13. [Multi-User Scoring](#13-multi-user-scoring)
+14. [Editing and Deleting Entries](#14-editing-and-deleting-entries)
+15. [Stats Views](#15-stats-views)
+16. [Live View](#16-live-view)
+17. [Press Box](#17-press-box)
+18. [Admin Panel](#18-admin-panel)
+19. [Stat Definitions](#19-stat-definitions)
 
 ---
 
@@ -39,7 +40,7 @@ Tap **Sign up** on the login screen, choose a username and password (minimum 6 c
 If someone sends you a scorer invite link, open it in any browser. The app will sign you in automatically as a guest — no account or password required. You'll be taken directly to the scorekeeper. Guest sessions are tied to that link and that game only.
 
 ### Signing out
-Tap **Sign out** in the top-right of the main screen.
+Tap **Sign out** on your profile page (see [Your Profile](#3-your-profile)).
 
 ---
 
@@ -51,10 +52,29 @@ The top nav bar is visible on all pages except the Scorekeeper and Press Box (wh
 - **Home** — your game list
 - **Orgs** — your organization memberships (visible if you belong to at least one org)
 - **Admin** — platform admin panel (visible to admin accounts only)
+- **Initials avatar** (top-right) — opens your profile page
 
 ---
 
-## 3. Organizations
+## 3. Your Profile
+
+Tap the initials avatar button in the top-right corner of the nav bar to open `/profile`.
+
+### Display name
+Enter a name in the **Display name** field and tap **Save**. This name is shown in place of your username wherever your name appears in the app. Leave it blank to use your username instead.
+
+### Changing your email
+Enter a new email address and tap **Update**. A confirmation email is sent to the new address — the change does not take effect until you click the link in that email. `@laxstats.app` addresses are not accepted here (those are internal usernames, not real emails).
+
+### Changing your password
+Enter your new password twice and tap **Change password**. The password must be at least 6 characters. No current password is required since you are already signed in.
+
+### Signing out
+Tap **Sign out** at the bottom of the profile page.
+
+---
+
+## 4. Organizations
 
 Organizations are the top-level structure for teams, seasons, and games. A single org can represent a program, a club, or a league.
 
@@ -81,7 +101,7 @@ Members are managed from the org dashboard by an org admin or platform admin.
 
 ---
 
-## 4. Season & Team Management
+## 5. Season & Team Management
 
 ### Creating a season
 From the org dashboard **Seasons** tab, tap **+ New Season**. Enter a name (e.g. *Spring 2026*) and optional start and end dates.
