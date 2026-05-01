@@ -5,6 +5,18 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.2.0] — 2026-04-30
+
+### Added
+- **User profile page** (`/profile`) — display name, username/email display, change email, change password, and sign out; accessible via the initials avatar button in the top-right of the nav bar
+- **Display name** — users can set a human-readable name stored in `profiles.display_name`; shown in place of username wherever names appear
+
+### Security
+- **`display_name` DB constraint** — `CHECK (char_length(display_name) <= 60)` enforced at the database level; the frontend `maxLength` is client-side only and bypassable via direct API calls
+- **Email impersonation prevention** — email change rejects `@laxstats.app` addresses to prevent internal username impersonation
+
+---
+
 ## [2.1.0] — 2026-04-29
 
 ### Added

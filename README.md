@@ -24,6 +24,17 @@ When the game is over, the full box score, player stats, and event timeline are 
 
 ---
 
+## Your profile
+
+Tap the initials avatar in the top-right corner of the nav bar to open your profile. From there you can:
+
+- Set a **display name** shown in place of your username
+- **Change your email** address (sends a confirmation to the new address)
+- **Change your password**
+- **Sign out**
+
+---
+
 ## Organizations
 
 Organizations are the top-level structure for teams and leagues. Each org has:
