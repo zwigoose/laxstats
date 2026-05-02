@@ -291,10 +291,32 @@ function LiveGamesSection({ user }) {
   async function load() {
     const { data } = await supabase
       .from("games")
-      .select("id, created_at, name, state, user_id, org_id, pressbox_enabled")
+      .select("id, created_at, name, state, schema_ver, user_id, org_id, pressbox_enabled")
       .not("state", "is", null)
       .order("created_at", { ascending: false });
-    const live = (data || []).filter(g => {
+    const games = data || [];
+
+    // Fetch accurate goal counts from game_events for v2 games
+    const v2Ids = games.filter(g => g.schema_ver === 2).map(g => g.id);
+    let gamesWithScores = games;
+    if (v2Ids.length > 0) {
+      const { data: totals } = await supabase
+        .from("v_game_team_totals")
+        .select("game_id, team_idx, goals")
+        .in("game_id", v2Ids);
+      const scoreMap = {};
+      (totals || []).forEach(r => {
+        if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];
+        scoreMap[r.game_id][r.team_idx] = r.goals;
+      });
+      gamesWithScores = games.map(g =>
+        g.schema_ver === 2 && scoreMap[g.id]
+          ? { ...g, state: { ...g.state, score0: scoreMap[g.id][0], score1: scoreMap[g.id][1] } }
+          : g
+      );
+    }
+
+    const live = gamesWithScores.filter(g => {
       const info = getGameInfo(g);
       return info?.started && !info?.gameOver;
     });
@@ -580,12 +602,33 @@ function GamesTab({ onNewGame, user, orgMemberships = [] }) {
     setError(null);
     const { data, error: err } = await supabase
       .from("games")
-      .select("id, created_at, name, state")
+      .select("id, created_at, name, state, schema_ver")
       .eq("user_id", user.id)
       .is("org_id", null)
       .order("created_at", { ascending: false });
-    if (err) setError(err.message);
-    else setGames(data || []);
+    if (err) { setError(err.message); setLoading(false); return; }
+    const games = data || [];
+
+    // Fetch accurate goal counts from game_events for v2 games
+    const v2Ids = games.filter(g => g.schema_ver === 2).map(g => g.id);
+    if (v2Ids.length > 0) {
+      const { data: totals } = await supabase
+        .from("v_game_team_totals")
+        .select("game_id, team_idx, goals")
+        .in("game_id", v2Ids);
+      const scoreMap = {};
+      (totals || []).forEach(r => {
+        if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];
+        scoreMap[r.game_id][r.team_idx] = r.goals;
+      });
+      setGames(games.map(g =>
+        g.schema_ver === 2 && scoreMap[g.id]
+          ? { ...g, state: { ...g.state, score0: scoreMap[g.id][0], score1: scoreMap[g.id][1] } }
+          : g
+      ));
+    } else {
+      setGames(games);
+    }
     setLoading(false);
   }
 
