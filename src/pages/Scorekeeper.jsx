@@ -153,10 +153,14 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
     if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
       setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
     }
-    // Build meta payload (no log); compute score from log so game list can display it
+    // Build meta payload (no log); compute score from log so game list can display it.
+    // When called as a retry (pendingMeta already processed), _log is undefined —
+    // preserve the already-correct score0/score1 rather than overwriting with 0.
     const { log: _log, ...meta } = newState;
-    meta.score0 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
-    meta.score1 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
+    if (_log !== undefined) {
+      meta.score0 = _log.filter(e => e.event === "goal" && e.teamIdx === 0).length;
+      meta.score1 = _log.filter(e => e.event === "goal" && e.teamIdx === 1).length;
+    }
     pendingMeta.current = meta;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
