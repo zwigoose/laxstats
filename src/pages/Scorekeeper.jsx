@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "../lib/supabase";
 import {
-  fetchGame, fetchGameMeta, updateGame, deleteGame,
+  fetchGame, updateGame, deleteGame,
   fetchOrgContext, createScorekeeperInvite, claimScorekeeperInvite,
   deleteAllGameEvents, canScoreGame,
 } from "../services/games";
@@ -91,6 +91,7 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
   const saveTimer    = useRef(null);
   const pendingMeta  = useRef(null);
   const saveInFlight = useRef(false);
+  const tokenRef     = useRef(null);
   const [gameName, setGameName]   = useState(game?.name || "");
   const [inviteLink,  setInviteLink]  = useState(null);
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
@@ -137,40 +138,30 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
         ? { ...game.state, log: entries }
         : (entries.length > 0 ? { log: entries } : null));
 
-  // Meta-event handler: persist quarter/gameOver changes to games.state
-  const handleMetaEvent = useCallback(async (type, payload) => {
-    setSaveStatus("saving");
-    const { data: current } = await fetchGameMeta(id);
-    const meta = current?.state ? { ...current.state } : {};
-    delete meta.log; // v2 games don't store log in state
-
-    if (type === "endQuarter") {
-      meta.completedQuarters = [...(meta.completedQuarters || []), payload.quarter];
-      meta.currentQuarter    = (meta.currentQuarter || 1) + 1;
-    } else if (type === "gameOver") {
-      meta.completedQuarters = [...(meta.completedQuarters || []), payload.quarter];
-      meta.gameOver          = true;
-    }
-
-    const { error: err } = await updateGame(id, { state: meta });
-
-    if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
-    else {
-      setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000);
-      // Broadcast quarter/game-over state so secondary scorers update immediately
-      broadcastMeta({ currentQuarter: meta.currentQuarter, completedQuarters: meta.completedQuarters, gameOver: !!meta.gameOver });
-    }
-  }, [id, broadcastMeta]);
+  // Meta-event handler: broadcast quarter/gameOver to secondary scorers.
+  // DB persistence is handled by handleStateChange (which fires on the same state
+  // transitions), avoiding a read-modify-write race that could double-increment
+  // currentQuarter if handleStateChange writes to DB before our read returns.
+  const handleMetaEvent = useCallback((type, payload) => {
+    const newCurrentQuarter    = payload.newCurrentQuarter    ?? (type === "endQuarter" ? (payload.quarter + 1) : payload.quarter);
+    const newCompletedQuarters = payload.newCompletedQuarters ?? [payload.quarter];
+    const isGameOver           = type === "gameOver";
+    broadcastMeta({ currentQuarter: newCurrentQuarter, completedQuarters: newCompletedQuarters, gameOver: isGameOver });
+  }, [broadcastMeta]);
 
   // State change handler: persist team/meta changes (NOT the log — that's in game_events)
   const handleStateChange = useCallback(async (newState) => {
     if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
       setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
     }
-    // Build meta payload (no log); compute score from log so game list can display it
+    // Build meta payload (no log); compute score from log so game list can display it.
+    // When called as a retry (pendingMeta already processed), _log is undefined —
+    // preserve the already-correct score0/score1 rather than overwriting with 0.
     const { log: _log, ...meta } = newState;
-    meta.score0 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
-    meta.score1 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
+    if (_log !== undefined) {
+      meta.score0 = _log.filter(e => e.event === "goal" && e.teamIdx === 0).length;
+      meta.score1 = _log.filter(e => e.event === "goal" && e.teamIdx === 1).length;
+    }
     pendingMeta.current = meta;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
@@ -187,8 +178,50 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
       const { error: err } = await updateGame(id, updatePayload);
       saveInFlight.current = false;
       if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
-      else { setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000); }
+      else {
+        setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000);
+        // Retry if a new state change arrived while this save was in flight
+        if (pendingMeta.current) handleStateChange(pendingMeta.current);
+      }
     }, 800);
+  }, [id]);
+
+  // Keep tokenRef current so the beforeunload flush can use it without async work.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      tokenRef.current = data?.session?.access_token ?? null;
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      tokenRef.current = session?.access_token ?? null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Flush any pending state to DB when the tab closes, using keepalive so the
+  // browser sends the request even after the page unloads.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const stateToSave = pendingMeta.current;
+      if (!stateToSave || !tokenRef.current) return;
+      if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+      const updatePayload = { state: stateToSave };
+      if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
+        updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
+      }
+      fetch(`${SUPABASE_URL}/rest/v1/games?id=eq.${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${tokenRef.current}`,
+          "Prefer": "return=minimal",
+        },
+        body: JSON.stringify(updatePayload),
+        keepalive: true,
+      });
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [id]);
 
   const scorerCount = presenceList.length;

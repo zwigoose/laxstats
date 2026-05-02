@@ -356,7 +356,7 @@ export default function LaxStats({
       setScreen("stats");
       setStatsTab("summary");
       setStatsQtr("all");
-      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter }).catch(console.error);
+      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter, newCompletedQuarters: [...completedQuarters, currentQuarter] }).catch(console.error);
       resetEntry();
       return;
     }
@@ -655,15 +655,17 @@ export default function LaxStats({
 
   function handleEndQuarter() {
     const tied = totalScores[0] === totalScores[1];
-    setCompletedQuarters(prev => [...prev, currentQuarter]);
+    const newCompletedQuarters = [...completedQuarters, currentQuarter];
+    setCompletedQuarters(newCompletedQuarters);
     if (currentQuarter === 4 && !tied) {
       setGameOver(true); setScreen("stats"); setStatsTab("summary"); setStatsQtr("all");
-      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter }).catch(console.error);
+      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter, newCompletedQuarters }).catch(console.error);
     } else {
       const ended = currentQuarter;
-      setCurrentQuarter(prev => prev + 1);
+      const newCurrentQuarter = ended + 1;
+      setCurrentQuarter(newCurrentQuarter);
       setScreen("stats"); setStatsTab("summary"); setStatsQtr(String(ended));
-      if (onMetaEvent) onMetaEvent("endQuarter", { quarter: ended }).catch(console.error);
+      if (onMetaEvent) onMetaEvent("endQuarter", { quarter: ended, newCurrentQuarter, newCompletedQuarters }).catch(console.error);
     }
     resetEntry();
   }
