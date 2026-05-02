@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "../lib/supabase";
 import {
   fetchGame, updateGame, deleteGame,
   fetchOrgContext, createScorekeeperInvite, claimScorekeeperInvite,
@@ -91,6 +91,7 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
   const saveTimer    = useRef(null);
   const pendingMeta  = useRef(null);
   const saveInFlight = useRef(false);
+  const tokenRef     = useRef(null);
   const [gameName, setGameName]   = useState(game?.name || "");
   const [inviteLink,  setInviteLink]  = useState(null);
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
@@ -183,6 +184,44 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
         if (pendingMeta.current) handleStateChange(pendingMeta.current);
       }
     }, 800);
+  }, [id]);
+
+  // Keep tokenRef current so the beforeunload flush can use it without async work.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      tokenRef.current = data?.session?.access_token ?? null;
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      tokenRef.current = session?.access_token ?? null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Flush any pending state to DB when the tab closes, using keepalive so the
+  // browser sends the request even after the page unloads.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const stateToSave = pendingMeta.current;
+      if (!stateToSave || !tokenRef.current) return;
+      if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+      const updatePayload = { state: stateToSave };
+      if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
+        updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
+      }
+      fetch(`${SUPABASE_URL}/rest/v1/games?id=eq.${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${tokenRef.current}`,
+          "Prefer": "return=minimal",
+        },
+        body: JSON.stringify(updatePayload),
+        keepalive: true,
+      });
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [id]);
 
   const scorerCount = presenceList.length;
