@@ -13,6 +13,9 @@ const evState = vi.hoisted(() => ({
   isPrimary:         true,
   presenceList:      [],
   remoteQuarterState: null,
+  isOnline:          true,
+  pendingCount:      0,
+  syncStatus:        "idle",
   commitGroup:       vi.fn().mockResolvedValue(undefined),
   softDeleteGroup:   vi.fn().mockResolvedValue(undefined),
   broadcastMeta:     vi.fn(),
@@ -56,8 +59,9 @@ vi.mock("../lib/supabase", () => {
       from:           vi.fn().mockReturnValue(queryChain),
       rpc:            rpcMock,
       auth: {
-        getSession:        vi.fn().mockResolvedValue({ data: { session: null } }),
-        signInAnonymously: vi.fn().mockResolvedValue({ data: { user: { id: "anon-1", is_anonymous: true } }, error: null }),
+        getSession:          vi.fn().mockResolvedValue({ data: { session: null } }),
+        signInAnonymously:   vi.fn().mockResolvedValue({ data: { user: { id: "anon-1", is_anonymous: true } }, error: null }),
+        onAuthStateChange:   vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
       },
     },
   };
@@ -88,13 +92,16 @@ function renderScorekeeper(gameId = "game-1") {
 }
 
 function resetState() {
-  evState.entries           = [];
-  evState.loading           = false;
-  evState.error             = null;
-  evState.channelStatus     = "idle";
-  evState.isPrimary         = true;
-  evState.presenceList      = [];
+  evState.entries            = [];
+  evState.loading            = false;
+  evState.error              = null;
+  evState.channelStatus      = "idle";
+  evState.isPrimary          = true;
+  evState.presenceList       = [];
   evState.remoteQuarterState = null;
+  evState.isOnline           = true;
+  evState.pendingCount       = 0;
+  evState.syncStatus         = "idle";
 
   authState.user    = { id: "user-1", is_anonymous: false };
   authState.loading = false;
