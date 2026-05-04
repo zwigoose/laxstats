@@ -23,10 +23,5 @@ export async function softDeleteGameEvents(gameId, groupId, userId, db = _supaba
 }
 
 export async function dismissDuplicateFlag(gameId, groupId, db = _supabase) {
-  return db
-    .from("game_events")
-    .update({ is_possible_duplicate: false })
-    .eq("game_id", gameId)
-    .eq("group_id", groupId)
-    .is("deleted_at", null);
+  return db.rpc("dismiss_duplicate_flag", { p_game_id: gameId, p_group_id: groupId });
 }

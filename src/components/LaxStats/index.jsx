@@ -64,6 +64,7 @@ export default function LaxStats({
   const [lastFaceoffWinner, setLastFaceoffWinner] = useState([null, null]);
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [deletingGroupId, setDeletingGroupId] = useState(null);
+  const [confirmingDeleteGroupId, setConfirmingDeleteGroupId] = useState(null);
   const [lastEntry, setLastEntry] = useState(null);
   const [pendingDuplicateCommit, setPendingDuplicateCommit] = useState(null); // { entries, flashText }
   const commitDebounceRef = useRef(0); // ms timestamp of last accepted commit
@@ -1920,10 +1921,19 @@ export default function LaxStats({
                             <span style={{ color: "#888", fontSize: 12 }}>{playerStr}</span>
                             <span style={{ color: teamColors[primary.teamIdx], fontSize: 11, marginLeft: 6 }}>{teams[primary.teamIdx]?.name}</span>
                             <span style={{ color: "#aaa", fontSize: 11, marginLeft: 4 }}>{qLabel(primary.quarter)}</span>
-                            {onEventDismissDuplicate && (
-                              <button style={S.logActionBtn()} title="Keep — mark as not a duplicate" onClick={() => onEventDismissDuplicate(gid)}>Keep</button>
+                            {confirmingDeleteGroupId === gid ? (
+                              <>
+                                <button style={S.logActionBtn("#c0392b")} onClick={() => { handleDeleteGroup(gid); setConfirmingDeleteGroupId(null); }}>Confirm delete</button>
+                                <button style={S.logActionBtn()} onClick={() => setConfirmingDeleteGroupId(null)}>Cancel</button>
+                              </>
+                            ) : (
+                              <>
+                                {onEventDismissDuplicate && (
+                                  <button style={S.logActionBtn()} title="Keep — mark as not a duplicate" onClick={() => onEventDismissDuplicate(gid)}>Keep</button>
+                                )}
+                                <button style={S.logActionBtn("#c0392b")} title="Delete this entry" onClick={() => setConfirmingDeleteGroupId(gid)}>✕</button>
+                              </>
                             )}
-                            <button style={S.logActionBtn("#c0392b")} title="Delete this entry" onClick={() => { setDeletingGroupId(gid); setScreen("track"); setStep("confirm_delete"); }}>✕</button>
                           </div>
                           {subItems.length > 0 && <div style={S.logGroupSub}>{subItems.map((s, i) => <span key={i} style={S.logSubChip}>{s}</span>)}</div>}
                         </div>
