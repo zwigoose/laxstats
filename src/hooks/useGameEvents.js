@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase as _supabase } from "../lib/supabase";
 import { fetchGameEvents, insertGameEvents, softDeleteGameEvents } from "../services/gameEvents";
+import {
+  enqueueEvents, enqueueDelete,
+  getPendingEvents, getPendingDeletes,
+  removeEvent, removeDelete,
+  getPendingCount,
+} from "../services/offlineQueue";
+import { useOnlineStatus } from "./useOnlineStatus";
 
 // ── Translation: DB row ↔ LaxStats log entry ─────────────────────────────────
 
@@ -36,25 +43,38 @@ export function dbRowToEntry(row) {
  * Translate a LaxStats log entry into a game_events insert payload.
  * groupId on the entry must already be a UUID (set by commitEntries in v2 mode).
  */
-function entryToDbRow(entry, gameId, userId) {
+export function entryToDbRow(entry, gameId, userId) {
   return {
-    game_id:          gameId,
-    group_id:         entry.groupId,
-    quarter:          entry.quarter,
-    event_type:       entry.event,
-    team_idx:         entry.teamIdx,
-    is_team_stat:     entry.teamStat  ?? false,
-    player_num:       entry.player?.num  ?? null,
-    player_name:      entry.player?.name ?? null,
-    goal_time:        entry.goalTime     ?? null,
-    penalty_time:     entry.penaltyTime  ?? null,
-    timeout_time:     entry.timeoutTime  ?? null,
-    is_non_releasable: entry.nonReleasable ?? false,
-    penalty_minutes:  entry.penaltyMin   ?? null,
-    shot_outcome:     entry.shotOutcome  ?? null,
-    foul_name:        entry.foulName     ?? null,
-    created_by:       userId,
+    game_id:           gameId,
+    group_id:          entry.groupId,
+    quarter:           entry.quarter,
+    event_type:        entry.event,
+    team_idx:          entry.teamIdx,
+    is_team_stat:      entry.teamStat       ?? false,
+    player_num:        entry.player?.num    ?? null,
+    player_name:       entry.player?.name   ?? null,
+    goal_time:         entry.goalTime       ?? null,
+    penalty_time:      entry.penaltyTime    ?? null,
+    timeout_time:      entry.timeoutTime    ?? null,
+    is_non_releasable: entry.nonReleasable  ?? false,
+    penalty_minutes:   entry.penaltyMin     ?? null,
+    shot_outcome:      entry.shotOutcome    ?? null,
+    foul_name:         entry.foulName       ?? null,
+    created_by:        userId,
   };
+}
+
+// Returns true when an error looks like a transient network failure rather
+// than an auth/server error that the caller should surface immediately.
+function isNetworkError(err) {
+  if (!navigator.onLine) return true;
+  const msg = (err?.message ?? "").toLowerCase();
+  return (
+    msg.includes("failed to fetch") ||
+    msg.includes("networkerror")    ||
+    msg.includes("load failed")     ||   // Safari
+    msg.includes("network request failed")
+  );
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
@@ -63,14 +83,17 @@ function entryToDbRow(entry, gameId, userId) {
  * Manages the v2 (game_events) event log for a game.
  *
  * Returns:
- *   entries       — log entries in LaxStats format, sorted by seq
- *   loading       — initial load state
- *   commitGroup   — async (stampedEntries) → writes to game_events; entries must
- *                   already have UUID groupId (set by LaxStats's commitEntries in v2 mode)
- *   softDeleteGroup — async (groupIdUuid) → sets deleted_at on all rows in group
- *   isPrimary     — true if this session is the designated primary scorer
- *   presenceList  — [{userId, joinedAt}, ...] sorted by join order
- *   error         — last error string or null
+ *   entries          — log entries in LaxStats format, sorted by seq
+ *   loading          — initial load state
+ *   commitGroup      — async (stampedEntries) → writes to game_events; queues locally
+ *                      when offline so no events are lost
+ *   softDeleteGroup  — async (groupIdUuid) → soft-deletes group; queues when offline
+ *   isPrimary        — true if this session is the designated primary scorer
+ *   presenceList     — [{userId, joinedAt}, ...] sorted by join order
+ *   isOnline         — current network status
+ *   pendingCount     — number of operations waiting to sync
+ *   syncStatus       — "idle" | "syncing" | "synced" | "error"
+ *   error            — last error string or null
  *
  * Pass gameId=null to disable (v1 games).
  */
@@ -81,8 +104,14 @@ export function useGameEvents(gameId, userId, db = _supabase) {
   const [remoteQuarterState, setRemoteQuarterState] = useState(null);
   const [error, setError]               = useState(null);
 
-  const channelRef = useRef(null);
-  const [channelStatus, setChannelStatus] = useState("idle"); // idle | subscribed | error | timed_out
+  const channelRef   = useRef(null);
+  const isSyncingRef = useRef(false);
+  const [channelStatus, setChannelStatus] = useState("idle");
+
+  // ── Offline / sync state ──────────────────────────────────────────
+  const isOnline = useOnlineStatus();
+  const [pendingCount, setPendingCount] = useState(0);
+  const [syncStatus, setSyncStatus]     = useState("idle");
 
   // ── Initial load ─────────────────────────────────────────────────
   useEffect(() => {
@@ -100,6 +129,14 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     setLoading(false);
   }
 
+  // ── Pending-count bootstrap ──────────────────────────────────────
+  // On mount, read the IDB queue so we can show the right badge even
+  // before any new offline activity happens.
+  useEffect(() => {
+    if (!gameId) return;
+    getPendingCount(gameId).then(setPendingCount).catch(() => {});
+  }, [gameId]);
+
   // ── Realtime + Presence ──────────────────────────────────────────
   useEffect(() => {
     if (!gameId || !userId) return;
@@ -108,8 +145,6 @@ export function useGameEvents(gameId, userId, db = _supabase) {
       config: { presence: { key: userId } },
     });
 
-    // Track presence (who else is scoring this game)
-    // One entry per unique key (userId) — take the earliest joinedAt if multiple objects exist.
     channel.on("presence", { event: "sync" }, () => {
       const state = channel.presenceState();
       const list = Object.entries(state).map(([uid, presences]) => ({
@@ -125,7 +160,7 @@ export function useGameEvents(gameId, userId, db = _supabase) {
 
     // New entries broadcast by another scorer — primary sync path (instant WebSocket delivery)
     channel.on("broadcast", { event: "new_events" }, ({ payload }) => {
-      if (payload?.scorerId === userId) return; // skip our own broadcast
+      if (payload?.scorerId === userId) return;
       const incoming = (payload?.entries ?? []).map(dbRowToEntry);
       if (!incoming.length) return;
       setEntries(prev => {
@@ -136,14 +171,13 @@ export function useGameEvents(gameId, userId, db = _supabase) {
       });
     });
 
-    // postgres_changes for INSERT kept as a fallback (covers cases where
-    // broadcast is missed, e.g. brief disconnects).
+    // postgres_changes INSERT kept as fallback (covers brief disconnects)
     channel.on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "game_events", filter: `game_id=eq.${gameId}` },
       (payload) => {
         const row = payload.new;
-        if (row.created_by === userId) return; // skip own events
+        if (row.created_by === userId) return;
         if (row.deleted_at) return;
         const entry = dbRowToEntry(row);
         setEntries(prev => {
@@ -169,7 +203,7 @@ export function useGameEvents(gameId, userId, db = _supabase) {
       setEntries(prev => prev.filter(e => e.groupId !== payload?.groupId));
     });
 
-    // postgres_changes UPDATE as fallback for soft-deletes
+    // postgres_changes UPDATE fallback for soft-deletes
     channel.on(
       "postgres_changes",
       { event: "UPDATE", schema: "public", table: "game_events", filter: `game_id=eq.${gameId}` },
@@ -205,59 +239,152 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     };
   }, [gameId, userId]);
 
+  // ── Sync pending queue → server ──────────────────────────────────
+  const syncPending = useCallback(async () => {
+    if (!gameId || !userId) return;
+    if (isSyncingRef.current) return;
+
+    const [pendingEvs, pendingDels] = await Promise.all([
+      getPendingEvents(gameId),
+      getPendingDeletes(gameId),
+    ]);
+
+    if (!pendingEvs.length && !pendingDels.length) return;
+
+    isSyncingRef.current = true;
+    setSyncStatus("syncing");
+
+    try {
+      // Flush event inserts in creation order so the DB sequence reflects
+      // the real-time order in which the scorer logged them.
+      for (const item of pendingEvs) {
+        const rows = item.entries.map(e => entryToDbRow(e, gameId, userId));
+        const { data: inserted, error: err } = await insertGameEvents(rows, db);
+        if (err) throw err;
+        // Broadcast so online co-scorers see the newly-synced events immediately.
+        channelRef.current?.send({
+          type:    "broadcast",
+          event:   "new_events",
+          payload: { scorerId: userId, entries: inserted ?? rows },
+        });
+        await removeEvent(item.queueId);
+        setPendingCount(prev => Math.max(0, prev - 1));
+      }
+
+      // Flush soft-deletes after inserts so any "delete an offline-created
+      // event" pair is applied in the correct order: create then delete.
+      for (const item of pendingDels) {
+        // Soft-delete is idempotent — safe to retry even if another scorer
+        // already deleted the same group while we were offline.
+        await softDeleteGameEvents(gameId, item.groupId, userId, db);
+        channelRef.current?.send({
+          type:    "broadcast",
+          event:   "delete_group",
+          payload: { scorerId: userId, groupId: item.groupId },
+        });
+        await removeDelete(item.queueId);
+        setPendingCount(prev => Math.max(0, prev - 1));
+      }
+
+      setSyncStatus("synced");
+      setTimeout(() => setSyncStatus(s => (s === "synced" ? "idle" : s)), 3000);
+      // Reload from DB so entries get correct seq/dbId values from the server.
+      load();
+    } catch (err) {
+      setSyncStatus("error");
+      setError(err.message);
+    } finally {
+      isSyncingRef.current = false;
+    }
+  // load is a stable closure over gameId/db; it's intentionally excluded from
+  // the deps array to avoid a dependency cycle.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, userId]);
+
+  // Trigger sync whenever we (re)connect.  Also runs once on mount so events
+  // queued during a previous offline session are flushed immediately.
+  useEffect(() => {
+    if (isOnline) syncPending();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, syncPending]);
+
   // ── Commit a group of entries ────────────────────────────────────
   const commitGroup = useCallback(async (stampedEntries) => {
     if (!gameId || !userId || !stampedEntries?.length) return;
+
+    // Offline path — queue locally; the optimistic update in LaxStats already
+    // updated the local log so the scorer can keep working seamlessly.
+    if (!isOnline) {
+      await enqueueEvents(gameId, stampedEntries);
+      setPendingCount(prev => prev + 1);
+      return;
+    }
+
     const rows = stampedEntries.map(e => entryToDbRow(e, gameId, userId));
     const { data: inserted, error: err } = await insertGameEvents(rows, db);
+
     if (err) {
+      // Network failure while nominally online → fall back to the local queue
+      // so the event is not lost.
+      if (isNetworkError(err)) {
+        await enqueueEvents(gameId, stampedEntries);
+        setPendingCount(prev => prev + 1);
+        return;
+      }
       setError(err.message);
       throw err;
     }
-    // Broadcast to other scorers immediately (don't wait for postgres_changes delivery)
+
     channelRef.current?.send({
-      type: "broadcast",
-      event: "new_events",
+      type:    "broadcast",
+      event:   "new_events",
       payload: { scorerId: userId, entries: inserted ?? rows },
     });
-  }, [gameId, userId]);
+  }, [gameId, userId, isOnline]);
 
   // ── Soft-delete all rows in a group ─────────────────────────────
   const softDeleteGroup = useCallback(async (groupIdUuid) => {
     if (!gameId || !userId) return;
+
+    // Always remove from local state immediately (optimistic).
+    setEntries(prev => prev.filter(e => e.groupId !== groupIdUuid));
+
+    if (!isOnline) {
+      await enqueueDelete(gameId, groupIdUuid);
+      setPendingCount(prev => prev + 1);
+      return;
+    }
+
     const { error: err } = await softDeleteGameEvents(gameId, groupIdUuid, userId, db);
+
     if (err) {
+      if (isNetworkError(err)) {
+        await enqueueDelete(gameId, groupIdUuid);
+        setPendingCount(prev => prev + 1);
+        return;
+      }
       setError(err.message);
       throw err;
     }
-    // Optimistically remove from local state
-    setEntries(prev => prev.filter(e => e.groupId !== groupIdUuid));
-    // Broadcast deletion to other scorers immediately
+
     channelRef.current?.send({
-      type: "broadcast",
-      event: "delete_group",
+      type:    "broadcast",
+      event:   "delete_group",
       payload: { scorerId: userId, groupId: groupIdUuid },
     });
-  }, [gameId, userId]);
+  }, [gameId, userId, isOnline]);
 
   // Broadcast quarter/game-over state to other scorers (called by primary after DB write)
   const broadcastMeta = useCallback((meta) => {
     channelRef.current?.send({
-      type: "broadcast",
-      event: "meta_update",
+      type:    "broadcast",
+      event:   "meta_update",
       payload: { scorerId: userId, ...meta },
     });
   }, [userId]);
 
   // Primary scorer = first presence entry (by join order)
   const isPrimary = presenceList.length === 0 || presenceList[0]?.userId === userId;
-
-  // Remote entries = entries from OTHER users (for LaxStats remoteEntries prop)
-  const remoteEntries = entries.filter(e => {
-    // We don't know which entries came from us vs others from the entries array alone.
-    // Return all entries; LaxStats reconciles by groupId deduplication.
-    return true;
-  });
 
   return {
     entries,
@@ -268,6 +395,9 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     isPrimary,
     presenceList,
     remoteQuarterState,
+    isOnline,
+    pendingCount,
+    syncStatus,
     error,
     channelStatus,
     reload: load,

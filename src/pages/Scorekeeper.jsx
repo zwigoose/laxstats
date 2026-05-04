@@ -11,15 +11,19 @@ import LaxStats from "../components/LaxStats";
 import { useGameEvents } from "../hooks/useGameEvents";
 
 const S = {
-  header:      { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10, fontFamily: "system-ui, sans-serif" },
-  backBtn:     { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
-  headerTitle: { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" },
-  saveStatus:  { fontSize: 12, color: "#aaa" },
-  viewBtn:     { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" },
-  loading:     { fontFamily: "system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#888", fontSize: 14 },
-  error:       { fontFamily: "system-ui, sans-serif", maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14 },
+  header:        { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10, fontFamily: "system-ui, sans-serif" },
+  backBtn:       { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
+  headerTitle:   { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" },
+  saveStatus:    { fontSize: 12, color: "#aaa" },
+  viewBtn:       { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" },
+  loading:       { fontFamily: "system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#888", fontSize: 14 },
+  error:         { fontFamily: "system-ui, sans-serif", maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14 },
   secondaryBadge: { fontSize: 11, fontWeight: 700, color: "#1a6bab", background: "#eef4fb", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
   primaryBadge:   { fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #b5e0c0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
+  offlineBadge:   { fontSize: 11, fontWeight: 700, color: "#9a4800", background: "#fff3e0", border: "1px solid #ffd08a", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
+  syncingStatus:  { fontSize: 12, color: "#1a6bab" },
+  syncedStatus:   { fontSize: 12, color: "#2a7a3b" },
+  syncErrStatus:  { fontSize: 12, color: "#c0392b" },
 };
 
 // ── v1 path — JSONB blob save (unchanged) ─────────────────────────────────────
@@ -97,6 +101,22 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
   const [inviteError, setInviteError] = useState(null);
 
+  // ── Offline meta-event queue ─────────────────────────────────────
+  // Quarter transitions and game-over signals are stored here when the scorer
+  // is offline so they can be applied to the DB once connectivity returns.
+  // We persist to localStorage so they survive a tab reload during an outage.
+  const META_KEY = `laxstats:meta:${id}`;
+  const offlineMetaQueue = useRef([]);
+
+  // Load any queue left over from a previous offline session on mount.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(META_KEY);
+      if (saved) offlineMetaQueue.current = JSON.parse(saved);
+    } catch { /* corrupt storage — ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function generateInviteLink() {
     setInviteState("generating");
     setInviteError(null);
@@ -126,6 +146,9 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
     isPrimary,
     presenceList,
     remoteQuarterState,
+    isOnline,
+    pendingCount,
+    syncStatus,
     error:         eventsError,
     channelStatus,
   } = useGameEvents(id, userId);
@@ -140,14 +163,33 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
 
   // Meta-event handler: broadcast quarter/gameOver to secondary scorers.
   // DB persistence is handled by handleStateChange (which fires on the same state
-  // transitions), avoiding a read-modify-write race that could double-increment
-  // currentQuarter if handleStateChange writes to DB before our read returns.
+  // transitions). When offline, the broadcast is queued and replayed on reconnect
+  // so secondary scorers see the correct quarter as soon as this scorer comes back.
   const handleMetaEvent = useCallback((type, payload) => {
     const newCurrentQuarter    = payload.newCurrentQuarter    ?? (type === "endQuarter" ? (payload.quarter + 1) : payload.quarter);
     const newCompletedQuarters = payload.newCompletedQuarters ?? [payload.quarter];
     const isGameOver           = type === "gameOver";
-    broadcastMeta({ currentQuarter: newCurrentQuarter, completedQuarters: newCompletedQuarters, gameOver: isGameOver });
-  }, [broadcastMeta]);
+    const broadcastPayload     = { currentQuarter: newCurrentQuarter, completedQuarters: newCompletedQuarters, gameOver: isGameOver };
+
+    if (!isOnline) {
+      offlineMetaQueue.current = [...offlineMetaQueue.current, broadcastPayload];
+      localStorage.setItem(META_KEY, JSON.stringify(offlineMetaQueue.current));
+      return;
+    }
+    broadcastMeta(broadcastPayload);
+  }, [broadcastMeta, isOnline]);
+
+  // Flush offline meta queue when we come back online.
+  useEffect(() => {
+    if (!isOnline || !offlineMetaQueue.current.length) return;
+    const queue = [...offlineMetaQueue.current];
+    offlineMetaQueue.current = [];
+    localStorage.removeItem(META_KEY);
+    for (const broadcastPayload of queue) {
+      broadcastMeta(broadcastPayload);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, broadcastMeta]);
 
   // State change handler: persist team/meta changes (NOT the log — that's in game_events)
   const handleStateChange = useCallback(async (newState) => {
@@ -226,6 +268,23 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
 
   const scorerCount = presenceList.length;
 
+  // ── Status text displayed in the header ─────────────────────────
+  function statusText() {
+    if (syncStatus === "syncing") return { text: `Syncing ${pendingCount} event${pendingCount !== 1 ? "s" : ""}…`, style: S.syncingStatus };
+    if (syncStatus === "synced")  return { text: "Synced ✓",   style: S.syncedStatus  };
+    if (syncStatus === "error")   return { text: "Sync failed", style: S.syncErrStatus };
+    if (saveStatus === "saving")  return { text: "Saving…",    style: S.saveStatus    };
+    if (saveStatus === "saved")   return { text: "Saved ✓",    style: S.saveStatus    };
+    if (saveStatus === "error")   return { text: "Save failed", style: S.syncErrStatus };
+    if (eventsError) {
+      return (channelStatus === "error" || channelStatus === "timed_out")
+        ? { text: "Sync error",  style: S.syncErrStatus }
+        : { text: "Event error", style: S.syncErrStatus };
+    }
+    return null;
+  }
+  const status = statusText();
+
   return (
     <div>
       <div style={S.header}>
@@ -238,12 +297,12 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
             {scorerCount > 1 && ` · ${scorerCount} scorers`}
           </span>
         )}
-        <span style={S.saveStatus}>
-          {saveStatus === "saving" && "Saving…"}
-          {saveStatus === "saved"  && "Saved ✓"}
-          {saveStatus === "error"  && "Save failed"}
-          {eventsError && !saveStatus && (channelStatus === "error" || channelStatus === "timed_out" ? "Sync error" : "Event error")}
-        </span>
+        {isOnline === false && (
+          <span style={S.offlineBadge} title="Events are saved locally and will sync when you reconnect">
+            Offline{pendingCount > 0 ? ` · ${pendingCount} queued` : ""}
+          </span>
+        )}
+        {status && <span style={status.style}>{status.text}</span>}
         {game?.multi_scorer_enabled && !isAnonymous && (
           <button style={S.viewBtn} onClick={() => {
             if (inviteLink || inviteState === "error") { setInviteLink(null); setInviteState("idle"); setInviteError(null); }
