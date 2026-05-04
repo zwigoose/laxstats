@@ -8,6 +8,7 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 ## [2.3.0] — 2026-05-04
 
 ### Added
+- **Offline scoring** (PR #16) — scorekeepers can now log events without an internet connection; events are queued in IndexedDB via `src/services/offlineQueue.js` and replayed to the server automatically when connectivity returns; pending count badge and sync status indicator keep the scorer informed; `useOnlineStatus` hook drives UI and queue-flush logic
 - **Duplicate review panel** — Event Log tab now has a "Dupes" filter that surfaces all DB-flagged duplicate events (`is_possible_duplicate = true`); each flagged group shows a **Keep** button (clears the flag, broadcasts dismissal to co-scorers) and a **Delete** button (existing soft-delete flow); the tab label shows a live count badge when duplicates are present
 - **`dismissDuplicateFlag` service** — `src/services/gameEvents.js`; clears `is_possible_duplicate` on all non-deleted rows in a group
 - **`dismissDuplicate` hook action** — `useGameEvents` exposes `dismissDuplicate(groupId)`; optimistic local update + DB write + broadcast to co-scorers via `dismiss_duplicate` event
