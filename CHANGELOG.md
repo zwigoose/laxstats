@@ -5,6 +5,20 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.3.0] — 2026-05-04
+
+### Added
+- **Duplicate review panel** — Event Log tab now has a "Dupes" filter that surfaces all DB-flagged duplicate events (`is_possible_duplicate = true`); each flagged group shows a **Keep** button (clears the flag, broadcasts dismissal to co-scorers) and a **Delete** button (existing soft-delete flow); the tab label shows a live count badge when duplicates are present
+- **`dismissDuplicateFlag` service** — `src/services/gameEvents.js`; clears `is_possible_duplicate` on all non-deleted rows in a group
+- **`dismissDuplicate` hook action** — `useGameEvents` exposes `dismissDuplicate(groupId)`; optimistic local update + DB write + broadcast to co-scorers via `dismiss_duplicate` event
+- **Realtime duplicate flag sync** — `postgres_changes` UPDATE handler now propagates `is_possible_duplicate` changes from the DB trigger and from co-scorer dismissals to all connected devices in real time
+
+### Fixed
+- **Realtime "Sync error" on SPA navigation** — navigating between pages caused `removeChannel()` on the last active channel to disconnect the Realtime socket, stopping the tenant; the next channel join would race against a tenant restart and be silently dropped. Fixed with a persistent `__keepalive__` channel in `src/lib/supabase.js` that keeps the socket alive for the lifetime of the app
+- **`game_events` replica identity** — added `ALTER TABLE game_events REPLICA IDENTITY FULL` to support filtered `postgres_changes` UPDATE subscriptions on non-primary-key columns
+
+---
+
 ## [2.2.0] — 2026-04-30
 
 ### Added

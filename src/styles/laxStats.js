@@ -65,6 +65,8 @@ const S = {
   numBadge: { display: "inline-block", width: 24, height: 24, borderRadius: "50%", background: "#f0f0f0", fontSize: 11, fontWeight: 600, textAlign: "center", lineHeight: "24px", marginRight: 6, color: "#888" },
   logList: { maxHeight: 380, overflowY: "auto" },
   logGroup: { borderBottom: "1px solid #f0f0f0" },
+  dupeGroup: { borderBottom: "1px solid #f0e8c0", background: "#fffdf5" },
+  dupeBadge: { fontSize: 11, background: "#fff3cd", border: "1px solid #f0c060", borderRadius: 10, padding: "2px 8px", color: "#7a5c00", flexShrink: 0, whiteSpace: "nowrap" },
   logGroupMain: { display: "flex", alignItems: "center", gap: 8, padding: "9px 14px 4px", fontSize: 13 },
   logGroupSub: { display: "flex", flexWrap: "wrap", gap: 4, padding: "0 14px 8px 30px" },
   logSubChip: { fontSize: 11, color: "#888", background: "#f5f5f5", borderRadius: 10, padding: "2px 8px" },

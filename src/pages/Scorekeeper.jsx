@@ -142,6 +142,7 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
     loading:       eventsLoading,
     commitGroup,
     softDeleteGroup,
+    dismissDuplicate,
     broadcastMeta,
     isPrimary,
     presenceList,
@@ -343,6 +344,7 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
           onStateChange={handleStateChange}
           onEventCommit={commitGroup}
           onEventSoftDelete={softDeleteGroup}
+          onEventDismissDuplicate={dismissDuplicate}
           onMetaEvent={handleMetaEvent}
           remoteEntries={entries}
           remoteQuarterState={remoteQuarterState}

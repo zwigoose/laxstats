@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase as _supabase } from "../lib/supabase";
-import { fetchGameEvents, insertGameEvents, softDeleteGameEvents } from "../services/gameEvents";
+import { fetchGameEvents, insertGameEvents, softDeleteGameEvents, dismissDuplicateFlag } from "../services/gameEvents";
 import {
   enqueueEvents, enqueueDelete,
   getPendingEvents, getPendingDeletes,
@@ -34,8 +34,9 @@ export function dbRowToEntry(row) {
     nonReleasable: row.is_non_releasable ?? false,
     penaltyMin:    row.penalty_minutes  ?? undefined,
     shotOutcome:   row.shot_outcome     ?? undefined,
-    foulName:      row.foul_name        ?? undefined,
-    seq:           row.seq,
+    foulName:           row.foul_name            ?? undefined,
+    isPossibleDuplicate: row.is_possible_duplicate ?? false,
+    seq:                row.seq,
   };
 }
 
@@ -203,14 +204,30 @@ export function useGameEvents(gameId, userId, db = _supabase) {
       setEntries(prev => prev.filter(e => e.groupId !== payload?.groupId));
     });
 
-    // postgres_changes UPDATE fallback for soft-deletes
+    // Duplicate dismissal broadcast by another scorer
+    channel.on("broadcast", { event: "dismiss_duplicate" }, ({ payload }) => {
+      if (payload?.scorerId === userId) return;
+      setEntries(prev => prev.map(e =>
+        e.groupId === payload?.groupId ? { ...e, isPossibleDuplicate: false } : e
+      ));
+    });
+
+    // postgres_changes UPDATE — handles soft-deletes and flag changes (e.g. is_possible_duplicate)
     channel.on(
       "postgres_changes",
       { event: "UPDATE", schema: "public", table: "game_events", filter: `game_id=eq.${gameId}` },
       (payload) => {
         const row = payload.new;
-        if (row.deleted_at && row.deleted_by !== userId) {
-          setEntries(prev => prev.filter(e => e.dbId !== row.id));
+        if (row.deleted_at) {
+          if (row.deleted_by !== userId) {
+            setEntries(prev => prev.filter(e => e.dbId !== row.id));
+          }
+        } else {
+          setEntries(prev => prev.map(e =>
+            e.dbId === row.id
+              ? { ...e, isPossibleDuplicate: row.is_possible_duplicate ?? false }
+              : e
+          ));
         }
       }
     );
@@ -374,6 +391,21 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     });
   }, [gameId, userId, isOnline]);
 
+  // ── Dismiss duplicate flag on a group ───────────────────────────
+  const dismissDuplicate = useCallback(async (groupIdUuid) => {
+    if (!gameId || !userId) return;
+    setEntries(prev => prev.map(e =>
+      e.groupId === groupIdUuid ? { ...e, isPossibleDuplicate: false } : e
+    ));
+    const { error: err } = await dismissDuplicateFlag(gameId, groupIdUuid, db);
+    if (err) { setError(err.message); return; }
+    channelRef.current?.send({
+      type:    "broadcast",
+      event:   "dismiss_duplicate",
+      payload: { scorerId: userId, groupId: groupIdUuid },
+    });
+  }, [gameId, userId]);
+
   // Broadcast quarter/game-over state to other scorers (called by primary after DB write)
   const broadcastMeta = useCallback((meta) => {
     channelRef.current?.send({
@@ -391,6 +423,7 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     loading,
     commitGroup,
     softDeleteGroup,
+    dismissDuplicate,
     broadcastMeta,
     isPrimary,
     presenceList,
