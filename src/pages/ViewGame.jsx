@@ -2,13 +2,14 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { linkGameToAwaySeason } from "../services/games";
 import {
   buildPlayerStats, buildTeamTotals,
-  STAT_KEYS, STAT_LABELS,
   qLabel, isOT,
 } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
 import GameTimeline from "../components/GameTimeline";
+import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
 
 function getLatestTime(log, currentQuarter) {
   if (!log?.length) return null;
@@ -63,12 +64,19 @@ export default function ViewGame() {
   const [error, setError] = useState(null);
   const [statsTab, setStatsTab] = useState("summary");
   const [statsQtr, setStatsQtr] = useState("all");
-  const [sortKey, setSortKey] = useState("goal");
   const [copied, setCopied] = useState(false);
   const [hasPressbox, setHasPressbox] = useState(false);
   const [inviteLink,  setInviteLink]  = useState(null);
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
   const [inviteError, setInviteError] = useState(null);
+
+  // Away org "Add to my season" state
+  const [awayOrgRole, setAwayOrgRole]       = useState(null); // role string if viewer is a member of away org
+  const [awayOrgName, setAwayOrgName]       = useState(null);
+  const [awaySeasons, setAwaySeasons]       = useState([]);
+  const [addSeasonState, setAddSeasonState] = useState("idle"); // idle | picking | saving | done
+  const [addSeasonId, setAddSeasonId]       = useState("");
+  const [addSeasonError, setAddSeasonError] = useState(null);
 
   function copyUrl() {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -140,11 +148,26 @@ export default function ViewGame() {
     setError(null);
     const { data, error: err } = await supabase
       .from("games")
-      .select("id, created_at, name, state, schema_ver, org_id, pressbox_enabled, user_id")
+      .select("id, created_at, name, state, schema_ver, org_id, away_org_id, away_season_id, pressbox_enabled, user_id")
       .eq("id", id)
       .single();
     if (err) { setError(err.message); setLoading(false); return; }
     setGame(data);
+
+    // Check if viewer is a member of the away org
+    if (data?.away_org_id) {
+      const [roleRes, orgRes, seasonsRes] = await Promise.all([
+        supabase.rpc("get_org_role", { p_org_id: data.away_org_id }),
+        supabase.from("organizations").select("name").eq("id", data.away_org_id).single(),
+        supabase.from("seasons").select("id, name").eq("org_id", data.away_org_id).order("start_date", { ascending: false }),
+      ]);
+      if (roleRes.data) {
+        setAwayOrgRole(roleRes.data);
+        setAwayOrgName(orgRes.data?.name ?? null);
+        setAwaySeasons(seasonsRes.data || []);
+        if (data.away_season_id) setAddSeasonState("done");
+      }
+    }
 
     // Pressbox: per-game override OR org feature flag
     if (data?.pressbox_enabled) {
@@ -206,7 +229,6 @@ export default function ViewGame() {
 
   const playerStats = useMemo(() => buildPlayerStats(filteredLog), [filteredLog]);
   const teamTotals = useMemo(() => buildTeamTotals(filteredLog), [filteredLog]);
-  const sortedPlayers = useMemo(() => [...playerStats].sort((a, b) => b[sortKey] - a[sortKey]), [playerStats, sortKey]);
 
   const shotPct  = (ti) => { const s = teamTotals[ti].shot,  g = teamTotals[ti].goal;          return s     ? `${Math.round((g/s)*100)}%` : "—"; };
   const sogPct   = (ti) => { const sog = teamTotals[ti].sog, g = teamTotals[ti].goal;           return sog   ? `${Math.round((g/sog)*100)}%` : "—"; };
@@ -239,6 +261,16 @@ export default function ViewGame() {
         return { type: "penalty", penalty };
       });
   }, [log, statsQtr]);
+
+  async function handleLinkToSeason() {
+    if (!addSeasonId) return;
+    setAddSeasonState("saving");
+    setAddSeasonError(null);
+    const { error: err } = await linkGameToAwaySeason(id, addSeasonId);
+    if (err) { setAddSeasonError(err.message); setAddSeasonState("picking"); return; }
+    setGame(prev => ({ ...prev, away_season_id: addSeasonId }));
+    setAddSeasonState("done");
+  }
 
   if (loading) return <div style={{ ...S.loading, fontFamily: "system-ui, sans-serif" }}>Loading game…</div>;
   if (error) return <div style={{ ...S.error, fontFamily: "system-ui, sans-serif" }}>{error}</div>;
@@ -290,6 +322,58 @@ export default function ViewGame() {
             New link
           </button>
           <span style={{ fontSize: 10, color: "#999", whiteSpace: "nowrap" }}>Expires 24h</span>
+        </div>
+      )}
+
+      {/* Away org "Add to my season" banner */}
+      {awayOrgRole && addSeasonState !== "done" && (
+        <div style={{ padding: "12px 16px", background: "#fffbe6", borderBottom: "1px solid #ffe58f", fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto" }}>
+          {addSeasonState === "idle" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, color: "#7a5700", flex: 1 }}>
+                This game involves <strong>{awayOrgName}</strong>. Add it to a season to include it in your stats.
+              </span>
+              {awayOrgRole === "org_admin" && (
+                <button
+                  style={{ fontSize: 12, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", whiteSpace: "nowrap" }}
+                  onClick={() => { setAddSeasonState("picking"); setAddSeasonId(awaySeasons[0]?.id || ""); }}>
+                  Add to season
+                </button>
+              )}
+            </div>
+          )}
+          {addSeasonState === "picking" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, color: "#7a5700", whiteSpace: "nowrap" }}>Add to season:</span>
+              <select
+                style={{ fontSize: 13, padding: "5px 8px", border: "1px solid #ffd666", borderRadius: 8, background: "#fff", flex: 1, minWidth: 120 }}
+                value={addSeasonId}
+                onChange={e => setAddSeasonId(e.target.value)}>
+                <option value="" disabled>Select season…</option>
+                {awaySeasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <button
+                style={{ fontSize: 12, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", opacity: !addSeasonId ? 0.4 : 1, whiteSpace: "nowrap" }}
+                disabled={!addSeasonId}
+                onClick={handleLinkToSeason}>
+                Confirm
+              </button>
+              <button
+                style={{ fontSize: 12, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "6px 4px" }}
+                onClick={() => setAddSeasonState("idle")}>
+                Cancel
+              </button>
+              {addSeasonError && <span style={{ fontSize: 12, color: "#c0392b", width: "100%" }}>{addSeasonError}</span>}
+            </div>
+          )}
+          {addSeasonState === "saving" && (
+            <span style={{ fontSize: 13, color: "#7a5700" }}>Saving…</span>
+          )}
+        </div>
+      )}
+      {awayOrgRole && addSeasonState === "done" && game?.away_season_id && (
+        <div style={{ padding: "8px 16px", background: "#f0faf2", borderBottom: "1px solid #b5e0c0", fontFamily: "system-ui, sans-serif", fontSize: 12, color: "#2a7a3b", maxWidth: 600, margin: "0 auto" }}>
+          ✓ Game added to {awayOrgName} season
         </div>
       )}
 
@@ -429,51 +513,14 @@ export default function ViewGame() {
 
             {/* Players */}
             {statsTab === "players" && (
-              filteredLog.filter(e => !e.teamStat).length === 0
-                ? <div style={S.emptyState}>No player stats for this period</div>
-                : <div style={S.tableWrap}>
-                    <div style={S.tableTitle}>
-                      <span>Player stats</span>
-                      <span style={{ fontWeight: 400, fontSize: 11 }}>tap column to sort</span>
-                    </div>
-                    <div style={{ overflowX: "auto" }}>
-                      <table style={S.table}>
-                        <thead><tr>
-                          <th style={S.thLeft}>Player</th>
-                          {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride" && k !== "mdd_success" && k !== "mdd_fail" && k !== "emo_fail" && k !== "shot_post").map(k => (
-                            <th key={k} style={S.th(sortKey === k)} onClick={() => setSortKey(k)}>
-                              {STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}
-                            </th>
-                          ))}
-                        </tr></thead>
-                        <tbody>
-                          {[0, 1].map(ti => {
-                            const rows = sortedPlayers.filter(p => p.teamIdx === ti);
-                            if (!rows.length) return null;
-                            return [
-                              <tr key={`h-${ti}`}>
-                                <td colSpan={STAT_KEYS.length} style={{ padding: "8px 14px 4px", fontSize: 11, fontWeight: 600, color: teamColors[ti], background: "#fafafa" }}>
-                                  {teams[ti].name.toUpperCase()}
-                                </td>
-                              </tr>,
-                              ...rows.map((row, i) => (
-                                <tr key={`${ti}-${i}`}>
-                                  <td style={S.tdLeft}>
-                                    <span style={S.numBadge}>#{row.player.num}</span>{row.player.name}
-                                  </td>
-                                  {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride" && k !== "mdd_success" && k !== "mdd_fail" && k !== "emo_fail" && k !== "shot_post").map(k => (
-                                    <td key={k} style={{ ...S.td, fontWeight: k === sortKey ? 600 : 400, opacity: row[k] === 0 ? 0.3 : 1 }}>
-                                      {k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}
-                                    </td>
-                                  ))}
-                                </tr>
-                              )),
-                            ];
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+              <div style={S.tableWrap}>
+                <PlayerStatsTable
+                  teams={teams}
+                  teamColors={teamColors}
+                  playerStats={playerStats}
+                  statKeys={PLAYER_STAT_KEYS}
+                />
+              </div>
             )}
 
             {/* Timeline */}

@@ -9,6 +9,7 @@ import {
 } from "../../utils/stats";
 import S from "../../styles/laxStats";
 import TimeKeypad from "./TimeKeypad";
+import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../PlayerStatsTable";
 
 export { EVENTS, STAT_KEYS, STAT_LABELS, buildPlayerStats, buildTeamTotals, qLabel, isOT, toSecs, entryDisplayInfo };
 
@@ -22,9 +23,10 @@ export default function LaxStats({
   onStateChange = null,
   onCancel = null,
   // v2 props — all optional; omit for v1 (schema_ver=1) games
-  onEventCommit = null,      // async (stampedEntries) => void — write group to game_events
-  onEventSoftDelete = null,  // async (groupId) => void — soft-delete group in game_events
-  onMetaEvent = null,        // async (type, payload) => void — quarter/game state changes
+  onEventCommit = null,             // async (stampedEntries) => void — write group to game_events
+  onEventSoftDelete = null,         // async (groupId) => void — soft-delete group in game_events
+  onEventDismissDuplicate = null,   // async (groupId) => void — clear duplicate flag on a group
+  onMetaEvent = null,               // async (type, payload) => void — quarter/game state changes
   remoteEntries = null,      // [{...entry}] from other scorers; merged into local log
   remoteQuarterState = null, // { currentQuarter, completedQuarters, gameOver } from primary scorer
   scorekeeperRole = "primary", // "primary" | "secondary"
@@ -63,13 +65,13 @@ export default function LaxStats({
   const [lastFaceoffWinner, setLastFaceoffWinner] = useState([null, null]);
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [deletingGroupId, setDeletingGroupId] = useState(null);
+  const [confirmingDeleteGroupId, setConfirmingDeleteGroupId] = useState(null);
   const [lastEntry, setLastEntry] = useState(null);
   const [pendingDuplicateCommit, setPendingDuplicateCommit] = useState(null); // { entries, flashText }
   const commitDebounceRef = useRef(0); // ms timestamp of last accepted commit
 
   const [statsTab, setStatsTab] = useState("summary");
   const [statsQtr, setStatsQtr] = useState("all");
-  const [sortKey, setSortKey] = useState("goal");
 
   // ── Supabase integration hooks ───────────────────────────────────
   const hydratedRef = useRef(false);
@@ -176,7 +178,6 @@ export default function LaxStats({
 
   const playerStats = useMemo(() => buildPlayerStats(filteredLog), [filteredLog]);
   const teamTotals = useMemo(() => buildTeamTotals(filteredLog), [filteredLog]);
-  const sortedPlayers = useMemo(() => [...playerStats].sort((a, b) => b[sortKey] - a[sortKey]), [playerStats, sortKey]);
 
   const shotPct  = (ti) => { const s = teamTotals[ti].shot,  g = teamTotals[ti].goal;        return s     ? `${Math.round((g/s)*100)}%` : "—"; };
   const sogPct   = (ti) => { const sog = teamTotals[ti].sog, g = teamTotals[ti].goal;         return sog   ? `${Math.round((g/sog)*100)}%` : "—"; };
@@ -192,9 +193,9 @@ export default function LaxStats({
 
   // Log groups for the event log view — preserve original log order, group by groupId
   const logGroups = useMemo(() => {
+    if (statsQtr === "dupes") return [];
     const groups = {};
     const order = [];
-    // Use the FULL log (not filteredLog) for the log tab — filter by quarter if needed
     const source = statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr));
     source.forEach(e => {
       if (!groups[e.groupId]) { groups[e.groupId] = []; order.push(e.groupId); }
@@ -202,6 +203,18 @@ export default function LaxStats({
     });
     return order.map(gid => groups[gid]);
   }, [log, statsQtr]);
+
+  // Groups flagged as possible duplicates — driven from remoteEntries (always DB-current)
+  const dupeGroups = useMemo(() => {
+    if (!remoteEntries?.length) return [];
+    const groups = {};
+    const order = [];
+    remoteEntries.filter(e => e.isPossibleDuplicate).forEach(e => {
+      if (!groups[e.groupId]) { groups[e.groupId] = []; order.push(e.groupId); }
+      groups[e.groupId].push(e);
+    });
+    return order.map(gid => groups[gid]);
+  }, [remoteEntries]);
 
   // All goals, timeouts, and penalties in chronological order for timeline
   const scoringTimeline = useMemo(() => {
@@ -356,7 +369,7 @@ export default function LaxStats({
       setScreen("stats");
       setStatsTab("summary");
       setStatsQtr("all");
-      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter }).catch(console.error);
+      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter, newCompletedQuarters: [...completedQuarters, currentQuarter] }).catch(console.error);
       resetEntry();
       return;
     }
@@ -428,6 +441,17 @@ export default function LaxStats({
       .order("name")
       .then(({ data }) => { if (data) setOrgTeams(data); });
   }, [orgContext?.orgId]);
+
+  const [awayOrgTeams, setAwayOrgTeams] = useState([]);
+  useEffect(() => {
+    if (!orgContext?.awayOrgId) return;
+    supabase
+      .from("teams")
+      .select("id, name, color, team_players(jersey_num, player:players!inner(id, name, number))")
+      .eq("org_id", orgContext.awayOrgId)
+      .order("name")
+      .then(({ data }) => { if (data) setAwayOrgTeams(data); });
+  }, [orgContext?.awayOrgId]);
 
   // ── Export / Import ─────────────────────────────────────────────
   const [exportCopied, setExportCopied] = useState(false);
@@ -655,15 +679,17 @@ export default function LaxStats({
 
   function handleEndQuarter() {
     const tied = totalScores[0] === totalScores[1];
-    setCompletedQuarters(prev => [...prev, currentQuarter]);
+    const newCompletedQuarters = [...completedQuarters, currentQuarter];
+    setCompletedQuarters(newCompletedQuarters);
     if (currentQuarter === 4 && !tied) {
       setGameOver(true); setScreen("stats"); setStatsTab("summary"); setStatsQtr("all");
-      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter }).catch(console.error);
+      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter, newCompletedQuarters }).catch(console.error);
     } else {
       const ended = currentQuarter;
-      setCurrentQuarter(prev => prev + 1);
+      const newCurrentQuarter = ended + 1;
+      setCurrentQuarter(newCurrentQuarter);
       setScreen("stats"); setStatsTab("summary"); setStatsQtr(String(ended));
-      if (onMetaEvent) onMetaEvent("endQuarter", { quarter: ended }).catch(console.error);
+      if (onMetaEvent) onMetaEvent("endQuarter", { quarter: ended, newCurrentQuarter, newCompletedQuarters }).catch(console.error);
     }
     resetEntry();
   }
@@ -867,7 +893,7 @@ export default function LaxStats({
               <div key={ti} style={S.setupCard(teams[ti].color)}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div style={S.teamLabel(teams[ti].color)}>{ti === 0 ? "Home" : "Away"}</div>
-                  {!teams[ti].orgTeamId && (savedTeams.length > 0 || orgTeams.length > 0) && (
+                  {!teams[ti].orgTeamId && (savedTeams.length > 0 || orgTeams.length > 0 || awayOrgTeams.length > 0) && (
                     <select
                       style={{ fontSize: 11, color: teams[ti].color, border: "1px solid #e5e5e5", borderRadius: 6, padding: "3px 6px", background: "#fafafa", cursor: "pointer", maxWidth: 130 }}
                       defaultValue=""
@@ -875,7 +901,7 @@ export default function LaxStats({
                         const val = e.target.value;
                         if (!val) return;
                         if (val.startsWith("org:")) {
-                          const orgTeam = orgTeams.find(t => t.id === val.slice(4));
+                          const orgTeam = [...orgTeams, ...awayOrgTeams].find(t => t.id === val.slice(4));
                           if (!orgTeam) return;
                           const roster = (orgTeam.team_players || [])
                             .sort((a, b) => (a.jersey_num ?? a.player?.number ?? 99) - (b.jersey_num ?? b.player?.number ?? 99))
@@ -892,8 +918,15 @@ export default function LaxStats({
                       }}>
                       <option value="" disabled>Load team…</option>
                       {orgTeams.length > 0 && (
-                        <optgroup label="Org Teams">
+                        <optgroup label={awayOrgTeams.length > 0 ? (orgContext?.orgName || "Home Org") : "Org Teams"}>
                           {orgTeams.map(t => (
+                            <option key={`org:${t.id}`} value={`org:${t.id}`}>{t.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {awayOrgTeams.length > 0 && (
+                        <optgroup label={orgContext?.awayOrgName || "Away Org"}>
+                          {awayOrgTeams.map(t => (
                             <option key={`org:${t.id}`} value={`org:${t.id}`}>{t.name}</option>
                           ))}
                         </optgroup>
@@ -1732,34 +1765,14 @@ export default function LaxStats({
 
           {/* Players */}
           {statsTab === "players" && (
-            filteredLog.filter(e => !e.teamStat).length === 0
-              ? <div style={S.emptyState}>No player stats for this period</div>
-              : <div style={S.tableWrap}>
-                  <div style={S.tableTitle}><span>Player stats</span><span style={{ fontWeight: 400, fontSize: 11 }}>tap column to sort</span></div>
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={S.table}>
-                      <thead><tr>
-                        <th style={S.thLeft}>Player</th>
-                        {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride" && k !== "mdd_success" && k !== "mdd_fail" && k !== "emo_fail" && k !== "shot_post").map(k => <th key={k} style={S.th(sortKey === k)} onClick={() => setSortKey(k)}>{STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}</th>)}
-                      </tr></thead>
-                      <tbody>
-                        {[0,1].map(ti => {
-                          const rows = sortedPlayers.filter(p => p.teamIdx === ti);
-                          if (!rows.length) return null;
-                          return [
-                            <tr key={`h-${ti}`}><td colSpan={STAT_KEYS.length} style={{ padding: "8px 14px 4px", fontSize: 11, fontWeight: 600, color: teamColors[ti], background: "#fafafa" }}>{teams[ti].name.toUpperCase()}</td></tr>,
-                            ...rows.map((row, i) => (
-                              <tr key={`${ti}-${i}`}>
-                                <td style={S.tdLeft}><span style={S.numBadge}>#{row.player.num}</span>{row.player.name}</td>
-                                {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride" && k !== "mdd_success" && k !== "mdd_fail" && k !== "emo_fail" && k !== "shot_post").map(k => <td key={k} style={{ ...S.td, fontWeight: k === sortKey ? 600 : 400, opacity: row[k] === 0 ? 0.3 : 1 }}>{k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}</td>)}
-                              </tr>
-                            ))
-                          ];
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+            <div style={S.tableWrap}>
+              <PlayerStatsTable
+                teams={teams}
+                teamColors={teamColors}
+                playerStats={playerStats}
+                statKeys={PLAYER_STAT_KEYS}
+              />
+            </div>
           )}
 
           {/* Timeline — goals, timeouts, and penalties with timestamps */}
@@ -1862,35 +1875,33 @@ export default function LaxStats({
       {/* ══ EVENT LOG (own top-level tab) ══ */}
       {screen === "log" && (
         <div>
-          {/* Quarter filter */}
+          {/* Quarter filter + Dupes tab */}
           <div style={S.tabsRow}>
             <button style={S.tabBtn(statsQtr === "all")} onClick={() => setStatsQtr("all")}>All</button>
             {completedQuarters.map(q => <button key={q} style={S.tabBtn(statsQtr === String(q))} onClick={() => setStatsQtr(String(q))}>{qLabel(q)}</button>)}
             {!gameOver && <button style={S.tabBtn(statsQtr === String(currentQuarter))} onClick={() => setStatsQtr(String(currentQuarter))}>{curQLabel} <span style={{ fontSize: 10, color: statsQtr === String(currentQuarter) ? "#aaa" : "#4caf50" }}>●</span></button>}
+            <button
+              style={{ ...S.tabBtn(statsQtr === "dupes"), ...(dupeGroups.length > 0 && statsQtr !== "dupes" ? { color: "#7a5c00", background: "#fffbf0", borderColor: "#f0c060" } : {}) }}
+              onClick={() => setStatsQtr("dupes")}
+            >
+              {dupeGroups.length > 0 ? `⚠ ${dupeGroups.length} Dupe${dupeGroups.length !== 1 ? "s" : ""}` : "Dupes"}
+            </button>
           </div>
 
-          <div style={S.tableWrap}>
-            <div style={S.tableTitle}>
-              <span>Event log</span>
-              <span style={{ fontWeight: 400 }}>{logGroups.length} entries</span>
-            </div>
-            {logGroups.length === 0
-              ? <div style={S.emptyState}>No events for this period</div>
-              : <div style={S.logList}>
-                  {(() => {
-                    const items = [];
-                    let lastQ = null;
-                    // Show newest first; quarter dividers only in "all" view
-                    const reversed = [...logGroups].reverse();
-                    reversed.forEach((group, gi) => {
+          {statsQtr === "dupes" ? (
+            <div style={S.tableWrap}>
+              <div style={S.tableTitle}>
+                <span>Duplicate review</span>
+                <span style={{ fontWeight: 400 }}>{dupeGroups.length} flagged</span>
+              </div>
+              {dupeGroups.length === 0
+                ? <div style={S.emptyState}>No flagged duplicates</div>
+                : <div style={S.logList}>
+                    {dupeGroups.map(group => {
                       const primary = groupPrimary(group);
-                      const q = primary.quarter;
-                      if (statsQtr === "all" && q !== lastQ) {
-                        items.push(<div key={`qd-${q}-${gi}`} style={S.qtrDivider}>{qLabel(q)}</div>);
-                        lastQ = q;
-                      }
                       const { icon, label, player } = entryDisplayInfo(primary);
                       const playerStr = primary.teamStat ? `${teams[primary.teamIdx]?.name} (team)` : (player ? `#${player.num} ${player.name}` : "");
+                      const gid = primary.groupId;
                       const subItems = [];
                       group.forEach(e => {
                         if (e.event === "shot_saved") subItems.push(`🧤 Saved by #${e.player?.num} ${e.player?.name}`);
@@ -1898,29 +1909,89 @@ export default function LaxStats({
                         if (e.event === "turnover" && group.some(x => x.event === "forced_to")) subItems.push(`↩️ TO by #${e.player?.num} ${e.player?.name}`);
                       });
                       if (primary.event === "goal" && primary.goalTime) subItems.push(`⏱ ${primary.goalTime} remaining`);
-                      if (primary.event === "goal" && primary.emo) subItems.push("⚡ EMO");
-                      const gid = primary.groupId;
-                      items.push(
-                        <div key={gid} style={S.logGroup}>
+                      return (
+                        <div key={gid} style={S.dupeGroup}>
                           <div style={S.logGroupMain}>
+                            <span style={S.dupeBadge}>⚠ Possible duplicate</span>
                             <div style={S.logDot(teamColors[primary.teamIdx])}></div>
                             <span style={{ fontWeight: 500, flex: 1 }}>{icon} {label}</span>
                             <span style={{ color: "#888", fontSize: 12 }}>{playerStr}</span>
                             <span style={{ color: teamColors[primary.teamIdx], fontSize: 11, marginLeft: 6 }}>{teams[primary.teamIdx]?.name}</span>
-                            {!gameOver && <>
-                              <button style={S.logActionBtn()} title="Edit" onClick={() => startEdit(gid)}>✏️</button>
-                              <button style={S.logActionBtn("#c0392b")} title="Delete" onClick={() => { setDeletingGroupId(gid); setScreen("track"); setStep("confirm_delete"); }}>✕</button>
-                            </>}
+                            <span style={{ color: "#aaa", fontSize: 11, marginLeft: 4 }}>{qLabel(primary.quarter)}</span>
+                            {confirmingDeleteGroupId === gid ? (
+                              <>
+                                <button style={S.logActionBtn("#c0392b")} onClick={() => { handleDeleteGroup(gid); setConfirmingDeleteGroupId(null); }}>Confirm delete</button>
+                                <button style={S.logActionBtn()} onClick={() => setConfirmingDeleteGroupId(null)}>Cancel</button>
+                              </>
+                            ) : (
+                              <>
+                                {onEventDismissDuplicate && (
+                                  <button style={S.logActionBtn()} title="Keep — mark as not a duplicate" onClick={() => onEventDismissDuplicate(gid)}>Keep</button>
+                                )}
+                                <button style={S.logActionBtn("#c0392b")} title="Delete this entry" onClick={() => setConfirmingDeleteGroupId(gid)}>✕</button>
+                              </>
+                            )}
                           </div>
                           {subItems.length > 0 && <div style={S.logGroupSub}>{subItems.map((s, i) => <span key={i} style={S.logSubChip}>{s}</span>)}</div>}
                         </div>
                       );
-                    });
-                    return items;
-                  })()}
-                </div>
-            }
-          </div>
+                    })}
+                  </div>
+              }
+            </div>
+          ) : (
+            <div style={S.tableWrap}>
+              <div style={S.tableTitle}>
+                <span>Event log</span>
+                <span style={{ fontWeight: 400 }}>{logGroups.length} entries</span>
+              </div>
+              {logGroups.length === 0
+                ? <div style={S.emptyState}>No events for this period</div>
+                : <div style={S.logList}>
+                    {(() => {
+                      const items = [];
+                      let lastQ = null;
+                      const reversed = [...logGroups].reverse();
+                      reversed.forEach((group, gi) => {
+                        const primary = groupPrimary(group);
+                        const q = primary.quarter;
+                        if (statsQtr === "all" && q !== lastQ) {
+                          items.push(<div key={`qd-${q}-${gi}`} style={S.qtrDivider}>{qLabel(q)}</div>);
+                          lastQ = q;
+                        }
+                        const { icon, label, player } = entryDisplayInfo(primary);
+                        const playerStr = primary.teamStat ? `${teams[primary.teamIdx]?.name} (team)` : (player ? `#${player.num} ${player.name}` : "");
+                        const subItems = [];
+                        group.forEach(e => {
+                          if (e.event === "shot_saved") subItems.push(`🧤 Saved by #${e.player?.num} ${e.player?.name}`);
+                          if (e.event === "assist") subItems.push(`🤝 Assist: #${e.player?.num} ${e.player?.name}`);
+                          if (e.event === "turnover" && group.some(x => x.event === "forced_to")) subItems.push(`↩️ TO by #${e.player?.num} ${e.player?.name}`);
+                        });
+                        if (primary.event === "goal" && primary.goalTime) subItems.push(`⏱ ${primary.goalTime} remaining`);
+                        if (primary.event === "goal" && primary.emo) subItems.push("⚡ EMO");
+                        const gid = primary.groupId;
+                        items.push(
+                          <div key={gid} style={S.logGroup}>
+                            <div style={S.logGroupMain}>
+                              <div style={S.logDot(teamColors[primary.teamIdx])}></div>
+                              <span style={{ fontWeight: 500, flex: 1 }}>{icon} {label}</span>
+                              <span style={{ color: "#888", fontSize: 12 }}>{playerStr}</span>
+                              <span style={{ color: teamColors[primary.teamIdx], fontSize: 11, marginLeft: 6 }}>{teams[primary.teamIdx]?.name}</span>
+                              {!gameOver && <>
+                                <button style={S.logActionBtn()} title="Edit" onClick={() => startEdit(gid)}>✏️</button>
+                                <button style={S.logActionBtn("#c0392b")} title="Delete" onClick={() => { setDeletingGroupId(gid); setScreen("track"); setStep("confirm_delete"); }}>✕</button>
+                              </>}
+                            </div>
+                            {subItems.length > 0 && <div style={S.logGroupSub}>{subItems.map((s, i) => <span key={i} style={S.logSubChip}>{s}</span>)}</div>}
+                          </div>
+                        );
+                      });
+                      return items;
+                    })()}
+                  </div>
+              }
+            </div>
+          )}
         </div>
       )}
     </div>

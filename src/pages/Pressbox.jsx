@@ -3,11 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
   buildPlayerStats, buildTeamTotals,
-  STAT_LABELS,
   qLabel, entryDisplayInfo,
 } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
 import GameTimeline from "../components/GameTimeline";
+import PlayerStatsTable, { PRESSBOX_STAT_KEYS } from "../components/PlayerStatsTable";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -68,8 +68,6 @@ const STAT_SECTIONS = [
   ]},
 ];
 
-const PRESS_STAT_KEYS = ["goal","assist","shot","sog","shot_saved","ground_ball","faceoff_win","turnover","forced_to","penalty_tech","penalty_min"];
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -79,7 +77,6 @@ export default function Dashboard() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
   const [statsQtr, setStatsQtr] = useState("all");
-  const [sortKey, setSortKey]   = useState("goal");
   const [playerTeam, setPlayerTeam] = useState(0);
   const [leftPanel, setLeftPanel]   = useState("team"); // "team" | "player"
   const [copied, setCopied]     = useState(false);
@@ -170,9 +167,8 @@ export default function Dashboard() {
     statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr)),
     [log, statsQtr]);
 
-  const teamTotals    = useMemo(() => buildTeamTotals(filteredLog),  [filteredLog]);
-  const playerStats   = useMemo(() => buildPlayerStats(filteredLog), [filteredLog]);
-  const sortedPlayers = useMemo(() => [...playerStats].sort((a, b) => b[sortKey] - a[sortKey]), [playerStats, sortKey]);
+  const teamTotals  = useMemo(() => buildTeamTotals(filteredLog),  [filteredLog]);
+  const playerStats = useMemo(() => buildPlayerStats(filteredLog), [filteredLog]);
 
   const scoringTimeline = useMemo(() => {
     const source = statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr));
@@ -209,6 +205,19 @@ export default function Dashboard() {
   if (error)   return <div style={{ maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14, fontFamily: "system-ui, sans-serif" }}>{error}</div>;
 
   const latestTime = getLatestTime(log, currentQuarter);
+
+  // Returns a legible version of a team color for use on the dark (#1a1a1a) score banner.
+  // Colors whose perceived luminance is too low (near-black) get a white fallback so they
+  // don't vanish against the dark background.
+  function bannerColor(hex) {
+    const c = hex?.replace("#", "") || "ffffff";
+    const r = parseInt(c.slice(0, 2), 16);
+    const g = parseInt(c.slice(2, 4), 16);
+    const b = parseInt(c.slice(4, 6), 16);
+    // Relative luminance (simplified sRGB approximation)
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    return lum < 60 ? "#ffffff" : hex;
+  }
 
   // Shared style fragments
   const card = { border: "1px solid #e5e5e5", borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 };
@@ -259,8 +268,8 @@ export default function Dashboard() {
             {/* Score banner */}
             <div style={{ background: "#1a1a1a", borderRadius: 10, padding: "10px 20px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: teamColors[0], textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[0].name}</div>
-                <div style={{ fontSize: 38, fontWeight: 500, color: teamColors[0], lineHeight: 1.1 }}>{totalScores[0]}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[0]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[0].name}</div>
+                <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[0]), lineHeight: 1.1 }}>{totalScores[0]}</div>
               </div>
               <div style={{ textAlign: "center" }}>
                 <span style={{ fontSize: 26, color: "#555" }}>—</span>
@@ -268,8 +277,8 @@ export default function Dashboard() {
                 {gameOver && <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>Final</div>}
               </div>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: teamColors[1], textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[1].name}</div>
-                <div style={{ fontSize: 38, fontWeight: 500, color: teamColors[1], lineHeight: 1.1 }}>{totalScores[1]}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[1]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[1].name}</div>
+                <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[1]), lineHeight: 1.1 }}>{totalScores[1]}</div>
               </div>
             </div>
 
@@ -369,35 +378,14 @@ export default function Dashboard() {
                       </tbody>
                     </table>
                   ) : (
-                    sortedPlayers.filter(r => r.teamIdx === playerTeam).length === 0
-                      ? <div style={{ textAlign: "center", padding: "24px 16px", color: "#aaa", fontSize: 13 }}>No player stats yet</div>
-                      : <div style={{ overflowX: "auto" }}>
-                          <table style={TABLE}>
-                            <thead><tr>
-                              <th style={THL}>Player</th>
-                              {PRESS_STAT_KEYS.map(k => (
-                                <th key={k} style={TH(sortKey === k)} onClick={() => setSortKey(k)}>
-                                  {STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}
-                                </th>
-                              ))}
-                            </tr></thead>
-                            <tbody>
-                              {sortedPlayers.filter(r => r.teamIdx === playerTeam).map((row, i) => (
-                                <tr key={i}>
-                                  <td style={TDL()}>
-                                    <span style={{ display: "inline-block", width: 18, height: 18, borderRadius: "50%", background: "#f0f0f0", fontSize: 9, fontWeight: 600, textAlign: "center", lineHeight: "18px", marginRight: 4, color: "#888" }}>#{row.player.num}</span>
-                                    {row.player.name}
-                                  </td>
-                                  {PRESS_STAT_KEYS.map(k => (
-                                    <td key={k} style={TD({ fontWeight: k === sortKey ? 600 : 400, opacity: row[k] === 0 ? 0.3 : 1 })}>
-                                      {k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                    <PlayerStatsTable
+                      teams={teams}
+                      teamColors={teamColors}
+                      playerStats={playerStats}
+                      statKeys={PRESSBOX_STAT_KEYS}
+                      teamIdx={playerTeam}
+                      compact
+                    />
                   )}
                 </div>
               </div>

@@ -5,6 +5,46 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.5.0] — 2026-05-05
+
+### Added
+- **Cross-org games** — a game can now involve teams from two separate LaxStats orgs (e.g. Rockville High vs. Riverfalls Prep); the creating org searches for the opponent by school name during game creation and links them via `away_org_id`; both orgs' teams are available in both the home and away slots of the scorekeeper setup screen so neither org is assumed to be the home team
+- **Away org season attribution** — when an away org member views a cross-org game, an admin sees an "Add to season" banner that lets them attribute the game to one of their own seasons via the `link_game_to_away_season` RPC; the game then appears in both orgs' season records independently
+- **Away org scoring access** — scorekeepers, coaches, and admins from the away org can score the game; both `can_score_game()` and the `gevents_insert_scorekeeper` RLS policy now check membership in `away_org_id` in addition to `org_id`
+
+### Changed
+- `games` table: new `away_season_id` column (FK → seasons) for away org season linkage
+
+---
+
+## [2.4.0] — 2026-05-04
+
+### Added
+- **`PlayerStatsTable` component** (`src/components/PlayerStatsTable.jsx`) — shared player stats table used by `/score`, `/view`, and `/pressbox`; owns its own sort state; merges full roster so all players are shown even with zero stats; sortable by jersey number (default), name, or any stat column; `compact` mode for the Pressbox panel; exports `PLAYER_STAT_KEYS` (full column set) and `PRESSBOX_STAT_KEYS` (condensed) for callers to import
+- **Goal count in timeline** — goal rows in the scoring timeline (both `/view` and `/pressbox`) now show a player's cumulative goal count in parentheses after their name starting from their second goal (e.g. `#12 Firstname Lastname (3)`)
+
+### Changed
+- **Standardized player stats tables** — `/score` Stats > Players, `/view` Stats > Players, and `/pressbox` Player Stats panel all now use `PlayerStatsTable`; sort by `#` / Name controls are consistent across all three; all roster players are shown regardless of whether they have logged any events
+- **Duplicate review: SECURITY DEFINER RPC** — `dismiss_duplicate_flag()` RPC now bypasses `created_by` RLS so any scorer on a game can clear the duplicate flag on any event, not just their own; `dismissDuplicateFlag` service updated to call `db.rpc()` instead of a direct table UPDATE
+- **Duplicate review: inline delete confirmation** — the Delete button in the Dupes tab now shows inline Confirm/Cancel buttons instead of navigating away to the track screen
+
+---
+
+## [2.3.0] — 2026-05-04
+
+### Added
+- **Offline scoring** (PR #16) — scorekeepers can now log events without an internet connection; events are queued in IndexedDB via `src/services/offlineQueue.js` and replayed to the server automatically when connectivity returns; pending count badge and sync status indicator keep the scorer informed; `useOnlineStatus` hook drives UI and queue-flush logic
+- **Duplicate review panel** — Event Log tab now has a "Dupes" filter that surfaces all DB-flagged duplicate events (`is_possible_duplicate = true`); each flagged group shows a **Keep** button (clears the flag, broadcasts dismissal to co-scorers) and a **Delete** button (existing soft-delete flow); the tab label shows a live count badge when duplicates are present
+- **`dismissDuplicateFlag` service** — `src/services/gameEvents.js`; clears `is_possible_duplicate` on all non-deleted rows in a group
+- **`dismissDuplicate` hook action** — `useGameEvents` exposes `dismissDuplicate(groupId)`; optimistic local update + DB write + broadcast to co-scorers via `dismiss_duplicate` event
+- **Realtime duplicate flag sync** — `postgres_changes` UPDATE handler now propagates `is_possible_duplicate` changes from the DB trigger and from co-scorer dismissals to all connected devices in real time
+
+### Fixed
+- **Realtime "Sync error" on SPA navigation** — navigating between pages caused `removeChannel()` on the last active channel to disconnect the Realtime socket, stopping the tenant; the next channel join would race against a tenant restart and be silently dropped. Fixed with a persistent `__keepalive__` channel in `src/lib/supabase.js` that keeps the socket alive for the lifetime of the app
+- **`game_events` replica identity** — added `ALTER TABLE game_events REPLICA IDENTITY FULL` to support filtered `postgres_changes` UPDATE subscriptions on non-primary-key columns
+
+---
+
 ## [2.2.0] — 2026-04-30
 
 ### Added

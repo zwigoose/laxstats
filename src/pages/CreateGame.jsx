@@ -36,7 +36,7 @@ export default function CreateGame() {
   // If launched from OrgDashboard/GameList, a membership object is passed via router state
   const preselected = location.state?.orgMembership ?? null;
 
-  // step: "choice" | "org-season" | "org-details" | "creating-personal"
+  // step: "choice" | "org-season" | "org-details" | "org-opponent" | "creating-personal"
   const initialStep = preselected
     ? "org-season"
     : orgMemberships.length > 0 ? "choice" : "creating-personal";
@@ -51,10 +51,34 @@ export default function CreateGame() {
   const [gameDate, setGameDate]               = useState(new Date().toISOString().slice(0, 10));
   const [gameType, setGameType]               = useState("regular");
 
+  // Opponent search state
+  const [opponentSearch, setOpponentSearch]       = useState("");
+  const [opponentResults, setOpponentResults]     = useState([]);
+  const [opponentSearching, setOpponentSearching] = useState(false);
+  const [selectedOpponent, setSelectedOpponent]   = useState(null); // { id, name, slug }
+
   useEffect(() => {
     if (step === "creating-personal") createPersonalGame();
     if (preselected) selectOrg(preselected);
   }, []);
+
+  useEffect(() => {
+    if (!opponentSearch.trim()) { setOpponentResults([]); return; }
+    const q = opponentSearch.trim();
+    setOpponentSearching(true);
+    const timer = setTimeout(async () => {
+      const { data } = await supabase
+        .from("organizations")
+        .select("id, name, slug")
+        .ilike("name", `%${q}%`)
+        .neq("id", selectedOrg?.org_id ?? "")
+        .order("name")
+        .limit(8);
+      setOpponentResults(data || []);
+      setOpponentSearching(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [opponentSearch, selectedOrg?.org_id]);
 
   async function createPersonalGame() {
     const name = `Game — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
@@ -114,6 +138,7 @@ export default function CreateGame() {
         state: null,
         user_id: user.id,
         org_id: selectedOrg.org_id,
+        away_org_id: selectedOpponent?.id ?? null,
         season_id: selectedSeason?.id ?? null,
         game_type: gameType,
         game_date: gameDate || null,
@@ -212,8 +237,63 @@ export default function CreateGame() {
               {GAME_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
             </select>
 
-            <button style={S.btn} onClick={handleCreateOrgGame}>Set Up Game →</button>
+            <button style={S.btn} onClick={() => setStep("org-opponent")}>Next →</button>
             <button style={S.btnGray} onClick={() => setStep("org-season")}>← Back</button>
+          </>
+        )}
+
+        {/* ── Step: opponent org search ── */}
+        {step === "org-opponent" && (
+          <>
+            <h1 style={S.h1}>Opponent</h1>
+            <div style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
+              Search for the opponent school on LaxStats, or skip to set up the opponent in the scorekeeper.
+            </div>
+
+            {selectedOpponent ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: "#eaf6ec", border: "1px solid #b5e0c0", borderRadius: 12, marginBottom: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>{selectedOpponent.name}</div>
+                  <div style={{ fontSize: 12, color: "#666" }}>laxstats.app/orgs/{selectedOpponent.slug}</div>
+                </div>
+                <button
+                  style={{ fontSize: 12, color: "#888", background: "none", border: "1px solid #ccc", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}
+                  onClick={() => { setSelectedOpponent(null); setOpponentSearch(""); setOpponentResults([]); }}>
+                  Change
+                </button>
+              </div>
+            ) : (
+              <>
+                <span style={S.label}>Search by school name</span>
+                <input
+                  style={S.input}
+                  value={opponentSearch}
+                  onChange={e => setOpponentSearch(e.target.value)}
+                  placeholder="Riverfalls Prep…"
+                  autoFocus
+                />
+                {opponentSearching && <div style={{ fontSize: 12, color: "#aaa", marginTop: 8 }}>Searching…</div>}
+                {!opponentSearching && opponentSearch.trim() && opponentResults.length === 0 && (
+                  <div style={{ fontSize: 12, color: "#aaa", marginTop: 8 }}>No LaxStats programs found — you can still set up the opponent in the scorekeeper.</div>
+                )}
+                {opponentResults.length > 0 && (
+                  <div style={{ marginTop: 8, border: "1px solid #e0e0e0", borderRadius: 10, overflow: "hidden" }}>
+                    {opponentResults.map((org, i) => (
+                      <button
+                        key={org.id}
+                        style={{ width: "100%", textAlign: "left", padding: "12px 16px", background: "#fff", border: "none", borderTop: i > 0 ? "1px solid #f0f0f0" : "none", cursor: "pointer", fontFamily: "system-ui, sans-serif" }}
+                        onClick={() => { setSelectedOpponent(org); setOpponentSearch(""); setOpponentResults([]); }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{org.name}</div>
+                        <div style={{ fontSize: 11, color: "#aaa" }}>laxstats.app/orgs/{org.slug}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            <button style={S.btn} onClick={handleCreateOrgGame}>Set Up Game →</button>
+            <button style={S.btnGray} onClick={() => setStep("org-details")}>← Back</button>
           </>
         )}
       </div>

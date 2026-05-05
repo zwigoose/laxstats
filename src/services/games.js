@@ -3,7 +3,7 @@ import { supabase as _supabase } from "../lib/supabase";
 export async function fetchGame(id, db = _supabase) {
   return db
     .from("games")
-    .select("id, created_at, name, state, schema_ver, org_id, season_id, user_id, multi_scorer_enabled")
+    .select("id, created_at, name, state, schema_ver, org_id, away_org_id, season_id, away_season_id, user_id, multi_scorer_enabled")
     .eq("id", id)
     .single();
 }
@@ -44,6 +44,10 @@ export async function createScorekeeperInvite(gameId, db = _supabase) {
 
 export async function claimScorekeeperInvite(token, db = _supabase) {
   return db.rpc("claim_scorekeeper_invite", { p_token: token });
+}
+
+export async function linkGameToAwaySeason(gameId, seasonId, db = _supabase) {
+  return db.rpc("link_game_to_away_season", { p_game_id: gameId, p_season_id: seasonId });
 }
 
 export async function deleteAllGameEvents(gameId, userId, db = _supabase) {

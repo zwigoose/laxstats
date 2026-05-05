@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "../lib/supabase";
 import {
-  fetchGame, fetchGameMeta, updateGame, deleteGame,
+  fetchGame, updateGame, deleteGame,
   fetchOrgContext, createScorekeeperInvite, claimScorekeeperInvite,
   deleteAllGameEvents, canScoreGame,
 } from "../services/games";
@@ -11,15 +11,19 @@ import LaxStats from "../components/LaxStats";
 import { useGameEvents } from "../hooks/useGameEvents";
 
 const S = {
-  header:      { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10, fontFamily: "system-ui, sans-serif" },
-  backBtn:     { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
-  headerTitle: { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" },
-  saveStatus:  { fontSize: 12, color: "#aaa" },
-  viewBtn:     { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" },
-  loading:     { fontFamily: "system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#888", fontSize: 14 },
-  error:       { fontFamily: "system-ui, sans-serif", maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14 },
+  header:        { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10, fontFamily: "system-ui, sans-serif" },
+  backBtn:       { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
+  headerTitle:   { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" },
+  saveStatus:    { fontSize: 12, color: "#aaa" },
+  viewBtn:       { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" },
+  loading:       { fontFamily: "system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#888", fontSize: 14 },
+  error:         { fontFamily: "system-ui, sans-serif", maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14 },
   secondaryBadge: { fontSize: 11, fontWeight: 700, color: "#1a6bab", background: "#eef4fb", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
   primaryBadge:   { fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #b5e0c0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
+  offlineBadge:   { fontSize: 11, fontWeight: 700, color: "#9a4800", background: "#fff3e0", border: "1px solid #ffd08a", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
+  syncingStatus:  { fontSize: 12, color: "#1a6bab" },
+  syncedStatus:   { fontSize: 12, color: "#2a7a3b" },
+  syncErrStatus:  { fontSize: 12, color: "#c0392b" },
 };
 
 // ── v1 path — JSONB blob save (unchanged) ─────────────────────────────────────
@@ -91,10 +95,27 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
   const saveTimer    = useRef(null);
   const pendingMeta  = useRef(null);
   const saveInFlight = useRef(false);
+  const tokenRef     = useRef(null);
   const [gameName, setGameName]   = useState(game?.name || "");
   const [inviteLink,  setInviteLink]  = useState(null);
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
   const [inviteError, setInviteError] = useState(null);
+
+  // ── Offline meta-event queue ─────────────────────────────────────
+  // Quarter transitions and game-over signals are stored here when the scorer
+  // is offline so they can be applied to the DB once connectivity returns.
+  // We persist to localStorage so they survive a tab reload during an outage.
+  const META_KEY = `laxstats:meta:${id}`;
+  const offlineMetaQueue = useRef([]);
+
+  // Load any queue left over from a previous offline session on mount.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(META_KEY);
+      if (saved) offlineMetaQueue.current = JSON.parse(saved);
+    } catch { /* corrupt storage — ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function generateInviteLink() {
     setInviteState("generating");
@@ -121,10 +142,14 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
     loading:       eventsLoading,
     commitGroup,
     softDeleteGroup,
+    dismissDuplicate,
     broadcastMeta,
     isPrimary,
     presenceList,
     remoteQuarterState,
+    isOnline,
+    pendingCount,
+    syncStatus,
     error:         eventsError,
     channelStatus,
   } = useGameEvents(id, userId);
@@ -137,40 +162,49 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
         ? { ...game.state, log: entries }
         : (entries.length > 0 ? { log: entries } : null));
 
-  // Meta-event handler: persist quarter/gameOver changes to games.state
-  const handleMetaEvent = useCallback(async (type, payload) => {
-    setSaveStatus("saving");
-    const { data: current } = await fetchGameMeta(id);
-    const meta = current?.state ? { ...current.state } : {};
-    delete meta.log; // v2 games don't store log in state
+  // Meta-event handler: broadcast quarter/gameOver to secondary scorers.
+  // DB persistence is handled by handleStateChange (which fires on the same state
+  // transitions). When offline, the broadcast is queued and replayed on reconnect
+  // so secondary scorers see the correct quarter as soon as this scorer comes back.
+  const handleMetaEvent = useCallback((type, payload) => {
+    const newCurrentQuarter    = payload.newCurrentQuarter    ?? (type === "endQuarter" ? (payload.quarter + 1) : payload.quarter);
+    const newCompletedQuarters = payload.newCompletedQuarters ?? [payload.quarter];
+    const isGameOver           = type === "gameOver";
+    const broadcastPayload     = { currentQuarter: newCurrentQuarter, completedQuarters: newCompletedQuarters, gameOver: isGameOver };
 
-    if (type === "endQuarter") {
-      meta.completedQuarters = [...(meta.completedQuarters || []), payload.quarter];
-      meta.currentQuarter    = (meta.currentQuarter || 1) + 1;
-    } else if (type === "gameOver") {
-      meta.completedQuarters = [...(meta.completedQuarters || []), payload.quarter];
-      meta.gameOver          = true;
+    if (!isOnline) {
+      offlineMetaQueue.current = [...offlineMetaQueue.current, broadcastPayload];
+      localStorage.setItem(META_KEY, JSON.stringify(offlineMetaQueue.current));
+      return;
     }
+    broadcastMeta(broadcastPayload);
+  }, [broadcastMeta, isOnline]);
 
-    const { error: err } = await updateGame(id, { state: meta });
-
-    if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
-    else {
-      setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000);
-      // Broadcast quarter/game-over state so secondary scorers update immediately
-      broadcastMeta({ currentQuarter: meta.currentQuarter, completedQuarters: meta.completedQuarters, gameOver: !!meta.gameOver });
+  // Flush offline meta queue when we come back online.
+  useEffect(() => {
+    if (!isOnline || !offlineMetaQueue.current.length) return;
+    const queue = [...offlineMetaQueue.current];
+    offlineMetaQueue.current = [];
+    localStorage.removeItem(META_KEY);
+    for (const broadcastPayload of queue) {
+      broadcastMeta(broadcastPayload);
     }
-  }, [id, broadcastMeta]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, broadcastMeta]);
 
   // State change handler: persist team/meta changes (NOT the log — that's in game_events)
   const handleStateChange = useCallback(async (newState) => {
     if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
       setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
     }
-    // Build meta payload (no log); compute score from log so game list can display it
+    // Build meta payload (no log); compute score from log so game list can display it.
+    // When called as a retry (pendingMeta already processed), _log is undefined —
+    // preserve the already-correct score0/score1 rather than overwriting with 0.
     const { log: _log, ...meta } = newState;
-    meta.score0 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
-    meta.score1 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
+    if (_log !== undefined) {
+      meta.score0 = _log.filter(e => e.event === "goal" && e.teamIdx === 0).length;
+      meta.score1 = _log.filter(e => e.event === "goal" && e.teamIdx === 1).length;
+    }
     pendingMeta.current = meta;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
@@ -187,11 +221,70 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
       const { error: err } = await updateGame(id, updatePayload);
       saveInFlight.current = false;
       if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
-      else { setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000); }
+      else {
+        setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000);
+        // Retry if a new state change arrived while this save was in flight
+        if (pendingMeta.current) handleStateChange(pendingMeta.current);
+      }
     }, 800);
   }, [id]);
 
+  // Keep tokenRef current so the beforeunload flush can use it without async work.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      tokenRef.current = data?.session?.access_token ?? null;
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      tokenRef.current = session?.access_token ?? null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Flush any pending state to DB when the tab closes, using keepalive so the
+  // browser sends the request even after the page unloads.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const stateToSave = pendingMeta.current;
+      if (!stateToSave || !tokenRef.current) return;
+      if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+      const updatePayload = { state: stateToSave };
+      if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
+        updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
+      }
+      fetch(`${SUPABASE_URL}/rest/v1/games?id=eq.${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${tokenRef.current}`,
+          "Prefer": "return=minimal",
+        },
+        body: JSON.stringify(updatePayload),
+        keepalive: true,
+      });
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [id]);
+
   const scorerCount = presenceList.length;
+
+  // ── Status text displayed in the header ─────────────────────────
+  function statusText() {
+    if (syncStatus === "syncing") return { text: `Syncing ${pendingCount} event${pendingCount !== 1 ? "s" : ""}…`, style: S.syncingStatus };
+    if (syncStatus === "synced")  return { text: "Synced ✓",   style: S.syncedStatus  };
+    if (syncStatus === "error")   return { text: "Sync failed", style: S.syncErrStatus };
+    if (saveStatus === "saving")  return { text: "Saving…",    style: S.saveStatus    };
+    if (saveStatus === "saved")   return { text: "Saved ✓",    style: S.saveStatus    };
+    if (saveStatus === "error")   return { text: "Save failed", style: S.syncErrStatus };
+    if (eventsError) {
+      return (channelStatus === "error" || channelStatus === "timed_out")
+        ? { text: "Sync error",  style: S.syncErrStatus }
+        : { text: "Event error", style: S.syncErrStatus };
+    }
+    return null;
+  }
+  const status = statusText();
 
   return (
     <div>
@@ -205,12 +298,12 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
             {scorerCount > 1 && ` · ${scorerCount} scorers`}
           </span>
         )}
-        <span style={S.saveStatus}>
-          {saveStatus === "saving" && "Saving…"}
-          {saveStatus === "saved"  && "Saved ✓"}
-          {saveStatus === "error"  && "Save failed"}
-          {eventsError && !saveStatus && (channelStatus === "error" || channelStatus === "timed_out" ? "Sync error" : "Event error")}
-        </span>
+        {isOnline === false && (
+          <span style={S.offlineBadge} title="Events are saved locally and will sync when you reconnect">
+            Offline{pendingCount > 0 ? ` · ${pendingCount} queued` : ""}
+          </span>
+        )}
+        {status && <span style={status.style}>{status.text}</span>}
         {game?.multi_scorer_enabled && !isAnonymous && (
           <button style={S.viewBtn} onClick={() => {
             if (inviteLink || inviteState === "error") { setInviteLink(null); setInviteState("idle"); setInviteError(null); }
@@ -251,6 +344,7 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
           onStateChange={handleStateChange}
           onEventCommit={commitGroup}
           onEventSoftDelete={softDeleteGroup}
+          onEventDismissDuplicate={dismissDuplicate}
           onMetaEvent={handleMetaEvent}
           remoteEntries={entries}
           remoteQuarterState={remoteQuarterState}
@@ -342,7 +436,17 @@ export default function Scorekeeper() {
       return;
     }
 
-    setOrgContext(data?.org_id ? await fetchOrgContext(data.org_id, data.season_id) : null);
+    if (data?.org_id) {
+      const ctx = await fetchOrgContext(data.org_id, data.season_id);
+      let awayOrgName = null;
+      if (data.away_org_id) {
+        const { data: awayOrg } = await supabase.from("organizations").select("name").eq("id", data.away_org_id).single();
+        awayOrgName = awayOrg?.name ?? null;
+      }
+      setOrgContext({ ...ctx, awayOrgId: data.away_org_id ?? null, awayOrgName });
+    } else {
+      setOrgContext(null);
+    }
     setGame(data);
     setLoading(false);
   }
