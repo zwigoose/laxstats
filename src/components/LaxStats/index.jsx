@@ -442,6 +442,17 @@ export default function LaxStats({
       .then(({ data }) => { if (data) setOrgTeams(data); });
   }, [orgContext?.orgId]);
 
+  const [awayOrgTeams, setAwayOrgTeams] = useState([]);
+  useEffect(() => {
+    if (!orgContext?.awayOrgId) return;
+    supabase
+      .from("teams")
+      .select("id, name, color, team_players(jersey_num, player:players!inner(id, name, number))")
+      .eq("org_id", orgContext.awayOrgId)
+      .order("name")
+      .then(({ data }) => { if (data) setAwayOrgTeams(data); });
+  }, [orgContext?.awayOrgId]);
+
   // ── Export / Import ─────────────────────────────────────────────
   const [exportCopied, setExportCopied] = useState(false);
   const [exportJson, setExportJson] = useState(null);
@@ -882,7 +893,7 @@ export default function LaxStats({
               <div key={ti} style={S.setupCard(teams[ti].color)}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div style={S.teamLabel(teams[ti].color)}>{ti === 0 ? "Home" : "Away"}</div>
-                  {!teams[ti].orgTeamId && (savedTeams.length > 0 || orgTeams.length > 0) && (
+                  {!teams[ti].orgTeamId && (savedTeams.length > 0 || orgTeams.length > 0 || awayOrgTeams.length > 0) && (
                     <select
                       style={{ fontSize: 11, color: teams[ti].color, border: "1px solid #e5e5e5", borderRadius: 6, padding: "3px 6px", background: "#fafafa", cursor: "pointer", maxWidth: 130 }}
                       defaultValue=""
@@ -890,7 +901,7 @@ export default function LaxStats({
                         const val = e.target.value;
                         if (!val) return;
                         if (val.startsWith("org:")) {
-                          const orgTeam = orgTeams.find(t => t.id === val.slice(4));
+                          const orgTeam = [...orgTeams, ...awayOrgTeams].find(t => t.id === val.slice(4));
                           if (!orgTeam) return;
                           const roster = (orgTeam.team_players || [])
                             .sort((a, b) => (a.jersey_num ?? a.player?.number ?? 99) - (b.jersey_num ?? b.player?.number ?? 99))
@@ -907,8 +918,15 @@ export default function LaxStats({
                       }}>
                       <option value="" disabled>Load team…</option>
                       {orgTeams.length > 0 && (
-                        <optgroup label="Org Teams">
+                        <optgroup label={awayOrgTeams.length > 0 ? (orgContext?.orgName || "Home Org") : "Org Teams"}>
                           {orgTeams.map(t => (
+                            <option key={`org:${t.id}`} value={`org:${t.id}`}>{t.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {awayOrgTeams.length > 0 && (
+                        <optgroup label={orgContext?.awayOrgName || "Away Org"}>
+                          {awayOrgTeams.map(t => (
                             <option key={`org:${t.id}`} value={`org:${t.id}`}>{t.name}</option>
                           ))}
                         </optgroup>

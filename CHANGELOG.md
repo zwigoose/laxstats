@@ -5,6 +5,18 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.5.0] — 2026-05-05
+
+### Added
+- **Cross-org games** — a game can now involve teams from two separate LaxStats orgs (e.g. Rockville High vs. Riverfalls Prep); the creating org searches for the opponent by school name during game creation and links them via `away_org_id`; both orgs' teams are available in both the home and away slots of the scorekeeper setup screen so neither org is assumed to be the home team
+- **Away org season attribution** — when an away org member views a cross-org game, an admin sees an "Add to season" banner that lets them attribute the game to one of their own seasons via the `link_game_to_away_season` RPC; the game then appears in both orgs' season records independently
+- **Away org scoring access** — scorekeepers, coaches, and admins from the away org can score the game; both `can_score_game()` and the `gevents_insert_scorekeeper` RLS policy now check membership in `away_org_id` in addition to `org_id`
+
+### Changed
+- `games` table: new `away_season_id` column (FK → seasons) for away org season linkage
+
+---
+
 ## [2.4.0] — 2026-05-04
 
 ### Added

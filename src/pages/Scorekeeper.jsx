@@ -436,7 +436,17 @@ export default function Scorekeeper() {
       return;
     }
 
-    setOrgContext(data?.org_id ? await fetchOrgContext(data.org_id, data.season_id) : null);
+    if (data?.org_id) {
+      const ctx = await fetchOrgContext(data.org_id, data.season_id);
+      let awayOrgName = null;
+      if (data.away_org_id) {
+        const { data: awayOrg } = await supabase.from("organizations").select("name").eq("id", data.away_org_id).single();
+        awayOrgName = awayOrg?.name ?? null;
+      }
+      setOrgContext({ ...ctx, awayOrgId: data.away_org_id ?? null, awayOrgName });
+    } else {
+      setOrgContext(null);
+    }
     setGame(data);
     setLoading(false);
   }
