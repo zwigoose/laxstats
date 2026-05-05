@@ -206,6 +206,19 @@ export default function Dashboard() {
 
   const latestTime = getLatestTime(log, currentQuarter);
 
+  // Returns a legible version of a team color for use on the dark (#1a1a1a) score banner.
+  // Colors whose perceived luminance is too low (near-black) get a white fallback so they
+  // don't vanish against the dark background.
+  function bannerColor(hex) {
+    const c = hex?.replace("#", "") || "ffffff";
+    const r = parseInt(c.slice(0, 2), 16);
+    const g = parseInt(c.slice(2, 4), 16);
+    const b = parseInt(c.slice(4, 6), 16);
+    // Relative luminance (simplified sRGB approximation)
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    return lum < 60 ? "#ffffff" : hex;
+  }
+
   // Shared style fragments
   const card = { border: "1px solid #e5e5e5", borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 };
   const cardHdr = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 12px", borderBottom: "1px solid #e5e5e5", background: "#f9f9f9", flexShrink: 0 };
@@ -255,8 +268,8 @@ export default function Dashboard() {
             {/* Score banner */}
             <div style={{ background: "#1a1a1a", borderRadius: 10, padding: "10px 20px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: teamColors[0], textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[0].name}</div>
-                <div style={{ fontSize: 38, fontWeight: 500, color: teamColors[0], lineHeight: 1.1 }}>{totalScores[0]}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[0]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[0].name}</div>
+                <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[0]), lineHeight: 1.1 }}>{totalScores[0]}</div>
               </div>
               <div style={{ textAlign: "center" }}>
                 <span style={{ fontSize: 26, color: "#555" }}>—</span>
@@ -264,8 +277,8 @@ export default function Dashboard() {
                 {gameOver && <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>Final</div>}
               </div>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: teamColors[1], textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[1].name}</div>
-                <div style={{ fontSize: 38, fontWeight: 500, color: teamColors[1], lineHeight: 1.1 }}>{totalScores[1]}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[1]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[1].name}</div>
+                <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[1]), lineHeight: 1.1 }}>{totalScores[1]}</div>
               </div>
             </div>
 
