@@ -3,11 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
   buildPlayerStats, buildTeamTotals,
-  STAT_LABELS,
   qLabel, entryDisplayInfo,
 } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
 import GameTimeline from "../components/GameTimeline";
+import PlayerStatsTable, { PRESSBOX_STAT_KEYS } from "../components/PlayerStatsTable";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -68,8 +68,6 @@ const STAT_SECTIONS = [
   ]},
 ];
 
-const PRESS_STAT_KEYS = ["goal","assist","shot","sog","shot_saved","ground_ball","faceoff_win","turnover","forced_to","penalty_tech","penalty_min"];
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -79,7 +77,6 @@ export default function Dashboard() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
   const [statsQtr, setStatsQtr] = useState("all");
-  const [sortKey, setSortKey]   = useState("goal");
   const [playerTeam, setPlayerTeam] = useState(0);
   const [leftPanel, setLeftPanel]   = useState("team"); // "team" | "player"
   const [copied, setCopied]     = useState(false);
@@ -170,9 +167,8 @@ export default function Dashboard() {
     statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr)),
     [log, statsQtr]);
 
-  const teamTotals    = useMemo(() => buildTeamTotals(filteredLog),  [filteredLog]);
-  const playerStats   = useMemo(() => buildPlayerStats(filteredLog), [filteredLog]);
-  const sortedPlayers = useMemo(() => [...playerStats].sort((a, b) => b[sortKey] - a[sortKey]), [playerStats, sortKey]);
+  const teamTotals  = useMemo(() => buildTeamTotals(filteredLog),  [filteredLog]);
+  const playerStats = useMemo(() => buildPlayerStats(filteredLog), [filteredLog]);
 
   const scoringTimeline = useMemo(() => {
     const source = statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr));
@@ -369,35 +365,14 @@ export default function Dashboard() {
                       </tbody>
                     </table>
                   ) : (
-                    sortedPlayers.filter(r => r.teamIdx === playerTeam).length === 0
-                      ? <div style={{ textAlign: "center", padding: "24px 16px", color: "#aaa", fontSize: 13 }}>No player stats yet</div>
-                      : <div style={{ overflowX: "auto" }}>
-                          <table style={TABLE}>
-                            <thead><tr>
-                              <th style={THL}>Player</th>
-                              {PRESS_STAT_KEYS.map(k => (
-                                <th key={k} style={TH(sortKey === k)} onClick={() => setSortKey(k)}>
-                                  {STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}
-                                </th>
-                              ))}
-                            </tr></thead>
-                            <tbody>
-                              {sortedPlayers.filter(r => r.teamIdx === playerTeam).map((row, i) => (
-                                <tr key={i}>
-                                  <td style={TDL()}>
-                                    <span style={{ display: "inline-block", width: 18, height: 18, borderRadius: "50%", background: "#f0f0f0", fontSize: 9, fontWeight: 600, textAlign: "center", lineHeight: "18px", marginRight: 4, color: "#888" }}>#{row.player.num}</span>
-                                    {row.player.name}
-                                  </td>
-                                  {PRESS_STAT_KEYS.map(k => (
-                                    <td key={k} style={TD({ fontWeight: k === sortKey ? 600 : 400, opacity: row[k] === 0 ? 0.3 : 1 })}>
-                                      {k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                    <PlayerStatsTable
+                      teams={teams}
+                      teamColors={teamColors}
+                      playerStats={playerStats}
+                      statKeys={PRESSBOX_STAT_KEYS}
+                      teamIdx={playerTeam}
+                      compact
+                    />
                   )}
                 </div>
               </div>

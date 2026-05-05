@@ -9,6 +9,7 @@ import {
 } from "../../utils/stats";
 import S from "../../styles/laxStats";
 import TimeKeypad from "./TimeKeypad";
+import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../PlayerStatsTable";
 
 export { EVENTS, STAT_KEYS, STAT_LABELS, buildPlayerStats, buildTeamTotals, qLabel, isOT, toSecs, entryDisplayInfo };
 
@@ -71,7 +72,6 @@ export default function LaxStats({
 
   const [statsTab, setStatsTab] = useState("summary");
   const [statsQtr, setStatsQtr] = useState("all");
-  const [sortKey, setSortKey] = useState("goal");
 
   // ── Supabase integration hooks ───────────────────────────────────
   const hydratedRef = useRef(false);
@@ -178,7 +178,6 @@ export default function LaxStats({
 
   const playerStats = useMemo(() => buildPlayerStats(filteredLog), [filteredLog]);
   const teamTotals = useMemo(() => buildTeamTotals(filteredLog), [filteredLog]);
-  const sortedPlayers = useMemo(() => [...playerStats].sort((a, b) => b[sortKey] - a[sortKey]), [playerStats, sortKey]);
 
   const shotPct  = (ti) => { const s = teamTotals[ti].shot,  g = teamTotals[ti].goal;        return s     ? `${Math.round((g/s)*100)}%` : "—"; };
   const sogPct   = (ti) => { const sog = teamTotals[ti].sog, g = teamTotals[ti].goal;         return sog   ? `${Math.round((g/sog)*100)}%` : "—"; };
@@ -1748,34 +1747,14 @@ export default function LaxStats({
 
           {/* Players */}
           {statsTab === "players" && (
-            filteredLog.filter(e => !e.teamStat).length === 0
-              ? <div style={S.emptyState}>No player stats for this period</div>
-              : <div style={S.tableWrap}>
-                  <div style={S.tableTitle}><span>Player stats</span><span style={{ fontWeight: 400, fontSize: 11 }}>tap column to sort</span></div>
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={S.table}>
-                      <thead><tr>
-                        <th style={S.thLeft}>Player</th>
-                        {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride" && k !== "mdd_success" && k !== "mdd_fail" && k !== "emo_fail" && k !== "shot_post").map(k => <th key={k} style={S.th(sortKey === k)} onClick={() => setSortKey(k)}>{STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}</th>)}
-                      </tr></thead>
-                      <tbody>
-                        {[0,1].map(ti => {
-                          const rows = sortedPlayers.filter(p => p.teamIdx === ti);
-                          if (!rows.length) return null;
-                          return [
-                            <tr key={`h-${ti}`}><td colSpan={STAT_KEYS.length} style={{ padding: "8px 14px 4px", fontSize: 11, fontWeight: 600, color: teamColors[ti], background: "#fafafa" }}>{teams[ti].name.toUpperCase()}</td></tr>,
-                            ...rows.map((row, i) => (
-                              <tr key={`${ti}-${i}`}>
-                                <td style={S.tdLeft}><span style={S.numBadge}>#{row.player.num}</span>{row.player.name}</td>
-                                {STAT_KEYS.filter(k => k !== "clear" && k !== "failed_clear" && k !== "successful_ride" && k !== "failed_ride" && k !== "mdd_success" && k !== "mdd_fail" && k !== "emo_fail" && k !== "shot_post").map(k => <td key={k} style={{ ...S.td, fontWeight: k === sortKey ? 600 : 400, opacity: row[k] === 0 ? 0.3 : 1 }}>{k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}</td>)}
-                              </tr>
-                            ))
-                          ];
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+            <div style={S.tableWrap}>
+              <PlayerStatsTable
+                teams={teams}
+                teamColors={teamColors}
+                playerStats={playerStats}
+                statKeys={PLAYER_STAT_KEYS}
+              />
+            </div>
           )}
 
           {/* Timeline — goals, timeouts, and penalties with timestamps */}

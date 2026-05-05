@@ -21,8 +21,14 @@ export default function GameTimeline({ scoringTimeline, teams, teamColors, compa
 
   // Forward pass to compute score snapshots, then reverse for newest-first display
   const scores = [0, 0];
+  const playerGoalCounts = {};
   const withScores = scoringTimeline.map(entry => {
-    if (entry.type === "goal") scores[entry.goal.teamIdx]++;
+    if (entry.type === "goal") {
+      scores[entry.goal.teamIdx]++;
+      const pKey = `${entry.goal.teamIdx}-${entry.goal.player?.num}`;
+      playerGoalCounts[pKey] = (playerGoalCounts[pKey] || 0) + 1;
+      return { ...entry, scoreSnap: [...scores], goalCount: playerGoalCounts[pKey] };
+    }
     return { ...entry, scoreSnap: [...scores] };
   });
   const rows = [...withScores].reverse();
@@ -98,7 +104,7 @@ export default function GameTimeline({ scoringTimeline, teams, teamColors, compa
           }
 
           // Goal
-          const { goal, assist } = entry;
+          const { goal, assist, goalCount } = entry;
           return (
             <tr key={i}>
               <td style={tdStyle}>
@@ -110,6 +116,7 @@ export default function GameTimeline({ scoringTimeline, teams, teamColors, compa
               </td>
               <td style={{ ...tdStyle, paddingLeft: 8 }}>
                 <span style={{ fontWeight: 500 }}>#{goal.player?.num} {goal.player?.name}</span>
+                {goalCount > 1 && <span style={{ marginLeft: 5, color: "#aaa", fontSize: compact ? 11 : 13 }}>({goalCount})</span>}
                 {goal.emo && <span style={{ marginLeft: 6, fontSize: 11, background: "#e8f5e9", color: "#2a7a3b", borderRadius: 4, padding: "1px 5px" }}>EMO</span>}
               </td>
               <td style={{ ...tdStyle, paddingLeft: 8 }}>

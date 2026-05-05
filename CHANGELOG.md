@@ -5,6 +5,19 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.4.0] — 2026-05-04
+
+### Added
+- **`PlayerStatsTable` component** (`src/components/PlayerStatsTable.jsx`) — shared player stats table used by `/score`, `/view`, and `/pressbox`; owns its own sort state; merges full roster so all players are shown even with zero stats; sortable by jersey number (default), name, or any stat column; `compact` mode for the Pressbox panel; exports `PLAYER_STAT_KEYS` (full column set) and `PRESSBOX_STAT_KEYS` (condensed) for callers to import
+- **Goal count in timeline** — goal rows in the scoring timeline (both `/view` and `/pressbox`) now show a player's cumulative goal count in parentheses after their name starting from their second goal (e.g. `#12 Firstname Lastname (3)`)
+
+### Changed
+- **Standardized player stats tables** — `/score` Stats > Players, `/view` Stats > Players, and `/pressbox` Player Stats panel all now use `PlayerStatsTable`; sort by `#` / Name controls are consistent across all three; all roster players are shown regardless of whether they have logged any events
+- **Duplicate review: SECURITY DEFINER RPC** — `dismiss_duplicate_flag()` RPC now bypasses `created_by` RLS so any scorer on a game can clear the duplicate flag on any event, not just their own; `dismissDuplicateFlag` service updated to call `db.rpc()` instead of a direct table UPDATE
+- **Duplicate review: inline delete confirmation** — the Delete button in the Dupes tab now shows inline Confirm/Cancel buttons instead of navigating away to the track screen
+
+---
+
 ## [2.3.0] — 2026-05-04
 
 ### Added
