@@ -94,45 +94,7 @@ function GameRow({ game, navigate, hasPressbox, v2Scores }) {
   );
 }
 
-function StandingsTable({ teamStats }) {
-  if (!teamStats.length) return (
-    <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "20px 0" }}>
-      Standings will appear once games are completed.
-    </div>
-  );
-
-  const sorted = [...teamStats].sort((a, b) => {
-    if (b.wins !== a.wins) return b.wins - a.wins;
-    const pctA = a.wins + a.losses > 0 ? a.wins / (a.wins + a.losses) : 0;
-    const pctB = b.wins + b.losses > 0 ? b.wins / (b.wins + b.losses) : 0;
-    return pctB - pctA;
-  });
-
-  return (
-    <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, overflow: "hidden" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr repeat(4, 40px)", gap: 0, padding: "8px 16px", background: "#f7f7f7", borderBottom: "1px solid #eee" }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em" }}>Team</span>
-        {["W", "L", "GF", "GA"].map(h => (
-          <span key={h} style={{ fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", textAlign: "center" }}>{h}</span>
-        ))}
-      </div>
-      {sorted.map((row, i) => (
-        <div key={row.team_id} style={{ display: "grid", gridTemplateColumns: "1fr repeat(4, 40px)", gap: 0, padding: "10px 16px", borderBottom: i < sorted.length - 1 ? "1px solid #f5f5f5" : "none", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: row.team_color || "#888", flexShrink: 0 }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{row.team_name}</span>
-          </div>
-          <span style={{ fontSize: 14, color: "#111", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{row.wins}</span>
-          <span style={{ fontSize: 14, color: "#888", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{row.losses}</span>
-          <span style={{ fontSize: 14, color: "#555", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{row.goals_for}</span>
-          <span style={{ fontSize: 14, color: "#888", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>{row.goals_against}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function StatLeaders({ playerStats, teamStatsMap }) {
+function StatLeaders({ playerStats }) {
   if (!playerStats.length) return (
     <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "20px 0" }}>
       Stat leaders will appear once games are scored.
@@ -156,20 +118,16 @@ function StatLeaders({ playerStats, teamStatsMap }) {
     return (
       <div style={{ flex: 1, minWidth: 200 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>{title}</div>
-        {players.map((p, i) => {
-          const teamName = teamStatsMap?.[p.team_id]?.team_name ?? p.team_name ?? "";
-          return (
+        {players.map((p, i) => (
             <div key={`${p.player_id ?? p.player_name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
               <span style={{ fontSize: 12, color: "#bbb", width: 16, textAlign: "right" }}>{i + 1}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player_name}</div>
-                {teamName && <div style={{ fontSize: 11, color: "#aaa" }}>{teamName}</div>}
               </div>
               <span style={{ fontSize: 16, fontWeight: 700, color: "#111", fontVariantNumeric: "tabular-nums" }}>{p[statKey]}</span>
               <span style={{ fontSize: 11, color: "#aaa", width: 28 }}>{statLabel}</span>
             </div>
-          );
-        })}
+        ))}
       </div>
     );
   }
@@ -192,12 +150,10 @@ export default function SeasonView() {
   const [season, setSeason] = useState(null);
   const [games, setGames] = useState([]);
   const [v2Scores, setV2Scores] = useState({});
-  const [teamStats, setTeamStats] = useState([]);
   const [playerStats, setPlayerStats] = useState([]);
   const [hasPressbox, setHasPressbox] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedTeamId, setSelectedTeamId] = useState(null);
 
   const { canView } = useOrgRole(org?.id);
 
@@ -256,14 +212,7 @@ export default function SeasonView() {
       setV2Scores(scoreMap);
     }
 
-    // Try to load standings from materialized view (may be empty)
-    const { data: tsData } = await supabase
-      .from("v_season_team_stats")
-      .select("*")
-      .eq("season_id", id);
-    setTeamStats(tsData || []);
-
-    // Try to load stat leaders from materialized view
+    // Load stat leaders
     const { data: psData } = await supabase
       .from("v_season_player_stats")
       .select("*")
@@ -289,23 +238,9 @@ export default function SeasonView() {
     </div>
   );
 
-  // Build a lookup map from team_id → team row for player name resolution
-  const teamStatsMap = Object.fromEntries(teamStats.map(t => [t.team_id, t]));
-
-  // Filtered views
-  const filteredTeamStats   = selectedTeamId ? teamStats.filter(t => t.team_id === selectedTeamId) : teamStats;
-  const filteredPlayerStats = selectedTeamId ? playerStats.filter(p => p.team_id === selectedTeamId) : playerStats;
-
-  const filterGames = (list) => selectedTeamId
-    ? list.filter(g => g.home_team_id === selectedTeamId || g.away_team_id === selectedTeamId)
-    : list;
-
-  const upcoming   = filterGames(games.filter(g => !g.state?.trackingStarted));
-  const inProgress = filterGames(games.filter(g => g.state?.trackingStarted && !g.state?.gameOver));
-  const completed  = filterGames(games.filter(g => g.state?.gameOver));
-
-  // Teams available to filter (only show filter if 2+ teams)
-  const filterTeams = teamStats.length >= 2 ? teamStats : [];
+  const upcoming   = games.filter(g => !g.state?.trackingStarted);
+  const inProgress = games.filter(g => g.state?.trackingStarted && !g.state?.gameOver);
+  const completed  = games.filter(g => g.state?.gameOver);
 
   return (
     <div style={S.page}>
@@ -315,50 +250,15 @@ export default function SeasonView() {
           <button style={{ ...S.back, padding: "0 0 8px" }} onClick={() => navigate(`/orgs/${slug}`)}>← {org?.name}</button>
 
           <h1 style={{ ...S.h1, marginBottom: 2 }}>{season?.name}</h1>
-          <p style={{ ...S.sub, marginBottom: filterTeams.length > 0 ? 10 : 0 }}>
+          <p style={S.sub}>
             {season?.start_date && season?.end_date
               ? `${formatDate(season.start_date)} – ${formatDate(season.end_date)}`
               : org?.name}
           </p>
-
-          {/* Team filter pills */}
-          {filterTeams.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <button
-                onClick={() => setSelectedTeamId(null)}
-                style={{
-                  padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", border: "1px solid",
-                  background: !selectedTeamId ? "#111" : "transparent",
-                  color: !selectedTeamId ? "#fff" : "#555",
-                  borderColor: !selectedTeamId ? "#111" : "#ddd",
-                }}
-              >
-                All
-              </button>
-              {filterTeams.map(t => (
-                <button
-                  key={t.team_id}
-                  onClick={() => setSelectedTeamId(prev => prev === t.team_id ? null : t.team_id)}
-                  style={{
-                    padding: "5px 14px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", border: "1px solid",
-                    background: selectedTeamId === t.team_id ? (t.team_color || "#111") : "transparent",
-                    color: selectedTeamId === t.team_id ? "#fff" : "#555",
-                    borderColor: selectedTeamId === t.team_id ? (t.team_color || "#111") : "#ddd",
-                  }}
-                >
-                  {t.team_name}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
       <div style={S.wrap}>
-
-        {/* Standings */}
-        <div style={S.sectionTitle}>Standings</div>
-        <StandingsTable teamStats={filteredTeamStats} />
 
         {/* Games */}
         {inProgress.length > 0 && (
@@ -391,7 +291,7 @@ export default function SeasonView() {
         {/* Stat Leaders */}
         <div style={S.sectionTitle}>Stat Leaders</div>
         <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, padding: "16px" }}>
-          <StatLeaders playerStats={filteredPlayerStats} teamStatsMap={teamStatsMap} />
+          <StatLeaders playerStats={playerStats} />
         </div>
       </div>
     </div>
