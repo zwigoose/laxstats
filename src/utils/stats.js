@@ -94,6 +94,23 @@ export function buildTeamTotals(entries) {
   totals[1].failed_ride     = totals[0].clear;
   totals[0].mdd_fail = entries.filter(e => e.event === "goal" && e.emo && e.teamIdx === 1).length;
   totals[1].mdd_fail = entries.filter(e => e.event === "goal" && e.emo && e.teamIdx === 0).length;
+
+  // Detect successful MDD: a penalty window that expired without the EMO team scoring.
+  // Requires a timed event at or after window.absEnd as evidence the clock passed that point.
+  const windows = computePenaltyWindows(entries);
+  const timedAbs = entries
+    .map(e => { const t = e.goalTime || e.timeoutTime || e.penaltyTime; return t ? absElapsedSecs(e.quarter, toSecs(t)) : null; })
+    .filter(a => a !== null);
+  const emoGoalAbs = entries
+    .filter(e => e.event === "goal" && e.emo && e.goalTime)
+    .map(e => ({ teamIdx: e.teamIdx, abs: absElapsedSecs(e.quarter, toSecs(e.goalTime)) }));
+  for (const w of windows) {
+    if (!timedAbs.some(a => a >= w.absEnd)) continue;
+    const emoTeam = 1 - w.entry.teamIdx;
+    const gotScored = emoGoalAbs.some(g => g.teamIdx === emoTeam && g.abs >= w.absStart && g.abs < w.absEnd);
+    if (!gotScored) totals[w.entry.teamIdx].mdd_success++;
+  }
+
   totals[0].emo_fail = totals[1].mdd_success;
   totals[1].emo_fail = totals[0].mdd_success;
   totals[0].sog = totals[0].goal + totals[1].shot_saved;

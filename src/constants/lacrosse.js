@@ -6,7 +6,6 @@ export const EVENTS = [
   { id: "turnover",    label: "Turnover",          icon: "↩️" },
   { id: "forced_to",   label: "Caused TO",         icon: "🥊" },
   { id: "penalty",     label: "Penalty",           icon: "🟨" },
-  { id: "mdd_success", label: "MDD Stop",          icon: "🛡️", teamStat: true },
   { id: "timeout",     label: "Timeout",           icon: "⏸️" },
   { id: "clear",       label: "Successful Clear",  icon: "⬆️", teamStat: true },
   { id: "failed_clear",label: "Failed Clear",      icon: "⬇️", teamStat: true },
