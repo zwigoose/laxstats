@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDocTitle } from "../hooks/useDocTitle";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -35,6 +36,7 @@ function Field({ label, value }) {
 export default function Profile() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  useDocTitle("Profile");
 
   const isLaxstatsAccount = user?.email?.endsWith(FAKE);
   const username  = user ? displayName(user.email) : "";

@@ -7,6 +7,7 @@ import {
   buildPlayerStats, buildTeamTotals, buildScoringTimeline,
   qLabel, isOT,
 } from "../components/LaxStats";
+import { useDocTitle } from "../hooks/useDocTitle";
 import { dbRowToEntry } from "../hooks/useGameEvents";
 import GameTimeline from "../components/GameTimeline";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
@@ -197,6 +198,7 @@ export default function ViewGame() {
   const state = game?.state;
   const isV2 = game?.schema_ver === 2;
   const teams = state?.teams || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
+  useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
   const log = isV2 ? (v2Log ?? []) : (state?.log || []);
   const currentQuarter = state?.currentQuarter || 1;
   const completedQuarters = state?.completedQuarters || [];

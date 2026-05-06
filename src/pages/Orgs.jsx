@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDocTitle } from "../hooks/useDocTitle";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -318,6 +319,7 @@ function SummaryBar({ memberships, orgData }) {
 export default function Orgs() {
   const navigate = useNavigate();
   const { user, orgMemberships, loading: authLoading } = useAuth();
+  useDocTitle("Organizations");
   const [orgData, setOrgData] = useState({});
   const [v2Scores, setV2Scores] = useState({});
   const [loading, setLoading] = useState(true);

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { useDocTitle } from "../hooks/useDocTitle";
 
 function slugify(str) {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -21,6 +22,7 @@ const label = {
 export default function CreateOrg() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  useDocTitle("New Organization");
   const [name, setName]             = useState("");
   const [slug, setSlug]             = useState("");
   const [slugTouched, setSlugTouched] = useState(false);

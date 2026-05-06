@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDocTitle } from "../../hooks/useDocTitle";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import AllGamesTab from "./AllGamesTab";
@@ -11,6 +12,7 @@ export default function Admin() {
   const navigate = useNavigate();
   const { isAdmin, loading } = useAuth();
   const [tab, setTab] = useState("games");
+  useDocTitle("Admin");
 
   if (loading) return null;
   if (!isAdmin) {

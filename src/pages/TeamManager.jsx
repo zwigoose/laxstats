@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useOrgRole } from "../hooks/useOrgRole";
+import { useDocTitle } from "../hooks/useDocTitle";
 
 const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
 
@@ -556,6 +557,7 @@ export default function TeamManager() {
   const navigate = useNavigate();
   const [org, setOrg] = useState(null);
   const [teams, setTeams] = useState([]);
+  useDocTitle(org ? `Teams · ${org.name}` : "Teams");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showNewTeam, setShowNewTeam] = useState(false);

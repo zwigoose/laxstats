@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useDocTitle } from "../hooks/useDocTitle";
 
 const FAKE_DOMAIN = "@laxstats.app";
 
@@ -14,6 +15,7 @@ export default function Login() {
   const location = useLocation();
   const nextUrl  = new URLSearchParams(location.search).get("next") || "/";
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
+  useDocTitle(mode === "signup" ? "Create Account" : "Sign In");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);

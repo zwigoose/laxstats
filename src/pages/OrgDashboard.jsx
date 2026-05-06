@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useOrgRole } from "../hooks/useOrgRole";
+import { useDocTitle } from "../hooks/useDocTitle";
 import { qLabel } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
 import { TeamCard, TeamForm, ColorPicker, PRESET_COLORS } from "./TeamManager";
@@ -782,6 +783,7 @@ export default function OrgDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(null);
   const [tab, setTab]       = useState(location.state?.tab ?? "games");
+  useDocTitle(org?.name);
 
   useEffect(() => {
     supabase.from("organizations").select("id, name, slug, plan")

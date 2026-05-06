@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDocTitle } from "../hooks/useDocTitle";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -32,6 +33,7 @@ export default function CreateGame() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, orgMemberships } = useAuth();
+  useDocTitle("New Game");
 
   // If launched from OrgDashboard/GameList, a membership object is passed via router state
   const preselected = location.state?.orgMembership ?? null;

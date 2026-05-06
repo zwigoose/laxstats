@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useOrgRole } from "../hooks/useOrgRole";
+import { useDocTitle } from "../hooks/useDocTitle";
 
 function parseDate(str) {
   return str?.length === 10 ? new Date(str + "T12:00:00") : new Date(str);
@@ -148,6 +149,7 @@ export default function SeasonView() {
   const navigate = useNavigate();
   const [org, setOrg] = useState(null);
   const [season, setSeason] = useState(null);
+  useDocTitle(season ? (org ? `${season.name} · ${org.name}` : season.name) : null);
   const [games, setGames] = useState([]);
   const [v2Scores, setV2Scores] = useState({});
   const [playerStats, setPlayerStats] = useState([]);

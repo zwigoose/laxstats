@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useDocTitle } from "../hooks/useDocTitle";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "../lib/supabase";
 import {
@@ -33,6 +34,7 @@ function ScorekeeperV1({ game, id, navigate, orgContext }) {
   const pendingSave  = useRef(null);
   const saveInFlight = useRef(false);
   const [gameName, setGameName] = useState(game?.name || "");
+  useDocTitle(gameName || "Scorekeeper");
 
   const handleStateChange = useCallback(async (newState) => {
     pendingSave.current = newState;
@@ -97,6 +99,7 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
   const saveInFlight = useRef(false);
   const tokenRef     = useRef(null);
   const [gameName, setGameName]   = useState(game?.name || "");
+  useDocTitle(gameName || "Scorekeeper");
   const [inviteLink,  setInviteLink]  = useState(null);
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
   const [inviteError, setInviteError] = useState(null);
