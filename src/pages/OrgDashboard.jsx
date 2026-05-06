@@ -112,8 +112,8 @@ function GamesTab({ org, canScore, orgMembership }) {
       .then(({ data: limit }) => setHasPressbox(limit !== 0));
 
     supabase.from("games")
-      .select("id, created_at, name, state, schema_ver, game_date, user_id, org_id, pressbox_enabled")
-      .eq("org_id", org.id).order("created_at", { ascending: false })
+      .select("id, created_at, name, state, schema_ver, game_date, user_id, org_id, away_org_id, pressbox_enabled")
+      .or(`org_id.eq.${org.id},away_org_id.eq.${org.id}`).order("created_at", { ascending: false })
       .then(async ({ data }) => {
         const games = data || [];
         setGames(games);

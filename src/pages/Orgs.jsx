@@ -339,12 +339,12 @@ export default function Orgs() {
         .select("id, org_id, name, start_date, end_date")
         .in("org_id", orgIds)
         .order("start_date", { ascending: false }),
-      supabase.from("games").select("id, org_id").in("org_id", orgIds),
+      supabase.from("games").select("id, org_id, away_org_id").or(`org_id.in.(${orgIds.join(",")}),away_org_id.in.(${orgIds.join(",")})`),
       supabase.from("games")
-        .select("id, org_id, schema_ver, state, game_date, created_at, home_team:teams!home_team_id(id, name, color), away_team:teams!away_team_id(id, name, color)")
-        .in("org_id", orgIds)
+        .select("id, org_id, away_org_id, schema_ver, state, game_date, created_at, home_team:teams!home_team_id(id, name, color), away_team:teams!away_team_id(id, name, color)")
+        .or(`org_id.in.(${orgIds.join(",")}),away_org_id.in.(${orgIds.join(",")})`)
         .order("created_at", { ascending: false })
-        .limit(orgIds.length * 5),
+        .limit(orgIds.length * 10),
     ]);
 
     const allRecent = recentRes.data || [];
@@ -364,11 +364,11 @@ export default function Orgs() {
 
     const data = {};
     for (const id of orgIds) {
-      const orgGames = allRecent.filter(g => g.org_id === id);
+      const orgGames = allRecent.filter(g => g.org_id === id || g.away_org_id === id);
       data[id] = {
         teamCount:   (teamsRes.data   || []).filter(t => t.org_id === id).length,
         playerCount: (playersRes.data || []).filter(p => p.org_id === id).length,
-        gameCount:   (gamesRes.data   || []).filter(g => g.org_id === id).length,
+        gameCount:   (gamesRes.data   || []).filter(g => g.org_id === id || g.away_org_id === id).length,
         seasons:     (seasonsRes.data || []).filter(s => s.org_id === id),
         recentGames: orgGames.slice(0, 3),
       };
