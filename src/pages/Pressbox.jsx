@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
   buildPlayerStats, buildTeamTotals,
-  qLabel, entryDisplayInfo,
+  qLabel, entryDisplayInfo, toSecs,
 } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
 import GameTimeline from "../components/GameTimeline";
@@ -179,6 +179,16 @@ export default function Dashboard() {
     });
     return order.map(gid => groups[gid])
       .filter(g => g.some(e => ["goal","timeout","penalty_tech","penalty_min"].includes(e.event)))
+      .sort((a, b) => {
+        const pa = a[0], pb = b[0];
+        if (pa.quarter !== pb.quarter) return pa.quarter - pb.quarter;
+        const ta = pa.goalTime || pa.timeoutTime || pa.penaltyTime;
+        const tb = pb.goalTime || pb.timeoutTime || pb.penaltyTime;
+        if (ta && tb) return toSecs(tb) - toSecs(ta);
+        if (ta) return -1;
+        if (tb) return 1;
+        return (pa.seq ?? 0) - (pb.seq ?? 0);
+      })
       .map(g => {
         const goal    = g.find(e => e.event === "goal");
         const timeout = g.find(e => e.event === "timeout");
