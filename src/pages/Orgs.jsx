@@ -25,17 +25,11 @@ function fmtShort(str) {
 }
 
 function gameScores(game, v2Scores) {
-  const started = !!game.state?.trackingStarted;
-  const over = !!game.state?.gameOver;
-  if (game.schema_ver === 2 && v2Scores?.[game.id]) {
-    return { home: v2Scores[game.id][0] ?? 0, away: v2Scores[game.id][1] ?? 0, started, over };
-  }
-  const log = game.state?.log || [];
   return {
-    home: log.filter(e => e.event === "goal" && e.teamIdx === 0).length,
-    away: log.filter(e => e.event === "goal" && e.teamIdx === 1).length,
-    started,
-    over,
+    home: v2Scores?.[game.id]?.[0] ?? 0,
+    away: v2Scores?.[game.id]?.[1] ?? 0,
+    started: !!game.state?.trackingStarted,
+    over: !!game.state?.gameOver,
   };
 }
 
@@ -350,13 +344,12 @@ export default function Orgs() {
     ]);
 
     const allRecent = recentRes.data || [];
-    const v2Ids = allRecent.filter(g => g.schema_ver === 2).map(g => g.id);
     let scoreMap = {};
-    if (v2Ids.length > 0) {
+    if (allRecent.length > 0) {
       const { data: totals } = await supabase
         .from("v_game_team_totals")
         .select("game_id, team_idx, goals")
-        .in("game_id", v2Ids);
+        .in("game_id", allRecent.map(g => g.id));
       (totals || []).forEach(r => {
         if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];
         scoreMap[r.game_id][r.team_idx] = r.goals;

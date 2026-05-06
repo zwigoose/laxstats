@@ -27,72 +27,7 @@ const S = {
   syncErrStatus:  { fontSize: 12, color: "#c0392b" },
 };
 
-// ── v1 path — JSONB blob save (unchanged) ─────────────────────────────────────
-function ScorekeeperV1({ game, id, navigate, orgContext }) {
-  const [saveStatus, setSaveStatus] = useState("");
-  const saveTimer    = useRef(null);
-  const pendingSave  = useRef(null);
-  const saveInFlight = useRef(false);
-  const [gameName, setGameName] = useState(game?.name || "");
-  useDocTitle(gameName || "Scorekeeper");
-
-  const handleStateChange = useCallback(async (newState) => {
-    pendingSave.current = newState;
-    if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
-      setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
-    }
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      if (saveInFlight.current) return;
-      const stateToSave = pendingSave.current;
-      if (!stateToSave) return;
-      saveInFlight.current = true;
-      setSaveStatus("saving");
-      pendingSave.current = null;
-      const updatePayload = { state: stateToSave };
-      if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
-        updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
-      }
-      const { error: err } = await updateGame(id, updatePayload);
-      saveInFlight.current = false;
-      if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
-      else {
-        setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000);
-        if (pendingSave.current) handleStateChange(pendingSave.current);
-      }
-    }, 800);
-  }, [id]);
-
-  return (
-    <div>
-      <div style={S.header}>
-        <button style={S.backBtn} onClick={() => navigate("/")}>← Games</button>
-        <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 28, height: 28, objectFit: "contain" }} />
-        <span style={S.headerTitle}>{gameName || "Scorekeeper"}</span>
-        <span style={S.saveStatus}>
-          {saveStatus === "saving" && "Saving…"}
-          {saveStatus === "saved"  && "Saved ✓"}
-          {saveStatus === "error"  && "Save failed"}
-        </span>
-        <button style={S.viewBtn} onClick={() => navigate(`/games/${id}/view`)}>Live view →</button>
-      </div>
-      <LaxStats
-        initialState={game?.state}
-        createdAt={game?.created_at}
-        onStateChange={handleStateChange}
-        orgContext={orgContext}
-        onOrgTeamSelected={async (teamIdx, teamId) => {
-          const col = teamIdx === 0 ? "home_team_id" : "away_team_id";
-          await updateGame(id, { [col]: teamId });
-        }}
-        onCancel={async () => { await deleteGame(id); navigate("/"); }}
-      />
-    </div>
-  );
-}
-
-// ── v2 path — game_events table + Realtime ────────────────────────────────────
-function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) {
+function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }) {
   const [saveStatus, setSaveStatus] = useState("");
   const saveTimer    = useRef(null);
   const pendingMeta  = useRef(null);
@@ -368,7 +303,6 @@ function ScorekeeperV2({ game, id, navigate, userId, isAnonymous, orgContext }) 
   );
 }
 
-// ── Root — dispatches to v1 or v2 based on schema_ver ─────────────────────────
 export default function Scorekeeper() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -458,8 +392,5 @@ export default function Scorekeeper() {
   if (loading || authLoading || (inviteToken && !user)) return <div style={S.loading}>Loading game…</div>;
   if (error)   return <div style={S.error}>{error}</div>;
 
-  if (game?.schema_ver === 2) {
-    return <ScorekeeperV2 game={game} id={id} navigate={navigate} userId={user?.id} isAnonymous={user?.is_anonymous ?? false} orgContext={orgContext} />;
-  }
-  return <ScorekeeperV1 game={game} id={id} navigate={navigate} orgContext={orgContext} />;
+  return <ScorekeeperGame game={game} id={id} navigate={navigate} userId={user?.id} isAnonymous={user?.is_anonymous ?? false} orgContext={orgContext} />;
 }

@@ -298,21 +298,20 @@ function LiveGamesSection({ user }) {
       .order("created_at", { ascending: false });
     const games = data || [];
 
-    // Fetch accurate goal counts from game_events for v2 games
-    const v2Ids = games.filter(g => g.schema_ver === 2).map(g => g.id);
+    const gameIds = games.map(g => g.id);
     let gamesWithScores = games;
-    if (v2Ids.length > 0) {
+    if (gameIds.length > 0) {
       const { data: totals } = await supabase
         .from("v_game_team_totals")
         .select("game_id, team_idx, goals")
-        .in("game_id", v2Ids);
+        .in("game_id", gameIds);
       const scoreMap = {};
       (totals || []).forEach(r => {
         if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];
         scoreMap[r.game_id][r.team_idx] = r.goals;
       });
       gamesWithScores = games.map(g =>
-        g.schema_ver === 2 && scoreMap[g.id]
+        scoreMap[g.id]
           ? { ...g, state: { ...g.state, score0: scoreMap[g.id][0], score1: scoreMap[g.id][1] } }
           : g
       );
@@ -613,20 +612,18 @@ function GamesTab({ onNewGame, user, orgMemberships = [] }) {
     if (err) { setError(err.message); setLoading(false); return; }
     const games = data || [];
 
-    // Fetch accurate goal counts from game_events for v2 games
-    const v2Ids = games.filter(g => g.schema_ver === 2).map(g => g.id);
-    if (v2Ids.length > 0) {
+    if (games.length > 0) {
       const { data: totals } = await supabase
         .from("v_game_team_totals")
         .select("game_id, team_idx, goals")
-        .in("game_id", v2Ids);
+        .in("game_id", games.map(g => g.id));
       const scoreMap = {};
       (totals || []).forEach(r => {
         if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];
         scoreMap[r.game_id][r.team_idx] = r.goals;
       });
       setGames(games.map(g =>
-        g.schema_ver === 2 && scoreMap[g.id]
+        scoreMap[g.id]
           ? { ...g, state: { ...g.state, score0: scoreMap[g.id][0], score1: scoreMap[g.id][1] } }
           : g
       ));

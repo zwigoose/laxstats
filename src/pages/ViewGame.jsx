@@ -180,26 +180,22 @@ export default function ViewGame() {
       setHasPressbox(limit !== 0);
     }
 
-    // v2: load event log from game_events table
-    if (data?.schema_ver === 2) {
-      const { data: evData } = await supabase
-        .from("game_events")
-        .select("*")
-        .eq("game_id", id)
-        .is("deleted_at", null)
-        .order("seq");
-      setV2Log((evData || []).map(dbRowToEntry));
-    }
+    const { data: evData } = await supabase
+      .from("game_events")
+      .select("*")
+      .eq("game_id", id)
+      .is("deleted_at", null)
+      .order("seq");
+    setV2Log((evData || []).map(dbRowToEntry));
 
     setLoading(false);
   }
 
   // ── Derived from game state ──────────────────────────────────────
   const state = game?.state;
-  const isV2 = game?.schema_ver === 2;
   const teams = state?.teams || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
-  const log = isV2 ? (v2Log ?? []) : (state?.log || []);
+  const log = v2Log ?? [];
   const currentQuarter = state?.currentQuarter || 1;
   const completedQuarters = state?.completedQuarters || [];
   const gameOver = state?.gameOver || false;
@@ -273,7 +269,7 @@ export default function ViewGame() {
         {hasPressbox && (
           <button style={S.copyBtn} onClick={() => window.open(`/games/${id}/pressbox`, "_blank")}>Press Box ↗</button>
         )}
-        {(user?.id === game?.user_id || isAdmin) && game?.schema_ver === 2 && !gameOver && (
+        {(user?.id === game?.user_id || isAdmin) && !gameOver && (
           <button style={(inviteLink || inviteState === "error") ? { ...S.copyBtnDone, cursor: "pointer" } : S.copyBtn}
             onClick={() => {
               if (inviteLink || inviteState === "error") { setInviteLink(null); setInviteState("idle"); setInviteError(null); }

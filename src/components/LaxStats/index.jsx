@@ -22,7 +22,6 @@ export default function LaxStats({
   createdAt = null,
   onStateChange = null,
   onCancel = null,
-  // v2 props — all optional; omit for v1 (schema_ver=1) games
   onEventCommit = null,             // async (stampedEntries) => void — write group to game_events
   onEventSoftDelete = null,         // async (groupId) => void — soft-delete group in game_events
   onEventDismissDuplicate = null,   // async (groupId) => void — clear duplicate flag on a group

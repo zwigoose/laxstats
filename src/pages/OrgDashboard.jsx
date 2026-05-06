@@ -21,10 +21,9 @@ function formatDate(str) {
 function getGameInfo(game, v2Scores) {
   const s = game.state;
   if (!s?.teams) return null;
-  const isV2 = game.schema_ver === 2;
-  const score0 = isV2 ? (v2Scores?.[game.id]?.[0] ?? 0) : (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
-  const score1 = isV2 ? (v2Scores?.[game.id]?.[1] ?? 0) : (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
-  const started = isV2 ? (score0 > 0 || score1 > 0 || !!s.trackingStarted) : !!s.trackingStarted;
+  const score0 = v2Scores?.[game.id]?.[0] ?? 0;
+  const score1 = v2Scores?.[game.id]?.[1] ?? 0;
+  const started = score0 > 0 || score1 > 0 || !!s.trackingStarted;
   const gameDate = game.game_date || s.gameDate || game.created_at?.split("T")[0];
   const currentQuarter = s.currentQuarter || 1;
   return { t0: s.teams[0], t1: s.teams[1], score0, score1, gameOver: s.gameOver, started, gameDate, currentQuarter };
@@ -119,13 +118,11 @@ function GamesTab({ org, canScore, orgMembership }) {
         const games = data || [];
         setGames(games);
 
-        // Fetch goal counts from game_events for v2 games
-        const v2Ids = games.filter(g => g.schema_ver === 2).map(g => g.id);
-        if (v2Ids.length > 0) {
+        if (games.length > 0) {
           const { data: totals } = await supabase
             .from("v_game_team_totals")
             .select("game_id, team_idx, goals")
-            .in("game_id", v2Ids);
+            .in("game_id", games.map(g => g.id));
           const scoreMap = {};
           (totals || []).forEach(r => {
             if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];

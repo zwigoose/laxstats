@@ -122,25 +122,22 @@ export default function Dashboard() {
       .from("games").select("id, created_at, name, state, schema_ver").eq("id", id).single();
     if (err) { setError(err.message); setLoading(false); return; }
     setGame(data);
-    if (data?.schema_ver === 2) {
-      const { data: evData } = await supabase
-        .from("game_events")
-        .select("*")
-        .eq("game_id", data.id)
-        .is("deleted_at", null)
-        .order("seq");
-      setV2Log((evData || []).map(dbRowToEntry));
-    }
+    const { data: evData } = await supabase
+      .from("game_events")
+      .select("*")
+      .eq("game_id", data.id)
+      .is("deleted_at", null)
+      .order("seq");
+    setV2Log((evData || []).map(dbRowToEntry));
     setLoading(false);
   }
 
   // ── Derived state ─────────────────────────────────────────────────────────
 
   const state             = game?.state;
-  const isV2              = game?.schema_ver === 2;
   const teams             = state?.teams             || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
-  const log               = isV2 ? (v2Log ?? []) : (state?.log || []);
+  const log               = v2Log ?? [];
   const currentQuarter    = state?.currentQuarter    || 1;
   const completedQuarters = state?.completedQuarters || [];
   const gameOver          = state?.gameOver          || false;

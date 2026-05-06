@@ -39,16 +39,8 @@ function GameRow({ game, navigate, hasPressbox, v2Scores }) {
   const homeColor = homeTeam?.color || "#444";
   const awayColor = awayTeam?.color || "#888";
 
-  // Score: v2 games read from view; v1 games read from state.log
-  let homeScore, awayScore;
-  if (game.schema_ver === 2 && v2Scores?.[game.id]) {
-    homeScore = v2Scores[game.id][0] ?? 0;
-    awayScore  = v2Scores[game.id][1] ?? 0;
-  } else {
-    const log = s?.log || [];
-    homeScore = log.filter(e => e.event === "goal" && e.teamIdx === 0).length;
-    awayScore  = log.filter(e => e.event === "goal" && e.teamIdx === 1).length;
-  }
+  const homeScore = v2Scores?.[game.id]?.[0] ?? 0;
+  const awayScore  = v2Scores?.[game.id]?.[1] ?? 0;
   const hasScore = s?.trackingStarted;
 
   return (
@@ -199,13 +191,11 @@ export default function SeasonView() {
     const allGames = gamesData || [];
     setGames(allGames);
 
-    // Load v2 goal counts from view
-    const v2Ids = allGames.filter(g => g.schema_ver === 2).map(g => g.id);
-    if (v2Ids.length > 0) {
+    if (allGames.length > 0) {
       const { data: totals } = await supabase
         .from("v_game_team_totals")
         .select("game_id, team_idx, goals")
-        .in("game_id", v2Ids);
+        .in("game_id", allGames.map(g => g.id));
       const scoreMap = {};
       (totals || []).forEach(r => {
         if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];
