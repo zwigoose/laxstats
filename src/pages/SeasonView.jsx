@@ -192,7 +192,7 @@ export default function SeasonView() {
     const { data: gamesData } = await supabase
       .from("games")
       .select("id, name, state, schema_ver, created_at, game_date, game_type, home_team_id, away_team_id, home_team:teams!home_team_id(id, name, color), away_team:teams!away_team_id(id, name, color)")
-      .eq("season_id", id)
+      .or(`season_id.eq.${id},away_season_id.eq.${id}`)
       .order("created_at", { ascending: false });
     const allGames = gamesData || [];
     setGames(allGames);
