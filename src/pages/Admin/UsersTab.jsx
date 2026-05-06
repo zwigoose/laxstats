@@ -219,8 +219,10 @@ export default function UsersTab() {
                               )}
                               <button style={{ padding: "3px 8px", fontSize: 11, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", color: "#555" }}
                                 onClick={() => navigate(`/games/${g.id}/view`)}>View</button>
-                              <button style={{ padding: "3px 8px", fontSize: 11, fontWeight: 600, background: "#111", border: "none", borderRadius: 6, cursor: "pointer", color: "#fff" }}
-                                onClick={() => navigate(`/games/${g.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
+                              {!info?.gameOver && (
+                                <button style={{ padding: "3px 8px", fontSize: 11, fontWeight: 600, background: "#111", border: "none", borderRadius: 6, cursor: "pointer", color: "#fff" }}
+                                  onClick={() => navigate(`/games/${g.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
+                              )}
                             </div>
                           </li>
                         );

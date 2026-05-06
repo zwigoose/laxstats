@@ -86,7 +86,7 @@ function OrgGameCard({ game, canScore, v2Scores, hasPressbox }) {
             {hasPressbox && (
               <button style={S.btnOutline} onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
             )}
-            {canScore && (
+            {canScore && !info?.gameOver && (
               <button style={S.btnPrimary} onClick={() => navigate(`/games/${game.id}/score`)}>
                 {info?.started ? "Score" : "Setup"}
               </button>
