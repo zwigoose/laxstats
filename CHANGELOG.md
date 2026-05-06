@@ -5,6 +5,14 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.7.0] — 2026-05-05
+
+### Changed
+- **Season stat leaders filtered to org's own players** — in cross-org games, only players whose team belongs to the season's org appear in stat leaders; opponents are excluded
+- **Standings removed from season view** — since games are always between different orgs (programs), a standings table within a season is not meaningful; the section has been removed
+
+---
+
 ## [2.6.0] — 2026-05-05
 
 ### Added
