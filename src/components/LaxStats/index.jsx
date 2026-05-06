@@ -4,14 +4,14 @@ import { fetchSavedTeams } from "../../services/teams";
 import { EVENTS, STAT_KEYS, STAT_LABELS, PENALTY_OPTIONS, PRESET_COLORS } from "../../constants/lacrosse";
 import {
   qLabel, isOT, toSecs, qLenSecs, absElapsedSecs, absSecsToQtrTime, penaltyDurSecs,
-  parseRoster, findDuplicateNums, buildPlayerStats, buildTeamTotals,
+  parseRoster, findDuplicateNums, buildPlayerStats, buildTeamTotals, buildLogGroups, buildScoringTimeline,
   computePenaltyWindows, getTimeoutsLeft, entryDisplayInfo,
 } from "../../utils/stats";
 import S from "../../styles/laxStats";
 import TimeKeypad from "./TimeKeypad";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../PlayerStatsTable";
 
-export { EVENTS, STAT_KEYS, STAT_LABELS, buildPlayerStats, buildTeamTotals, qLabel, isOT, toSecs, entryDisplayInfo };
+export { EVENTS, STAT_KEYS, STAT_LABELS, buildPlayerStats, buildTeamTotals, buildLogGroups, buildScoringTimeline, qLabel, isOT, toSecs, entryDisplayInfo };
 
 let _nextId = 1;
 function nextId() { return _nextId++; }
@@ -194,24 +194,8 @@ export default function LaxStats({
   // Log groups for the event log view — sorted chronologically: quarter ASC, time remaining DESC, seq ASC
   const logGroups = useMemo(() => {
     if (statsQtr === "dupes") return [];
-    const groups = {};
     const source = statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr));
-    source.forEach(e => {
-      if (!groups[e.groupId]) groups[e.groupId] = [];
-      groups[e.groupId].push(e);
-    });
-    return Object.values(groups).sort((a, b) => {
-      const pa = groupPrimary(a), pb = groupPrimary(b);
-      if (pa.quarter !== pb.quarter) return pa.quarter - pb.quarter;
-      const rawA = pa.goalTime || pa.timeoutTime || pa.penaltyTime;
-      const rawB = pb.goalTime || pb.timeoutTime || pb.penaltyTime;
-      const ta = rawA ? toSecs(rawA) : null;
-      const tb = rawB ? toSecs(rawB) : null;
-      if (ta !== null && tb !== null && ta !== tb) return tb - ta;
-      if (ta !== null && tb === null) return -1;
-      if (ta === null && tb !== null) return 1;
-      return (pa.seq ?? 0) - (pb.seq ?? 0);
-    });
+    return buildLogGroups(source);
   }, [log, statsQtr]);
 
   // Groups flagged as possible duplicates — driven from remoteEntries (always DB-current)

@@ -183,6 +183,47 @@ export function getTimeoutsLeft(log, currentQuarter) {
   );
 }
 
+function groupPrimary(group) {
+  return group.find(e => e.event === "goal") || group.find(e => e.event === "shot") || group[0];
+}
+
+function sortGroups(groups) {
+  return groups.sort((a, b) => {
+    const pa = groupPrimary(a), pb = groupPrimary(b);
+    if (pa.quarter !== pb.quarter) return pa.quarter - pb.quarter;
+    const rawA = pa.goalTime || pa.timeoutTime || pa.penaltyTime;
+    const rawB = pb.goalTime || pb.timeoutTime || pb.penaltyTime;
+    const ta = rawA ? toSecs(rawA) : null;
+    const tb = rawB ? toSecs(rawB) : null;
+    if (ta !== null && tb !== null && ta !== tb) return tb - ta;
+    if (ta !== null && tb === null) return -1;
+    if (ta === null && tb !== null) return 1;
+    return (pa.seq ?? 0) - (pb.seq ?? 0);
+  });
+}
+
+export function buildLogGroups(entries) {
+  const groups = {};
+  entries.forEach(e => {
+    if (!groups[e.groupId]) groups[e.groupId] = [];
+    groups[e.groupId].push(e);
+  });
+  return sortGroups(Object.values(groups));
+}
+
+export function buildScoringTimeline(entries) {
+  return buildLogGroups(entries)
+    .filter(g => g.some(e => e.event === "goal" || e.event === "timeout" || e.event === "penalty_tech" || e.event === "penalty_min"))
+    .map(g => {
+      const goal    = g.find(e => e.event === "goal");
+      const timeout = g.find(e => e.event === "timeout");
+      const penalty = g.find(e => e.event === "penalty_tech" || e.event === "penalty_min");
+      if (goal)    return { type: "goal",    goal,    assist: g.find(e => e.event === "assist") };
+      if (timeout) return { type: "timeout", timeout };
+      return { type: "penalty", penalty };
+    });
+}
+
 export function entryDisplayInfo(entry) {
   let icon = EVENTS.find(e => e.id === entry.event)?.icon || "•";
   let label = EVENTS.find(e => e.id === entry.event)?.label || entry.event;

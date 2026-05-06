@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { linkGameToAwaySeason } from "../services/games";
 import {
-  buildPlayerStats, buildTeamTotals,
+  buildPlayerStats, buildTeamTotals, buildScoringTimeline,
   qLabel, isOT,
 } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
@@ -241,35 +241,7 @@ export default function ViewGame() {
     return sogFaced ? `${Math.round((saves / sogFaced) * 100)}%` : "—";
   };
 
-  const scoringTimeline = useMemo(() => {
-    const source = statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr));
-    const groups = {};
-    source.forEach(e => {
-      if (!groups[e.groupId]) groups[e.groupId] = [];
-      groups[e.groupId].push(e);
-    });
-    return Object.values(groups)
-      .filter(g => g.some(e => e.event === "goal" || e.event === "timeout" || e.event === "penalty_tech" || e.event === "penalty_min"))
-      .sort((a, b) => {
-        const pa = a[0], pb = b[0];
-        if (pa.quarter !== pb.quarter) return pa.quarter - pb.quarter;
-        const ta = pa.goalTime || pa.timeoutTime || pa.penaltyTime;
-        const tb = pb.goalTime || pb.timeoutTime || pb.penaltyTime;
-        const toSecs = t => { const [m, s] = t.split(":").map(Number); return m * 60 + s; };
-        if (ta && tb) return toSecs(tb) - toSecs(ta);
-        if (ta) return -1;
-        if (tb) return 1;
-        return (pa.seq ?? 0) - (pb.seq ?? 0);
-      })
-      .map(g => {
-        const goal = g.find(e => e.event === "goal");
-        const timeout = g.find(e => e.event === "timeout");
-        const penalty = g.find(e => e.event === "penalty_tech" || e.event === "penalty_min");
-        if (goal) return { type: "goal", goal, assist: g.find(e => e.event === "assist") };
-        if (timeout) return { type: "timeout", timeout };
-        return { type: "penalty", penalty };
-      });
-  }, [log, statsQtr]);
+  const scoringTimeline = useMemo(() => buildScoringTimeline(filteredLog), [filteredLog]);
 
   async function handleLinkToSeason() {
     if (!addSeasonId) return;
