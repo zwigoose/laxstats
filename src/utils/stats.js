@@ -77,7 +77,7 @@ export function buildPlayerStats(entries) {
   return Object.values(map);
 }
 
-export function buildTeamTotals(entries) {
+export function buildTeamTotals(entries, completedQuarters = []) {
   const totals = [0, 1].map(ti => {
     const tot = Object.fromEntries(STAT_KEYS.map(k => [k, 0]));
     entries.filter(e => e.teamIdx === ti).forEach(e => {
@@ -98,9 +98,13 @@ export function buildTeamTotals(entries) {
   // Detect successful MDD: a penalty window that expired without the EMO team scoring.
   // Requires a timed event at or after window.absEnd as evidence the clock passed that point.
   const windows = computePenaltyWindows(entries);
-  const timedAbs = entries
-    .map(e => { const t = e.goalTime || e.timeoutTime || e.penaltyTime; return t ? absElapsedSecs(e.quarter, toSecs(t)) : null; })
-    .filter(a => a !== null);
+  const qtrBoundaries = completedQuarters.map(q => absElapsedSecs(q, 0));
+  const timedAbs = [
+    ...entries
+      .map(e => { const t = e.goalTime || e.timeoutTime || e.penaltyTime; return t ? absElapsedSecs(e.quarter, toSecs(t)) : null; })
+      .filter(a => a !== null),
+    ...qtrBoundaries,
+  ];
   const emoGoalAbs = entries
     .filter(e => e.event === "goal" && e.emo && e.goalTime)
     .map(e => ({ teamIdx: e.teamIdx, abs: absElapsedSecs(e.quarter, toSecs(e.goalTime)) }));

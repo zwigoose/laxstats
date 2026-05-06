@@ -177,7 +177,7 @@ export default function LaxStats({
   );
 
   const playerStats = useMemo(() => buildPlayerStats(filteredLog), [filteredLog]);
-  const teamTotals = useMemo(() => buildTeamTotals(filteredLog), [filteredLog]);
+  const teamTotals = useMemo(() => buildTeamTotals(filteredLog, completedQuarters), [filteredLog, completedQuarters]);
 
   const shotPct  = (ti) => { const s = teamTotals[ti].shot,  g = teamTotals[ti].goal;        return s     ? `${Math.round((g/s)*100)}%` : "—"; };
   const sogPct   = (ti) => { const sog = teamTotals[ti].sog, g = teamTotals[ti].goal;         return sog   ? `${Math.round((g/sog)*100)}%` : "—"; };

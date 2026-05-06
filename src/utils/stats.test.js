@@ -356,6 +356,26 @@ describe("buildTeamTotals", () => {
     const [t0] = buildTeamTotals(entries);
     expect(t0.penalty_min).toBe(3);
   });
+
+  it("credits mdd_success when penalty window expires at quarter boundary", () => {
+    // Penalty on team 1 at Q1 8:40 (2 min) → expires at Q1 6:40 (absEnd=320)
+    // Q1 ends with no further timed events — completedQuarters=[1] provides the boundary
+    const entries = [
+      mkPenalty(1, "penalty_min", 1, "8:40", "5", { penaltyMin: 2 }),
+    ];
+    const [t0, t1] = buildTeamTotals(entries, [1]);
+    expect(t1.mdd_success).toBe(1);
+    expect(t0.emo_fail).toBe(1);
+  });
+
+  it("does not credit mdd_success when quarter has not yet completed", () => {
+    const entries = [
+      mkPenalty(1, "penalty_min", 1, "8:40", "5", { penaltyMin: 2 }),
+    ];
+    const [t0, t1] = buildTeamTotals(entries, []);
+    expect(t1.mdd_success).toBe(0);
+    expect(t0.emo_fail).toBe(0);
+  });
 });
 
 // ── computePenaltyWindows ─────────────────────────────────────────────────────

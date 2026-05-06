@@ -167,7 +167,7 @@ export default function Dashboard() {
     statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr)),
     [log, statsQtr]);
 
-  const teamTotals  = useMemo(() => buildTeamTotals(filteredLog),  [filteredLog]);
+  const teamTotals  = useMemo(() => buildTeamTotals(filteredLog, completedQuarters),  [filteredLog, completedQuarters]);
   const playerStats = useMemo(() => buildPlayerStats(filteredLog), [filteredLog]);
 
   const scoringTimeline = useMemo(() => {
