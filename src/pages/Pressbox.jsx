@@ -380,7 +380,7 @@ export default function Dashboard() {
                     : (() => {
                         const items = [];
                         let lastQ = null;
-                        logGroups.forEach((group, gi) => {
+                        [...logGroups].reverse().forEach((group, gi) => {
                           const primary = groupPrimary(group);
                           const q = primary.quarter;
                           if (statsQtr === "all" && q !== lastQ) {
