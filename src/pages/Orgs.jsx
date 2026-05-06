@@ -23,13 +23,18 @@ function fmtShort(str) {
   return parseDate(str).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function gameScores(game) {
+function gameScores(game, v2Scores) {
+  const started = !!game.state?.trackingStarted;
+  const over = !!game.state?.gameOver;
+  if (game.schema_ver === 2 && v2Scores?.[game.id]) {
+    return { home: v2Scores[game.id][0] ?? 0, away: v2Scores[game.id][1] ?? 0, started, over };
+  }
   const log = game.state?.log || [];
   return {
     home: log.filter(e => e.event === "goal" && e.teamIdx === 0).length,
     away: log.filter(e => e.event === "goal" && e.teamIdx === 1).length,
-    started: !!game.state?.trackingStarted,
-    over: !!game.state?.gameOver,
+    started,
+    over,
   };
 }
 
@@ -57,8 +62,8 @@ function StatChip({ value, label }) {
   );
 }
 
-function RecentGameRow({ game, canScore, navigate }) {
-  const { home, away, started, over } = gameScores(game);
+function RecentGameRow({ game, canScore, navigate, v2Scores }) {
+  const { home, away, started, over } = gameScores(game, v2Scores);
   // Prefer DB-joined team rows; fall back to names embedded in game state JSONB
   // (games created without a linked org team have null home/away_team_id).
   const stateTeams = game.state?.teams ?? [];
@@ -126,7 +131,7 @@ function RecentGameRow({ game, canScore, navigate }) {
   );
 }
 
-function OrgCard({ membership, data, navigate }) {
+function OrgCard({ membership, data, navigate, v2Scores }) {
   const { role, org } = membership;
   const { teamCount = 0, playerCount = 0, gameCount = 0, seasons = [], recentGames = [] } = data || {};
   const isAdmin = role === "org_admin";
@@ -221,7 +226,7 @@ function OrgCard({ membership, data, navigate }) {
             <div style={{ fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
               Recent Games
             </div>
-            {recentGames.map(g => <RecentGameRow key={g.id} game={g} canScore={canScore} navigate={navigate} />)}
+            {recentGames.map(g => <RecentGameRow key={g.id} game={g} canScore={canScore} navigate={navigate} v2Scores={v2Scores} />)}
           </div>
         )}
       </div>
@@ -314,6 +319,7 @@ export default function Orgs() {
   const navigate = useNavigate();
   const { user, orgMemberships, loading: authLoading } = useAuth();
   const [orgData, setOrgData] = useState({});
+  const [v2Scores, setV2Scores] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -335,15 +341,30 @@ export default function Orgs() {
         .order("start_date", { ascending: false }),
       supabase.from("games").select("id, org_id").in("org_id", orgIds),
       supabase.from("games")
-        .select("id, org_id, state, game_date, created_at, home_team:teams!home_team_id(id, name, color), away_team:teams!away_team_id(id, name, color)")
+        .select("id, org_id, schema_ver, state, game_date, created_at, home_team:teams!home_team_id(id, name, color), away_team:teams!away_team_id(id, name, color)")
         .in("org_id", orgIds)
         .order("created_at", { ascending: false })
         .limit(orgIds.length * 5),
     ]);
 
+    const allRecent = recentRes.data || [];
+    const v2Ids = allRecent.filter(g => g.schema_ver === 2).map(g => g.id);
+    let scoreMap = {};
+    if (v2Ids.length > 0) {
+      const { data: totals } = await supabase
+        .from("v_game_team_totals")
+        .select("game_id, team_idx, goals")
+        .in("game_id", v2Ids);
+      (totals || []).forEach(r => {
+        if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];
+        scoreMap[r.game_id][r.team_idx] = r.goals;
+      });
+    }
+    setV2Scores(scoreMap);
+
     const data = {};
     for (const id of orgIds) {
-      const orgGames = (recentRes.data || []).filter(g => g.org_id === id);
+      const orgGames = allRecent.filter(g => g.org_id === id);
       data[id] = {
         teamCount:   (teamsRes.data   || []).filter(t => t.org_id === id).length,
         playerCount: (playersRes.data || []).filter(p => p.org_id === id).length,
@@ -424,6 +445,7 @@ export default function Orgs() {
                 membership={m}
                 data={orgData[m.org_id]}
                 navigate={navigate}
+                v2Scores={v2Scores}
               />
             ))}
           </>

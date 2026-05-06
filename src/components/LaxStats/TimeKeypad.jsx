@@ -71,13 +71,15 @@ export default function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeilin
             </span>
           : <span style={{ fontSize: 12, color: "#ddd" }}>Enter time remaining</span>}
       </div>
-      {showSameAsLatest && latestLabel && (
-        <button
-          onClick={() => setDigits(timeStringToDigits(latestLabel))}
-          style={{ width: "100%", marginBottom: 10, padding: "10px 0", fontSize: 13, fontWeight: 600, background: "#f0f8ff", border: "1px solid #c0d8f0", borderRadius: 10, cursor: "pointer", color: "#1a6bab" }}>
-          Same as latest: {latestLabel}
-        </button>
-      )}
+      <div style={{ height: 50 }}>
+        {showSameAsLatest && latestLabel && (
+          <button
+            onClick={() => setDigits(timeStringToDigits(latestLabel))}
+            style={{ width: "100%", marginBottom: 10, padding: "10px 0", fontSize: 13, fontWeight: 600, background: "#f0f8ff", border: "1px solid #c0d8f0", borderRadius: 10, cursor: "pointer", color: "#1a6bab" }}>
+            Same as latest: {latestLabel}
+          </button>
+        )}
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
         {[1,2,3,4,5,6,7,8,9].map(d => (
           <button key={d} style={keyStyle(false)} onClick={() => pressDigit(String(d))}>{d}</button>

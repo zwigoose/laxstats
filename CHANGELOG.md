@@ -5,6 +5,22 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.6.0] — 2026-05-05
+
+### Added
+- **Dupe warning banner on Track screen** — when duplicate events are detected, a tappable amber banner appears at the top of the Track screen; tapping navigates directly to the Dupes tab in the Event Log
+- **"Delay of Game" penalty** — added as a technical foul option in the penalty selection flow
+
+### Fixed
+- **0-0 score for v2 games in `/orgs` and season pages** — recent games on the Orgs dashboard and games list in SeasonView now fetch goal counts from `v_game_team_totals` for v2 games instead of reading the (null) `state.log`
+- **End-quarter modal reappears after confirming** — `resetEntry()` was never called when `onMetaEvent()` returned `undefined` (causing `.catch()` to throw); moved `resetEntry()` before the meta broadcast in both quarter-end paths so the modal always dismisses
+- **Stayed on Stats tab after ending a non-final quarter** — after confirming end of a non-final quarter, the scorekeeper now stays on the Track screen instead of being redirected to Stats
+- **"Last known" player button layout shift on time entry** — the faceoff winner and goalie featured buttons now render inside the player grid (full-width, two rows tall) so the numpad position is stable whether or not a featured player is present
+- **TimeKeypad layout shift from "Same as latest" button** — wrapped the button in a fixed-height container so the numpad doesn't shift when the button appears or disappears
+- **Event log out of chronological order** — the Event Log tab now sorts groups by quarter ascending, then time remaining descending, then insertion order; events entered out of sequence appear at their correct game-time position
+
+---
+
 ## [2.5.0] — 2026-05-05
 
 ### Added

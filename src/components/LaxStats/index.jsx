@@ -191,17 +191,27 @@ export default function LaxStats({
     return sogFaced ? `${Math.round((saves/sogFaced)*100)}%` : "—";
   };
 
-  // Log groups for the event log view — preserve original log order, group by groupId
+  // Log groups for the event log view — sorted chronologically: quarter ASC, time remaining DESC, seq ASC
   const logGroups = useMemo(() => {
     if (statsQtr === "dupes") return [];
     const groups = {};
-    const order = [];
     const source = statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr));
     source.forEach(e => {
-      if (!groups[e.groupId]) { groups[e.groupId] = []; order.push(e.groupId); }
+      if (!groups[e.groupId]) groups[e.groupId] = [];
       groups[e.groupId].push(e);
     });
-    return order.map(gid => groups[gid]);
+    return Object.values(groups).sort((a, b) => {
+      const pa = groupPrimary(a), pb = groupPrimary(b);
+      if (pa.quarter !== pb.quarter) return pa.quarter - pb.quarter;
+      const rawA = pa.goalTime || pa.timeoutTime || pa.penaltyTime;
+      const rawB = pb.goalTime || pb.timeoutTime || pb.penaltyTime;
+      const ta = rawA ? toSecs(rawA) : null;
+      const tb = rawB ? toSecs(rawB) : null;
+      if (ta !== null && tb !== null && ta !== tb) return tb - ta;
+      if (ta !== null && tb === null) return -1;
+      if (ta === null && tb !== null) return 1;
+      return (pa.seq ?? 0) - (pb.seq ?? 0);
+    });
   }, [log, statsQtr]);
 
   // Groups flagged as possible duplicates — driven from remoteEntries (always DB-current)
@@ -683,15 +693,16 @@ export default function LaxStats({
     setCompletedQuarters(newCompletedQuarters);
     if (currentQuarter === 4 && !tied) {
       setGameOver(true); setScreen("stats"); setStatsTab("summary"); setStatsQtr("all");
-      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter, newCompletedQuarters }).catch(console.error);
+      resetEntry();
+      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter, newCompletedQuarters })?.catch(console.error);
     } else {
       const ended = currentQuarter;
       const newCurrentQuarter = ended + 1;
       setCurrentQuarter(newCurrentQuarter);
-      setScreen("stats"); setStatsTab("summary"); setStatsQtr(String(ended));
-      if (onMetaEvent) onMetaEvent("endQuarter", { quarter: ended, newCurrentQuarter, newCompletedQuarters }).catch(console.error);
+      setScreen("track");
+      resetEntry();
+      if (onMetaEvent) onMetaEvent("endQuarter", { quarter: ended, newCurrentQuarter, newCompletedQuarters })?.catch(console.error);
     }
-    resetEntry();
   }
 
   function handleDeleteGroup(gid) {
@@ -1117,6 +1128,22 @@ export default function LaxStats({
             </div>
           )}
 
+          {dupeGroups.length > 0 && (
+            <button
+              onClick={() => { setScreen("stats"); setStatsTab("log"); setStatsQtr("dupes"); }}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: "#fffbf0", border: "1px solid #f0c060", borderRadius: 10, padding: "10px 14px", marginBottom: 14, cursor: "pointer", textAlign: "left", boxSizing: "border-box" }}
+            >
+              <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#7a5c00" }}>
+                  {dupeGroups.length} possible duplicate{dupeGroups.length !== 1 ? "s" : ""} detected
+                </div>
+                <div style={{ fontSize: 11, color: "#9a7c20", marginTop: 1 }}>Tap to review in Event Log</div>
+              </div>
+              <span style={{ fontSize: 13, color: "#c0a030", flexShrink: 0 }}>→</span>
+            </button>
+          )}
+
           {editingGroupId && (
             <div style={{ background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#7a5c00", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>✏️ Editing entry</div>
@@ -1255,31 +1282,32 @@ export default function LaxStats({
             <div>
               <button style={S.backBtn} onClick={() => setStep("event")}>← Back</button>
               <div style={{ ...S.stepLabel }}>{selectedEvent?.label} — Which player?</div>
-              {selectedEvent?.id === "faceoff_win" && (() => {
-                const lfw = lastFaceoffWinner[selectedTeam];
-                const prevPlayer = editingGroupId ? prevPlayerInGroup(editingGroupId, selectedTeam) : null;
-                const featured = prevPlayer || lfw;
+              {(() => {
+                const isFaceoff = selectedEvent?.id === "faceoff_win";
+                const prev = editingGroupId ? prevPlayerInGroup(editingGroupId, selectedTeam) : null;
+                const featured = isFaceoff ? (prev || lastFaceoffWinner[selectedTeam]) : null;
                 const isHome = selectedTeam === 0;
-                return featured ? (
-                  <button
-                    style={{ ...S.playerBtn(true, teamColors[selectedTeam], isHome), width: "100%", display: "flex", justifyContent: "center", gap: 8, padding: "12px 16px", marginBottom: 10, boxSizing: "border-box" }}
-                    onClick={() => handlePlayerSelected(featured)}
-                  >
-                    <span style={S.playerNum(true, isHome, teamColors[selectedTeam])}>#{featured.num}</span>
-                    <span style={S.playerName(true, isHome, teamColors[selectedTeam])}>{featured.name}</span>
-                  </button>
-                ) : null;
+                const roster = parsedRosters[selectedTeam] || [];
+                const rest = featured ? roster.filter(p => !(p.num === featured.num && p.name === featured.name)) : roster;
+                return (
+                  <div style={S.playerGrid}>
+                    {featured && (
+                      <button
+                        style={{ ...S.playerBtn(true, teamColors[selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 }}
+                        onClick={() => handlePlayerSelected(featured)}
+                      >
+                        <span style={S.playerNum(true, isHome, teamColors[selectedTeam])}>#{featured.num}</span>
+                        <span style={S.playerName(true, isHome, teamColors[selectedTeam])}>{featured.name}</span>
+                      </button>
+                    )}
+                    {rest.map((p, i) => {
+                      const editPrev = editingGroupId ? prevPlayerInGroup(editingGroupId, selectedTeam) : null;
+                      const sel = editPrev ? (editPrev.num === p.num && editPrev.name === p.name) : false;
+                      return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handlePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
+                    })}
+                  </div>
+                );
               })()}
-              <div style={S.playerGrid}>
-                {parsedRosters[selectedTeam]?.map((p, i) => {
-                  const isFaceoff = selectedEvent?.id === "faceoff_win";
-                  const prev = editingGroupId ? prevPlayerInGroup(editingGroupId, selectedTeam) : null;
-                  const featured = isFaceoff ? (prev || lastFaceoffWinner[selectedTeam]) : prev;
-                  const sel = featured ? (featured.num === p.num && featured.name === p.name) : false;
-                  const isHome = selectedTeam === 0;
-                  return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handlePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
-                })}
-              </div>
             </div>
           )}
 
@@ -1426,24 +1454,26 @@ export default function LaxStats({
                 const prevGoalie = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "shot_saved")?.player : null;
                 const featuredGoalie = prevGoalie || lg;
                 const isHome = (1 - selectedTeam) === 0;
-                return featuredGoalie ? (
-                  <button
-                    style={{ ...S.playerBtn(true, teamColors[1 - selectedTeam], isHome), width: "100%", display: "flex", justifyContent: "center", gap: 8, padding: "12px 16px", marginBottom: 10, boxSizing: "border-box" }}
-                    onClick={() => handleSavePlayerSelected(featuredGoalie)}
-                  >
-                    <span style={S.playerNum(true, isHome, teamColors[1 - selectedTeam])}>#{featuredGoalie.num}</span>
-                    <span style={S.playerName(true, isHome, teamColors[1 - selectedTeam])}>{featuredGoalie.name}</span>
-                  </button>
-                ) : null;
+                const roster = parsedRosters[1 - selectedTeam] || [];
+                const rest = featuredGoalie ? roster.filter(p => !(p.num === featuredGoalie.num && p.name === featuredGoalie.name)) : roster;
+                return (
+                  <div style={S.playerGrid}>
+                    {featuredGoalie && (
+                      <button
+                        style={{ ...S.playerBtn(true, teamColors[1 - selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 }}
+                        onClick={() => handleSavePlayerSelected(featuredGoalie)}
+                      >
+                        <span style={S.playerNum(true, isHome, teamColors[1 - selectedTeam])}>#{featuredGoalie.num}</span>
+                        <span style={S.playerName(true, isHome, teamColors[1 - selectedTeam])}>{featuredGoalie.name}</span>
+                      </button>
+                    )}
+                    {rest.map((p, i) => {
+                      const sel = false;
+                      return <button key={i} style={S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleSavePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
+                    })}
+                  </div>
+                );
               })()}
-              <div style={S.playerGrid}>
-                {parsedRosters[1 - selectedTeam]?.map((p, i) => {
-                  const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "shot_saved")?.player : lastGoalie[1 - selectedTeam];
-                  const sel = prev ? (prev.num === p.num && prev.name === p.name) : false;
-                  const isHome = (1 - selectedTeam) === 0;
-                  return <button key={i} style={S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleSavePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
-                })}
-              </div>
             </div>
           )}
 

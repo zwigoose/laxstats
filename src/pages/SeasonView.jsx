@@ -31,17 +31,23 @@ function GameStatusBadge({ game }) {
   return <span style={{ fontSize: 11, fontWeight: 600, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "3px 9px" }}>Scheduled</span>;
 }
 
-function GameRow({ game, navigate, hasPressbox }) {
+function GameRow({ game, navigate, hasPressbox, v2Scores }) {
   const s = game.state;
   const homeTeam = game.home_team;
   const awayTeam = game.away_team;
   const homeColor = homeTeam?.color || "#444";
   const awayColor = awayTeam?.color || "#888";
 
-  // Score from state (v1 JSONB)
-  const log = s?.log || [];
-  const homeScore = log.filter(e => e.event === "goal" && e.teamIdx === 0).length;
-  const awayScore  = log.filter(e => e.event === "goal" && e.teamIdx === 1).length;
+  // Score: v2 games read from view; v1 games read from state.log
+  let homeScore, awayScore;
+  if (game.schema_ver === 2 && v2Scores?.[game.id]) {
+    homeScore = v2Scores[game.id][0] ?? 0;
+    awayScore  = v2Scores[game.id][1] ?? 0;
+  } else {
+    const log = s?.log || [];
+    homeScore = log.filter(e => e.event === "goal" && e.teamIdx === 0).length;
+    awayScore  = log.filter(e => e.event === "goal" && e.teamIdx === 1).length;
+  }
   const hasScore = s?.trackingStarted;
 
   return (
@@ -185,6 +191,7 @@ export default function SeasonView() {
   const [org, setOrg] = useState(null);
   const [season, setSeason] = useState(null);
   const [games, setGames] = useState([]);
+  const [v2Scores, setV2Scores] = useState({});
   const [teamStats, setTeamStats] = useState([]);
   const [playerStats, setPlayerStats] = useState([]);
   const [hasPressbox, setHasPressbox] = useState(false);
@@ -228,10 +235,26 @@ export default function SeasonView() {
     // Load games for this season
     const { data: gamesData } = await supabase
       .from("games")
-      .select("id, name, state, created_at, game_date, game_type, home_team_id, away_team_id, home_team:teams!home_team_id(id, name, color), away_team:teams!away_team_id(id, name, color)")
+      .select("id, name, state, schema_ver, created_at, game_date, game_type, home_team_id, away_team_id, home_team:teams!home_team_id(id, name, color), away_team:teams!away_team_id(id, name, color)")
       .eq("season_id", id)
       .order("created_at", { ascending: false });
-    setGames(gamesData || []);
+    const allGames = gamesData || [];
+    setGames(allGames);
+
+    // Load v2 goal counts from view
+    const v2Ids = allGames.filter(g => g.schema_ver === 2).map(g => g.id);
+    if (v2Ids.length > 0) {
+      const { data: totals } = await supabase
+        .from("v_game_team_totals")
+        .select("game_id, team_idx, goals")
+        .in("game_id", v2Ids);
+      const scoreMap = {};
+      (totals || []).forEach(r => {
+        if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];
+        scoreMap[r.game_id][r.team_idx] = r.goals;
+      });
+      setV2Scores(scoreMap);
+    }
 
     // Try to load standings from materialized view (may be empty)
     const { data: tsData } = await supabase
@@ -341,21 +364,21 @@ export default function SeasonView() {
         {inProgress.length > 0 && (
           <>
             <div style={{ ...S.sectionTitle, color: "#2a7a3b" }}>● Live</div>
-            {inProgress.map(g => <GameRow key={g.id} game={g} navigate={navigate} hasPressbox={hasPressbox} />)}
+            {inProgress.map(g => <GameRow key={g.id} game={g} navigate={navigate} hasPressbox={hasPressbox} v2Scores={v2Scores} />)}
           </>
         )}
 
         {upcoming.length > 0 && (
           <>
             <div style={S.sectionTitle}>Schedule</div>
-            {upcoming.map(g => <GameRow key={g.id} game={g} navigate={navigate} hasPressbox={hasPressbox} />)}
+            {upcoming.map(g => <GameRow key={g.id} game={g} navigate={navigate} hasPressbox={hasPressbox} v2Scores={v2Scores} />)}
           </>
         )}
 
         {completed.length > 0 && (
           <>
             <div style={S.sectionTitle}>Results</div>
-            {completed.map(g => <GameRow key={g.id} game={g} navigate={navigate} hasPressbox={hasPressbox} />)}
+            {completed.map(g => <GameRow key={g.id} game={g} navigate={navigate} hasPressbox={hasPressbox} v2Scores={v2Scores} />)}
           </>
         )}
 

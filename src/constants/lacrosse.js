@@ -30,6 +30,7 @@ export const STAT_LABELS = {
 export const PENALTY_OPTIONS = [
   { name: "Conduct",                 type: "tech" },
   { name: "Cross Check",             type: "personal" },
+  { name: "Delay of Game",           type: "tech" },
   { name: "Holding",                 type: "tech" },
   { name: "Illegal Body Check",      type: "personal" },
   { name: "Illegal Equipment",       type: "personal" },
