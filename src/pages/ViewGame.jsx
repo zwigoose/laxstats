@@ -244,14 +244,22 @@ export default function ViewGame() {
   const scoringTimeline = useMemo(() => {
     const source = statsQtr === "all" ? log : log.filter(e => e.quarter === parseInt(statsQtr));
     const groups = {};
-    const order = [];
     source.forEach(e => {
-      if (!groups[e.groupId]) { groups[e.groupId] = []; order.push(e.groupId); }
+      if (!groups[e.groupId]) groups[e.groupId] = [];
       groups[e.groupId].push(e);
     });
-    return order
-      .map(gid => groups[gid])
+    return Object.values(groups)
       .filter(g => g.some(e => e.event === "goal" || e.event === "timeout" || e.event === "penalty_tech" || e.event === "penalty_min"))
+      .sort((a, b) => {
+        const pa = a[0], pb = b[0];
+        if (pa.quarter !== pb.quarter) return pa.quarter - pb.quarter;
+        const ta = pa.goalTime || pa.timeoutTime || pa.penaltyTime;
+        const tb = pb.goalTime || pb.timeoutTime || pb.penaltyTime;
+        if (ta && tb) return toS(tb) - toS(ta);
+        if (ta) return -1;
+        if (tb) return 1;
+        return (pa.seq ?? 0) - (pb.seq ?? 0);
+      })
       .map(g => {
         const goal = g.find(e => e.event === "goal");
         const timeout = g.find(e => e.event === "timeout");
