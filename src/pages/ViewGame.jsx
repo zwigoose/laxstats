@@ -255,7 +255,8 @@ export default function ViewGame() {
         if (pa.quarter !== pb.quarter) return pa.quarter - pb.quarter;
         const ta = pa.goalTime || pa.timeoutTime || pa.penaltyTime;
         const tb = pb.goalTime || pb.timeoutTime || pb.penaltyTime;
-        if (ta && tb) return toS(tb) - toS(ta);
+        const toSecs = t => { const [m, s] = t.split(":").map(Number); return m * 60 + s; };
+        if (ta && tb) return toSecs(tb) - toSecs(ta);
         if (ta) return -1;
         if (tb) return 1;
         return (pa.seq ?? 0) - (pb.seq ?? 0);
