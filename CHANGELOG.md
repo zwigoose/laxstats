@@ -5,6 +5,22 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.8.0] — 2026-05-06
+
+### Added
+- **Dynamic browser tab titles** — each page sets a contextual `document.title` via a shared `useDocTitle` hook; game views show "Team A vs Team B", org pages show the org name, season pages show "Season · Org", etc.; staging tabs are prefixed with "Staging LaxStats"
+
+### Fixed
+- **MDD/EMO not credited when penalty expires at a quarter boundary** — `buildTeamTotals` now accepts `completedQuarters` and injects quarter-end absolute times into the timed-event set used to detect whether a penalty window has expired; previously, if no timed event was logged after the penalty expired (e.g. the quarter simply ended), neither team received MDD success or EMO failure credit
+- **Pressbox scoring timeline out of order** — timeline events were rendered in log-insertion order instead of being sorted by quarter then time remaining; a Q3 goal would appear at the end of the list regardless of when it occurred
+- **Pressbox event log in wrong order** — the event log was rendering in chronological order (oldest first) instead of reverse-chronological (newest first) after the `buildLogGroups` refactor
+
+### Changed
+- **`buildLogGroups` and `buildScoringTimeline` extracted as shared utilities** (`src/utils/stats.js`) — eliminates three separate inline implementations of group sorting and timeline construction across `LaxStats`, `ViewGame`, and `Pressbox`; all use the same sort (quarter asc, time remaining desc, seq fallback via `groupPrimary`)
+- **v1 game code paths removed** — all games have been migrated to v2 (`schema_ver=2`); `ScorekeeperV1` deleted, `isV2` branching removed from `ViewGame` and `Pressbox`, score lookups in `GameList`/`OrgDashboard`/`SeasonView`/`Orgs` now unconditionally read from `v_game_team_totals`
+
+---
+
 ## [2.7.0] — 2026-05-05
 
 ### Changed
