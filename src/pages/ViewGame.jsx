@@ -154,14 +154,14 @@ export default function ViewGame() {
     if (err) { setError(err.message); setLoading(false); return; }
     setGame(data);
 
-    // Check if viewer is a member of the away org
-    if (data?.away_org_id) {
+    // Check if viewer is an org_admin of the away org (only they can add the game to a season)
+    if (data?.away_org_id && user) {
       const [roleRes, orgRes, seasonsRes] = await Promise.all([
         supabase.rpc("get_org_role", { p_org_id: data.away_org_id }),
         supabase.from("organizations").select("name").eq("id", data.away_org_id).single(),
         supabase.from("seasons").select("id, name").eq("org_id", data.away_org_id).order("start_date", { ascending: false }),
       ]);
-      if (roleRes.data) {
+      if (roleRes.data === "org_admin") {
         setAwayOrgRole(roleRes.data);
         setAwayOrgName(orgRes.data?.name ?? null);
         setAwaySeasons(seasonsRes.data || []);
@@ -333,13 +333,11 @@ export default function ViewGame() {
               <span style={{ fontSize: 13, color: "#7a5700", flex: 1 }}>
                 This game involves <strong>{awayOrgName}</strong>. Add it to a season to include it in your stats.
               </span>
-              {awayOrgRole === "org_admin" && (
-                <button
-                  style={{ fontSize: 12, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", whiteSpace: "nowrap" }}
-                  onClick={() => { setAddSeasonState("picking"); setAddSeasonId(awaySeasons[0]?.id || ""); }}>
-                  Add to season
-                </button>
-              )}
+              <button
+                style={{ fontSize: 12, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", whiteSpace: "nowrap" }}
+                onClick={() => { setAddSeasonState("picking"); setAddSeasonId(awaySeasons[0]?.id || ""); }}>
+                Add to season
+              </button>
             </div>
           )}
           {addSeasonState === "picking" && (
