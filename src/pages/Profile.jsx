@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useDocTitle } from "../hooks/useDocTitle";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { displayName, FAKE_DOMAIN } from "./Admin/helpers";
+import { PLAN_COLOR } from "../constants/lacrosse";
 
 const FAKE = FAKE_DOMAIN; // "@laxstats.app"
 
@@ -33,8 +34,14 @@ function Field({ label, value }) {
   );
 }
 
+const PERSONAL_PLAN_COLOR = {
+  free:  { bg: "#f5f5f5",  color: "#888" },
+  basic: { bg: "#eef4fb",  color: "#1a6bab" },
+  plus:  { bg: "#eaf6ec",  color: "#2a7a3b" },
+};
+
 export default function Profile() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, orgMemberships, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   useDocTitle("Profile");
 
@@ -49,10 +56,8 @@ export default function Profile() {
   const [displayNameStatus, setDisplayNameStatus] = useState(null); // null | "saving" | "saved" | "error"
 
   useEffect(() => {
-    if (!user) return;
-    supabase.from("profiles").select("display_name").eq("id", user.id).single()
-      .then(({ data }) => { if (data?.display_name) setDisplayNameVal(data.display_name); });
-  }, [user?.id]);
+    if (profile?.display_name) setDisplayNameVal(profile.display_name);
+  }, [profile?.display_name]);
 
   async function saveDisplayName() {
     setDisplayNameStatus("saving");
@@ -114,6 +119,46 @@ export default function Profile() {
           : <Field label="Email" value={user.email} />
         }
         <Field label="Member since" value={memberSince} />
+      </div>
+
+      {/* ── Plan ── */}
+      <div style={S.card}>
+        <div style={S.cardTitle}>Plan</div>
+        {(() => {
+          const orgMembership = orgMemberships[0] ?? null;
+          const personalPlan = profile?.personal_plan ?? "free";
+          const personalStatus = profile?.personal_plan_status ?? "active";
+          const pc = PERSONAL_PLAN_COLOR[personalPlan] || PERSONAL_PLAN_COLOR.free;
+          return (
+            <>
+              <div style={{ ...S.row, marginBottom: 10 }}>
+                <span style={S.label}>Personal plan</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "2px 9px", background: pc.bg, color: pc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{personalPlan}</span>
+                  {personalStatus !== "active" && (
+                    <span style={{ fontSize: 12, color: personalStatus === "past_due" ? "#d4820a" : "#c0392b" }}>{personalStatus.replace("_", " ")}</span>
+                  )}
+                </div>
+              </div>
+              {orgMembership && (() => {
+                const orgPlan = orgMembership.org?.plan ?? "free";
+                const opc = PLAN_COLOR[orgPlan] || PLAN_COLOR.free;
+                return (
+                  <div style={S.row}>
+                    <span style={S.label}>Org plan ({orgMembership.org?.name})</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "2px 9px", background: opc.bg, color: opc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{orgPlan}</span>
+                      <span style={{ fontSize: 12, color: "#aaa" }}>{orgMembership.role?.replace("org_", "")}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+              <div style={{ marginTop: 8 }}>
+                <Link to="/pricing" style={{ fontSize: 13, color: "#1a6bab", fontWeight: 600, textDecoration: "none" }}>View plans →</Link>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* ── Display name ── */}

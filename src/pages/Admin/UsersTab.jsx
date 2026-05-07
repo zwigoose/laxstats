@@ -5,6 +5,13 @@ import { useAuth } from "../../contexts/AuthContext";
 import { qLabel } from "../../utils/stats";
 import { formatDate, getGameInfo } from "../../utils/game";
 import { displayName, toEmail, makeTempClient } from "./helpers";
+import { PERSONAL_PLANS, PLAN_STATUS } from "../../constants/lacrosse";
+
+const PERSONAL_PLAN_COLOR = {
+  free:  { bg: "#f5f5f5", color: "#888" },
+  basic: { bg: "#eef4fb", color: "#1a6bab" },
+  plus:  { bg: "#eaf6ec", color: "#2a7a3b" },
+};
 
 export default function UsersTab() {
   const { user: currentUser } = useAuth();
@@ -22,6 +29,9 @@ export default function UsersTab() {
   const [newPassword, setNewPassword] = useState("");
   const [creating, setCreating]       = useState(false);
   const [createError, setCreateError] = useState(null);
+
+  // personal plan editing: { [userId]: { plan, status, saving, error } }
+  const [planEdits, setPlanEdits] = useState({});
 
   useEffect(() => { loadData(); }, []);
 
@@ -73,6 +83,25 @@ export default function UsersTab() {
       if (usersData) setUsers(usersData);
     }
     setCreating(false);
+  }
+
+  function planEditFor(u) {
+    return planEdits[u.id] ?? { plan: u.personal_plan ?? "free", status: u.personal_plan_status ?? "active", saving: false, error: null };
+  }
+
+  function setPlanEdit(userId, patch) {
+    setPlanEdits(prev => ({ ...prev, [userId]: { ...planEditFor({ id: userId, ...users.find(u => u.id === userId) }), ...prev[userId], ...patch } }));
+  }
+
+  async function handleSavePlan(u) {
+    const edit = planEditFor(u);
+    setPlanEdit(u.id, { saving: true, error: null });
+    const { error: err } = await supabase.rpc("admin_set_personal_plan", {
+      p_target_id: u.id, p_personal_plan: edit.plan, p_personal_plan_status: edit.status,
+    });
+    if (err) { setPlanEdit(u.id, { saving: false, error: err.message }); return; }
+    setUsers(prev => prev.map(x => x.id === u.id ? { ...x, personal_plan: edit.plan, personal_plan_status: edit.status } : x));
+    setPlanEdit(u.id, { saving: false });
   }
 
   const gamesByUser = useMemo(() => {
@@ -144,6 +173,9 @@ export default function UsersTab() {
                     <span style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{displayName(u.email)}</span>
                     {isSelf && <span style={{ fontSize: 10, fontWeight: 700, color: "#1a6bab", background: "#eef4fb", borderRadius: 6, padding: "2px 6px", letterSpacing: "0.06em" }}>YOU</span>}
                     {u.is_admin && <span style={{ fontSize: 10, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 6, padding: "2px 6px", letterSpacing: "0.06em", textTransform: "uppercase" }}>Admin</span>}
+                    {(() => { const pc = PERSONAL_PLAN_COLOR[u.personal_plan] || PERSONAL_PLAN_COLOR.free; return (
+                      <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 6, padding: "2px 6px", background: pc.bg, color: pc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{u.personal_plan ?? "free"}</span>
+                    ); })()}
                   </div>
                   <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>{userGames.length} game{userGames.length !== 1 ? "s" : ""}</div>
                 </div>
@@ -190,6 +222,29 @@ export default function UsersTab() {
 
               {open && (
                 <div style={{ borderTop: "1px solid #f0f0f0", padding: "12px 16px" }}>
+                  {/* Personal plan management */}
+                  {(() => {
+                    const edit = planEditFor(u);
+                    const inp = { padding: "5px 8px", fontSize: 12, border: "1px solid #e0e0e0", borderRadius: 7, background: "#fff", fontFamily: "system-ui, sans-serif" };
+                    return (
+                      <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid #f5f5f5" }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Personal Plan</div>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                          <select value={edit.plan} onChange={e => setPlanEdit(u.id, { plan: e.target.value })} style={inp}>
+                            {PERSONAL_PLANS.map(p => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                          <select value={edit.status} onChange={e => setPlanEdit(u.id, { status: e.target.value })} style={inp}>
+                            {PLAN_STATUS.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                          <button onClick={() => handleSavePlan(u)} disabled={edit.saving}
+                            style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: edit.saving ? "#ccc" : "#111", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}>
+                            {edit.saving ? "…" : "Save"}
+                          </button>
+                        </div>
+                        {edit.error && <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4 }}>{edit.error}</div>}
+                      </div>
+                    );
+                  })()}
                   {userGames.length === 0 ? (
                     <div style={{ fontSize: 13, color: "#aaa" }}>No games yet.</div>
                   ) : (

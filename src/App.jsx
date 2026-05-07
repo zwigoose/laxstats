@@ -13,6 +13,7 @@ import TeamManager from "./pages/TeamManager";
 import CreateGame from "./pages/CreateGame";
 import Orgs from "./pages/Orgs";
 import Profile from "./pages/Profile";
+import Pricing from "./pages/Pricing";
 import { version } from "../package.json";
 
 // Single source of truth for layout heights — consumed here and via CSS variables.
@@ -86,12 +87,13 @@ function AppNav() {
 
       <div style={{ width: 1, height: 18, background: "#e8e8e8", marginRight: 4 }} />
 
-      <NavItem label="Home"  active={path === "/"}            onClick={() => navigate("/")} />
+      <NavItem label="Home"    active={path === "/"}              onClick={() => navigate("/")} />
       {hasOrgs && (
         <NavItem label="Orgs"  active={path.startsWith("/orgs")} onClick={() => navigate("/orgs")} />
       )}
+      <NavItem label="Pricing" active={path === "/pricing"}       onClick={() => navigate("/pricing")} />
       {isAdmin && (
-        <NavItem label="Admin" active={path === "/admin"}        onClick={() => navigate("/admin")} />
+        <NavItem label="Admin" active={path === "/admin"}         onClick={() => navigate("/admin")} />
       )}
 
       {/* Profile avatar — pinned to right */}
@@ -139,6 +141,7 @@ function AppRoutes() {
           <Route path="/orgs/:slug/teams"         element={<PrivateRoute><TeamManager /></PrivateRoute>} />
           <Route path="/admin"                    element={<PrivateRoute><Admin /></PrivateRoute>} />
           <Route path="/profile"                  element={<PrivateRoute><Profile /></PrivateRoute>} />
+          <Route path="/pricing"                  element={<Pricing />} />
         </Routes>
       </div>
     </>

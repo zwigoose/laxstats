@@ -7,6 +7,23 @@ import { useDocTitle } from "../hooks/useDocTitle";
 import { qLabel } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
 import { TeamCard, TeamForm, ColorPicker, PRESET_COLORS } from "./TeamManager";
+import { PLAN_COLOR } from "../constants/lacrosse";
+import { useOrgEntitlements } from "../hooks/useOrgEntitlements";
+import { entitlementMsg } from "../utils/entitlement";
+
+
+function UsageMeter({ entry, label }) {
+  if (!entry || entry.plan_limit === null) return null;
+  const { plan_limit, current_usage, at_limit } = entry;
+  const pct = plan_limit > 0 ? Math.min(1, current_usage / plan_limit) : 1;
+  const color = at_limit ? "#c0392b" : pct >= 0.8 ? "#d4820a" : "#aaa";
+  return (
+    <span style={{ fontSize: 12, color, fontVariantNumeric: "tabular-nums", display: "flex", alignItems: "center", gap: 6 }}>
+      {current_usage} / {plan_limit} {label ?? ""}
+      {at_limit && <Link to="/pricing" style={{ fontSize: 11, fontWeight: 700, color: "#1a6bab", textDecoration: "none" }}>Upgrade →</Link>}
+    </span>
+  );
+}
 
 const ROLE_LABELS = { org_admin: "Admin", coach: "Coach", scorekeeper: "Scorekeeper", viewer: "Viewer" };
 const ROLE_COLORS = { org_admin: { bg: "#fff3e0", color: "#d4820a" }, coach: { bg: "#e8f5e9", color: "#2a7a3b" }, scorekeeper: { bg: "#e3f2fd", color: "#1a6bab" }, viewer: { bg: "#f5f5f5", color: "#888" } };
@@ -308,7 +325,7 @@ function SeasonCard({ season, slug, isOrgAdmin, orgTeams, navigate }) {
   );
 }
 
-function SeasonsTab({ org, slug, isOrgAdmin }) {
+function SeasonsTab({ org, slug, isOrgAdmin, entitlements }) {
   const navigate = useNavigate();
   const [seasons, setSeasons]   = useState([]);
   const [orgTeams, setOrgTeams] = useState([]);
@@ -336,11 +353,14 @@ function SeasonsTab({ org, slug, isOrgAdmin }) {
   async function handleCreate() {
     if (!newName.trim() || saving) return;
     setSaving(true); setError(null);
-    const { data, error: err } = await supabase.from("seasons")
-      .insert({ org_id: org.id, name: newName.trim(), start_date: newStart || null, end_date: newEnd || null })
-      .select("id, name, start_date, end_date").single();
-    if (err) { setError(err.message); setSaving(false); return; }
-    setSeasons(prev => [data, ...prev]);
+    const { data: newId, error: err } = await supabase.rpc("create_org_season", {
+      p_org_id: org.id, p_name: newName.trim(),
+      p_start_date: newStart || null, p_end_date: newEnd || null,
+    });
+    if (err) { setError(entitlementMsg(err.message)); setSaving(false); return; }
+    const { data } = await supabase.from("seasons")
+      .select("id, name, start_date, end_date").eq("id", newId).single();
+    if (data) setSeasons(prev => [data, ...prev]);
     setShowNew(false); setNewName(""); setNewStart(""); setNewEnd("");
     setSaving(false);
   }
@@ -350,8 +370,11 @@ function SeasonsTab({ org, slug, isOrgAdmin }) {
   return (
     <div>
       {isOrgAdmin && !showNew && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-          <button style={S.btnPrimary} onClick={() => setShowNew(true)}>＋ New Season</button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <UsageMeter entry={entitlements.org_active_seasons} label="active seasons" />
+          <button style={{ ...S.btnPrimary, opacity: entitlements.org_active_seasons?.at_limit ? 0.4 : 1 }}
+            disabled={!!entitlements.org_active_seasons?.at_limit}
+            onClick={() => setShowNew(true)}>＋ New Season</button>
         </div>
       )}
       {showNew && (
@@ -395,7 +418,7 @@ function SeasonsTab({ org, slug, isOrgAdmin }) {
 }
 
 // ── Teams tab ─────────────────────────────────────────────────────────────────
-function TeamsTab({ org, slug, isOrgAdmin }) {
+function TeamsTab({ org, slug, isOrgAdmin, entitlements }) {
   const navigate = useNavigate();
   const canManage = isOrgAdmin;
 
@@ -420,13 +443,12 @@ function TeamsTab({ org, slug, isOrgAdmin }) {
   async function handleCreateTeam(fields) {
     setSaving(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from("teams")
-      .insert({ org_id: org.id, ...fields })
-      .select("id, name, color")
-      .single();
-    if (err) { setError(err.message); setSaving(false); return; }
-    setTeams(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+    const { data: teamId, error: err } = await supabase.rpc("create_org_team", {
+      p_org_id: org.id, p_name: fields.name, p_color: fields.color,
+    });
+    if (err) { setError(entitlementMsg(err.message)); setSaving(false); return; }
+    const { data } = await supabase.from("teams").select("id, name, color").eq("id", teamId).single();
+    if (data) setTeams(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
     setShowNewTeam(false);
     setSaving(false);
   }
@@ -452,12 +474,15 @@ function TeamsTab({ org, slug, isOrgAdmin }) {
 
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontSize: 13, color: "#aaa" }}>
-          {teams?.length ?? 0} team{teams?.length !== 1 ? "s" : ""}
+        <div style={{ fontSize: 13, color: "#aaa", display: "flex", flexDirection: "column", gap: 2 }}>
+          <span>{teams?.length ?? 0} team{teams?.length !== 1 ? "s" : ""}</span>
+          <UsageMeter entry={entitlements.org_active_teams} label="active" />
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {canManage && !showNewTeam && (
-            <button style={S.btnPrimary} onClick={() => setShowNewTeam(true)}>+ New Team</button>
+            <button style={{ ...S.btnPrimary, opacity: entitlements.org_active_teams?.at_limit ? 0.4 : 1 }}
+              disabled={!!entitlements.org_active_teams?.at_limit}
+              onClick={() => setShowNewTeam(true)}>+ New Team</button>
           )}
           <button
             onClick={() => navigate(`/orgs/${slug}/teams`)}
@@ -680,8 +705,79 @@ function PlayersTab({ org, isOrgAdmin }) {
   );
 }
 
+// ── Stats tab ─────────────────────────────────────────────────────────────────
+function StatLeaderList({ title, players, statKey, statLabel }) {
+  if (!players.length) return null;
+  return (
+    <div style={{ flex: 1, minWidth: 200 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>{title}</div>
+      {players.map((p, i) => (
+        <div key={`${p.player_id}-${i}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
+          <span style={{ fontSize: 12, color: "#bbb", width: 16, textAlign: "right" }}>{i + 1}</span>
+          <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player_name}</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: "#111", fontVariantNumeric: "tabular-nums" }}>{p[statKey]}</span>
+          <span style={{ fontSize: 11, color: "#aaa", width: 28 }}>{statLabel}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function OrgStatLeaders({ playerStats }) {
+  if (!playerStats.length) return (
+    <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "20px 0" }}>
+      All-time leaders will appear once games are scored.
+    </div>
+  );
+  const top = (key, n = 5) => [...playerStats].sort((a, b) => b[key] - a[key]).slice(0, n).filter(p => p[key] > 0);
+  const categories = [
+    { title: "Goals",         key: "goals",        label: "G"   },
+    { title: "Assists",       key: "assists",       label: "A"   },
+    { title: "Points",        key: "points",        label: "Pts" },
+    { title: "Shots on Goal", key: "sog",           label: "SOG" },
+    { title: "Ground Balls",  key: "ground_balls",  label: "GB"  },
+    { title: "Faceoff Wins",  key: "faceoff_wins",  label: "FO"  },
+    { title: "Saves",         key: "saves",         label: "SV"  },
+  ];
+  return (
+    <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+      {categories.map(({ title, key, label }) => {
+        const players = top(key);
+        if (!players.length) return null;
+        return <StatLeaderList key={key} title={title} players={players} statKey={key} statLabel={label} />;
+      })}
+    </div>
+  );
+}
+
+function StatsTab({ org }) {
+  const [playerStats, setPlayerStats] = useState([]);
+  const [loading, setLoading]         = useState(true);
+
+  useEffect(() => {
+    supabase.from("v_org_player_stats")
+      .select("*")
+      .eq("org_id", org.id)
+      .then(({ data }) => {
+        setPlayerStats(data || []);
+        setLoading(false);
+      });
+  }, [org.id]);
+
+  if (loading) return <div style={S.loading}>Loading…</div>;
+
+  return (
+    <div>
+      <div style={S.sectionHead}>All-Time Leaders</div>
+      <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, padding: 16 }}>
+        <OrgStatLeaders playerStats={playerStats} />
+      </div>
+    </div>
+  );
+}
+
 // ── Members tab ───────────────────────────────────────────────────────────────
-function MembersTab({ org, isOrgAdmin }) {
+function MembersTab({ org, isOrgAdmin, entitlements }) {
   const [members, setMembers]       = useState([]);
   const [loading, setLoading]       = useState(true);
   const [showInvite, setShowInvite] = useState(false);
@@ -707,7 +803,7 @@ function MembersTab({ org, isOrgAdmin }) {
     const { error: err } = await supabase.rpc("invite_org_member", {
       p_org_id: org.id, p_username: username.trim(), p_role: role,
     });
-    if (err) { setError(err.message); setInviting(false); return; }
+    if (err) { setError(entitlementMsg(err.message)); setInviting(false); return; }
     setUsername(""); setShowInvite(false); setInviting(false);
     loadMembers();
   }
@@ -725,8 +821,11 @@ function MembersTab({ org, isOrgAdmin }) {
     <div>
       {error && !showInvite && <div style={S.err}>{error}</div>}
       {isOrgAdmin && !showInvite && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-          <button style={S.btnPrimary} onClick={() => setShowInvite(true)}>＋ Invite Member</button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <UsageMeter entry={entitlements.org_members} label="members" />
+          <button style={{ ...S.btnPrimary, opacity: entitlements.org_members?.at_limit ? 0.4 : 1 }}
+            disabled={!!entitlements.org_members?.at_limit}
+            onClick={() => setShowInvite(true)}>＋ Invite Member</button>
         </div>
       )}
       {showInvite && (
@@ -776,21 +875,23 @@ export default function OrgDashboard() {
   const navigate  = useNavigate();
   const location  = useLocation();
   const { user, orgMemberships } = useAuth();
-  const [org, setOrg]       = useState(null);
+  const [org, setOrg]     = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState(null);
-  const [tab, setTab]       = useState(location.state?.tab ?? "games");
+  const [error, setError] = useState(null);
+  const [tab, setTab]     = useState(location.state?.tab ?? "games");
   useDocTitle(org?.name);
 
   useEffect(() => {
     supabase.from("organizations").select("id, name, slug, plan")
       .eq("slug", slug).single()
       .then(({ data, error: err }) => {
-        if (err) setError("Organization not found.");
-        else setOrg(data);
+        if (err) { setError("Organization not found."); setLoading(false); return; }
+        setOrg(data);
         setLoading(false);
       });
   }, [slug]);
+
+  const { entitlements } = useOrgEntitlements(org?.id);
 
   const { role, isOrgAdmin, canScore } = useOrgRole(org?.id);
   const orgMembership = org ? orgMemberships.find(m => m.org_id === org.id) ?? null : null;
@@ -804,6 +905,7 @@ export default function OrgDashboard() {
     ["teams",   "Teams"],
     ["players", "Players"],
     ["members", "Members"],
+    ["stats",   "Stats"],
   ];
 
   return (
@@ -812,6 +914,9 @@ export default function OrgDashboard() {
       <div style={{ position: "sticky", top: 0, zIndex: 10 }}>
         <div style={S.header}>
           <span style={S.orgName}>{org.name}</span>
+          {org.plan && (() => { const pc = PLAN_COLOR[org.plan] || PLAN_COLOR.free; return (
+            <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "2px 8px", background: pc.bg, color: pc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{org.plan}</span>
+          ); })()}
           {role && <span style={S.badge(role)}>{ROLE_LABELS[role] ?? role}</span>}
           {isOrgAdmin && (
             <button style={{ ...S.btnOutline, fontSize: 12, color: "rgba(255,255,255,0.6)", borderColor: "rgba(255,255,255,0.2)", background: "transparent" }}
@@ -833,10 +938,11 @@ export default function OrgDashboard() {
 
       <div style={S.body}>
         {tab === "games"   && <GamesTab   org={org} canScore={canScore} orgMembership={orgMembership} />}
-        {tab === "seasons" && <SeasonsTab org={org} slug={slug} isOrgAdmin={isOrgAdmin} />}
-        {tab === "teams"   && <TeamsTab   org={org} slug={slug} isOrgAdmin={isOrgAdmin} />}
+        {tab === "seasons" && <SeasonsTab org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
+        {tab === "teams"   && <TeamsTab   org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
         {tab === "players" && <PlayersTab org={org} isOrgAdmin={isOrgAdmin} />}
-        {tab === "members" && <MembersTab org={org} isOrgAdmin={isOrgAdmin} />}
+        {tab === "members" && <MembersTab org={org} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
+        {tab === "stats"   && <StatsTab   org={org} />}
       </div>
     </div>
   );

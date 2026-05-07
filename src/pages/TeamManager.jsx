@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useOrgRole } from "../hooks/useOrgRole";
 import { useDocTitle } from "../hooks/useDocTitle";
+import { useOrgEntitlements } from "../hooks/useOrgEntitlements";
+import { entitlementMsg } from "../utils/entitlement";
 
 const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
 
@@ -564,6 +566,8 @@ export default function TeamManager() {
   const [saving, setSaving] = useState(false);
 
   const { isCoach, canView } = useOrgRole(org?.id);
+  const { entitlements } = useOrgEntitlements(org?.id);
+  const teamEntitlement = entitlements.org_active_teams ?? null;
 
   useEffect(() => { load(); }, [slug]);
 
@@ -593,13 +597,12 @@ export default function TeamManager() {
     if (!org) return;
     setSaving(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from("teams")
-      .insert({ org_id: org.id, ...fields })
-      .select("id, name, color")
-      .single();
-    if (err) { setError(err.message); setSaving(false); return; }
-    setTeams(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+    const { data: teamId, error: err } = await supabase.rpc("create_org_team", {
+      p_org_id: org.id, p_name: fields.name, p_color: fields.color,
+    });
+    if (err) { setError(entitlementMsg(err.message)); setSaving(false); return; }
+    const { data } = await supabase.from("teams").select("id, name, color").eq("id", teamId).single();
+    if (data) setTeams(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
     setShowNewTeam(false);
     setSaving(false);
   }
@@ -628,9 +631,18 @@ export default function TeamManager() {
         <button style={S.back} onClick={() => navigate(`/orgs/${slug}`)}>← {org?.name}</button>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-          <h1 style={{ ...S.h1, margin: 0 }}>Teams</h1>
+          <div>
+            <h1 style={{ ...S.h1, margin: 0 }}>Teams</h1>
+            {teamEntitlement?.plan_limit !== null && teamEntitlement && (
+              <div style={{ fontSize: 12, color: teamEntitlement.at_limit ? "#c0392b" : "#aaa", marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                {teamEntitlement.current_usage} / {teamEntitlement.plan_limit} active teams
+              </div>
+            )}
+          </div>
           {isCoach && !showNewTeam && (
-            <button style={S.btn} onClick={() => setShowNewTeam(true)}>+ New Team</button>
+            <button style={{ ...S.btn, opacity: teamEntitlement?.at_limit ? 0.4 : 1 }}
+              disabled={!!teamEntitlement?.at_limit}
+              onClick={() => setShowNewTeam(true)}>+ New Team</button>
           )}
         </div>
 

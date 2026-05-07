@@ -3,6 +3,8 @@ import { useDocTitle } from "../hooks/useDocTitle";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
+import { entitlementMsg } from "../utils/entitlement";
+
 
 const GAME_TYPES = [
   { id: "regular",    label: "Regular Season" },
@@ -116,11 +118,11 @@ export default function CreateGame() {
     let season = selectedSeason;
 
     if (!season && newSeasonName.trim()) {
-      const { data, error: err } = await supabase
-        .from("seasons")
-        .insert({ org_id: selectedOrg.org_id, name: newSeasonName.trim() })
-        .select("id, name").single();
-      if (err) { setError(err.message); return; }
+      const { data: newId, error: err } = await supabase.rpc("create_org_season", {
+        p_org_id: selectedOrg.org_id, p_name: newSeasonName.trim(),
+      });
+      if (err) { setError(entitlementMsg(err.message)); return; }
+      const { data } = await supabase.from("seasons").select("id, name").eq("id", newId).single();
       season = data;
       setSelectedSeason(data);
     }
@@ -133,23 +135,17 @@ export default function CreateGame() {
     setError(null);
     const name = `${selectedOrg.org?.name ?? "Org"} Game — ${new Date(gameDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
-    const { data, error: err } = await supabase
-      .from("games")
-      .insert({
-        name,
-        state: null,
-        user_id: user.id,
-        org_id: selectedOrg.org_id,
-        away_org_id: selectedOpponent?.id ?? null,
-        season_id: selectedSeason?.id ?? null,
-        game_type: gameType,
-        game_date: gameDate || null,
-        schema_ver: 2,
-      })
-      .select("id").single();
+    const { data: gameId, error: err } = await supabase.rpc("create_org_game", {
+      p_org_id:      selectedOrg.org_id,
+      p_name:        name,
+      p_season_id:   selectedSeason?.id ?? null,
+      p_away_org_id: selectedOpponent?.id ?? null,
+      p_game_type:   gameType,
+      p_game_date:   gameDate || null,
+    });
 
-    if (err) { setError(err.message); return; }
-    navigate(`/games/${data.id}/score`);
+    if (err) { setError(entitlementMsg(err.message)); return; }
+    navigate(`/games/${gameId}/score`);
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────

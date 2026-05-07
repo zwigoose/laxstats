@@ -136,6 +136,56 @@ function StatLeaders({ playerStats }) {
   );
 }
 
+function Standings({ teamStats }) {
+  if (!teamStats.length) return null;
+
+  // Aggregate home+away rows per team
+  const byTeam = {};
+  teamStats.forEach(r => {
+    if (!byTeam[r.team_id]) {
+      byTeam[r.team_id] = { team_id: r.team_id, team_name: r.team_name, team_color: r.team_color, games_played: 0, wins: 0, losses: 0, goals_for: 0, goals_against: 0 };
+    }
+    const t = byTeam[r.team_id];
+    t.games_played += Number(r.games_played);
+    t.wins         += Number(r.wins);
+    t.losses       += Number(r.losses);
+    t.goals_for    += Number(r.goals_for);
+    t.goals_against+= Number(r.goals_against);
+  });
+  const rows = Object.values(byTeam).sort((a, b) => b.wins - a.wins || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against));
+
+  const colH = { fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", padding: "10px 8px", textAlign: "center" };
+  const cell = { padding: "10px 8px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#111", fontVariantNumeric: "tabular-nums" };
+
+  return (
+    <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr repeat(5, 44px)", borderBottom: "2px solid #f0f0f0" }}>
+        <div style={{ ...colH, textAlign: "left", padding: "10px 16px" }}>Team</div>
+        <div style={colH}>W</div>
+        <div style={colH}>L</div>
+        <div style={colH}>GF</div>
+        <div style={colH}>GA</div>
+        <div style={colH}>+/-</div>
+      </div>
+      {rows.map((t, i) => (
+        <div key={t.team_id} style={{ display: "grid", gridTemplateColumns: "1fr repeat(5, 44px)", background: i % 2 === 0 ? "#fff" : "#fafafa", borderBottom: i < rows.length - 1 ? "1px solid #f5f5f5" : "none" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px" }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.team_color || "#888", flexShrink: 0 }} />
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{t.team_name}</span>
+          </div>
+          <div style={cell}>{t.wins}</div>
+          <div style={cell}>{t.losses}</div>
+          <div style={cell}>{t.goals_for}</div>
+          <div style={cell}>{t.goals_against}</div>
+          <div style={{ ...cell, color: t.goals_for - t.goals_against >= 0 ? "#2a7a3b" : "#c0392b" }}>
+            {t.goals_for - t.goals_against > 0 ? "+" : ""}{t.goals_for - t.goals_against}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function SeasonView() {
   const { slug, id } = useParams();
   const navigate = useNavigate();
@@ -145,6 +195,7 @@ export default function SeasonView() {
   const [games, setGames] = useState([]);
   const [v2Scores, setV2Scores] = useState({});
   const [playerStats, setPlayerStats] = useState([]);
+  const [teamStats, setTeamStats] = useState([]);
   const [hasPressbox, setHasPressbox] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -212,6 +263,13 @@ export default function SeasonView() {
       .order("goals", { ascending: false });
     setPlayerStats(psData || []);
 
+    // Load team standings
+    const { data: tsData } = await supabase
+      .from("v_season_team_stats")
+      .select("team_id, team_name, team_color, games_played, wins, losses, goals_for, goals_against")
+      .eq("season_id", id);
+    setTeamStats(tsData || []);
+
     setLoading(false);
   }
 
@@ -278,6 +336,14 @@ export default function SeasonView() {
           <div style={{ textAlign: "center", padding: "40px 20px", color: "#aaa", fontSize: 14 }}>
             No games yet for this season.
           </div>
+        )}
+
+        {/* Standings */}
+        {teamStats.length > 0 && (
+          <>
+            <div style={S.sectionTitle}>Standings</div>
+            <Standings teamStats={teamStats} />
+          </>
         )}
 
         {/* Stat Leaders */}

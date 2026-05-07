@@ -25,11 +25,15 @@ export function AuthProvider({ children }) {
 
   async function loadProfile(userId) {
     const [profileRes, membershipsRes] = await Promise.all([
-      supabase.from("profiles").select("is_admin").eq("id", userId).single(),
-      supabase.from("org_members").select("org_id, role, organizations(name, slug)").eq("user_id", userId),
+      supabase.from("profiles")
+        .select("is_admin, personal_plan, personal_plan_status, display_name")
+        .eq("id", userId).single(),
+      supabase.from("org_members")
+        .select("org_id, role, organizations(id, name, slug, plan)")
+        .eq("user_id", userId),
     ]);
 
-    setProfile(profileRes.data ?? { is_admin: false });
+    setProfile(profileRes.data ?? { is_admin: false, personal_plan: "free", personal_plan_status: "active" });
     setOrgMemberships(
       (membershipsRes.data ?? []).map(m => ({
         org_id: m.org_id,
@@ -48,8 +52,9 @@ export function AuthProvider({ children }) {
   const value = {
     session,
     user: session?.user ?? null,
+    profile,
     isAdmin: profile?.is_admin ?? false,
-    isPlatformAdmin: profile?.is_admin ?? false, // alias for v2 naming
+    isPlatformAdmin: profile?.is_admin ?? false,
     orgMemberships,
     getOrgRole,
     loading: session === undefined,

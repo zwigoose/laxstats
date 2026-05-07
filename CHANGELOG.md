@@ -5,6 +5,34 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.9.0] — 2026-05-07
+
+### Added
+- **Entitlement system** — org plans (free/pro/max/giga) now enforce limits on active seasons, active teams, members, and games per season; enforcement RPCs (`create_org_season`, `create_org_team`, `create_org_game`, `invite_org_member`) raise structured errors (`plan_limit_exceeded:feature:current:limit`) translated to readable messages in the UI
+- **Personal plans** — profiles now carry a `personal_plan` field (free/basic/plus) with status; displayed on the Profile page alongside the org plan badge
+- **Usage meters** — the Seasons, Teams, and Members tabs in OrgDashboard show live usage counts vs. plan limits; action buttons disable at limit with an "Upgrade →" link
+- **Pricing page** (`/pricing`) — plan comparison table (Pro $49/mo, Max $149/mo, Giga/Custom) with feature grid; CTA stubs with contact email (no live billing)
+- **Admin personal plan management** — platform admins can set any user's personal plan and status from the Users tab in Admin
+- **Org all-time stat leaders** — new "Stats" tab on OrgDashboard aggregates player stats across all seasons via `v_org_player_stats` view; shows top-5 per category (goals, assists, points, SOG, ground balls, faceoff wins, saves)
+- **Season standings table** — SeasonView now shows a standings table (W, L, GF, GA, +/-) aggregated from `v_season_team_stats` for all teams that played in the season
+
+### Changed
+- **Plan names** — org plan tiers renamed: `starter` → `pro`, `enterprise` → `giga`; `pro` → `max`; `plan_features` table reseeded with new limits
+- **One-org-per-user invariant** — `org_members` now has `UNIQUE(user_id)`; `admin_add_org_member` removes a user from any existing org before adding to the new one
+- **`AuthContext`** — now exposes `profile` (including `personal_plan`, `personal_plan_status`) in context value; org memberships include org plan
+- **`entitlementMsg` utility** (`src/utils/entitlement.js`) — shared translation from raw RPC error strings to human-readable messages, used across OrgDashboard, TeamManager, and CreateGame
+- **`useOrgEntitlements` hook** (`src/hooks/useOrgEntitlements.js`) — shared hook that loads `org_entitlement_summary` once per org and returns a feature-keyed map
+
+### Database
+- `profiles`: added `personal_plan`, `personal_plan_status` columns
+- `seasons`: added `status` column (active/archived)
+- `teams`: added `status` column (active/retired)
+- New view `v_org_player_stats`: aggregates `v_season_player_stats` across all seasons per org
+- New RPCs: `org_feature_enabled`, `org_entitlement_summary`, `create_org_season`, `create_org_team`, `create_org_game`, `admin_set_personal_plan`
+- Updated RPCs: `invite_org_member` (one-org check), `admin_add_org_member` (removes from other orgs), `admin_get_users` (includes personal plan)
+
+---
+
 ## [2.8.0] — 2026-05-06
 
 ### Added
