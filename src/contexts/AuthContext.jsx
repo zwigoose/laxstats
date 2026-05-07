@@ -4,8 +4,9 @@ import { supabase } from "../lib/supabase";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(undefined); // undefined = still loading
-  const [profile, setProfile] = useState(null);
+  const [session, setSession]           = useState(undefined); // undefined = still initializing
+  const [profile, setProfile]           = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [orgMemberships, setOrgMemberships] = useState([]); // [{ org_id, role, org: { name, slug } }]
 
   useEffect(() => {
@@ -17,13 +18,14 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session ?? null);
       if (session) loadProfile(session.user.id);
-      else { setProfile(null); setOrgMemberships([]); }
+      else { setProfile(null); setOrgMemberships([]); setProfileLoading(false); }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   async function loadProfile(userId) {
+    setProfileLoading(true);
     const [profileRes, membershipsRes] = await Promise.all([
       supabase.from("profiles")
         .select("is_admin, personal_plan, personal_plan_status, display_name")
@@ -41,6 +43,7 @@ export function AuthProvider({ children }) {
         org: m.organizations,
       }))
     );
+    setProfileLoading(false);
   }
 
   // Returns the caller's role in a given org, or null if not a member
@@ -57,7 +60,7 @@ export function AuthProvider({ children }) {
     isPlatformAdmin: profile?.is_admin ?? false,
     orgMemberships,
     getOrgRole,
-    loading: session === undefined,
+    loading: session === undefined || profileLoading,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
