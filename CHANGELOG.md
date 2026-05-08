@@ -5,6 +5,32 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.10.0] — 2026-05-08
+
+### Added
+- **Season roster management** — players are now independent org-level entities reusable across teams; `team_season_roster` stores per-season, per-team rosters with optional jersey overrides; OrgDashboard seasons tab shows a collapsible roster panel per team with add/remove/jersey-edit UI; player cards show season history grouped by season
+- **"Add existing player" to team** — TeamManager now lets coaches add a player already in the org's pool to any team with a separate jersey number, without duplicating the player record
+- **Pricing page** (`/pricing`) rewritten — personal plans (Free $0, Basic $5/mo, Plus $10/mo) and org plans (Pro $10/mo, Max $20/mo) shown with live limits pulled from `plan_features` and `personal_plan_limits` tables; cumulative personal game cap explained with a live example; no hardcoded values
+- **Cross-org scoring** — away org members with `org_admin`, `coach`, or `scorekeeper` roles can access the scorekeeper view for cross-org games directly, without needing an invite token
+- **Multi-scorer auto-enabled by plan** — `create_org_game` now automatically sets `multi_scorer_enabled=true` for Max org games based on the `multi_scorekeeper` plan feature; Pro orgs get `false`
+
+### Changed
+- **Free org tier removed** — existing free orgs migrated to Pro; `organizations.plan` CHECK constraint updated; all UI references updated
+- **Personal game cap is additive** — `personal_game_limit()` now returns `personal_plan_limit + org_member_personal_games_bonus` (was `GREATEST`); `org_member_personal_games` limits set to pro=10, max=20
+- **Pro orgs have no multi-scorekeeper** — `plan_features.multi_scorekeeper` pro_limit set to 0; Pro org games get `multi_scorer_enabled=false`; "Invite scorer" button remains gated on `multi_scorer_enabled`
+- **Personal plans exclude Press Box** — Press Box is an org-only feature; removed from personal plan descriptions on Pricing page
+
+### Database
+- `team_season_roster`: RLS enabled; public SELECT + coach/admin write policies added
+- New RPCs: `get_season_team_roster`, `upsert_season_roster_player`, `remove_season_roster_player`
+- `plan_features`: `GRANT SELECT TO anon, authenticated` (required for public Pricing page reads)
+- `personal_plan_limits`: seeded (free=3, basic=10, plus=20)
+- `create_org_game`: auto-sets `multi_scorer_enabled` from `org_feature_limit(p_org_id, 'multi_scorekeeper')`
+- `can_score_game()`: away org members with scoring roles can score cross-org games
+- `create_scorekeeper_invite`: remains gated on `multi_scorer_enabled` (Max org only)
+
+---
+
 ## [2.9.0] — 2026-05-07
 
 ### Added
