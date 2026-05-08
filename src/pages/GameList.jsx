@@ -8,6 +8,7 @@ import { PRESET_COLORS } from "../constants/lacrosse";
 import { getGameInfo, getLatestTime, formatDate, formatDateLong, formatDateTime } from "../utils/game";
 import RosterEditor from "../components/RosterEditor";
 import SharePanel from "../components/SharePanel";
+import { usePersonalGameUsage } from "../hooks/usePersonalGameUsage";
 export { RosterEditor, SharePanel };
 
 // ── Men's lacrosse field SVG (110yd × 60yd) ──────────────────────────────────
@@ -591,8 +592,39 @@ function OrgGamesSection({ orgMemberships }) {
   );
 }
 
+// ── Personal Usage Meter ──────────────────────────────────────────────────────
+function PersonalUsageMeter({ usage }) {
+  if (!usage || usage.game_limit === null) return null;
+  const pct = Math.min(100, Math.round((usage.current_count / usage.game_limit) * 100));
+  const atLimit = usage.at_limit;
+  return (
+    <div style={{
+      background: atLimit ? "#fff5f5" : "#f8f8f8",
+      border: `1px solid ${atLimit ? "#fdd" : "#e8e8e8"}`,
+      borderRadius: 12, padding: "12px 14px", marginBottom: 14,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: atLimit ? "#c0392b" : "#555" }}>
+          {atLimit ? "Personal game limit reached" : "Personal games"}
+        </span>
+        <span style={{ fontSize: 12, color: "#888", fontVariantNumeric: "tabular-nums" }}>
+          {usage.current_count} / {usage.game_limit}
+        </span>
+      </div>
+      <div style={{ height: 5, background: "#e0e0e0", borderRadius: 99, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: atLimit ? "#c0392b" : "#1a6bab", borderRadius: 99, transition: "width 0.3s" }} />
+      </div>
+      {atLimit && (
+        <div style={{ fontSize: 11, color: "#c0392b", marginTop: 6 }}>
+          Upgrade your plan to create more personal games.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Games Tab ─────────────────────────────────────────────────────────────────
-function GamesTab({ onNewGame, user, orgMemberships = [] }) {
+function GamesTab({ onNewGame, user, orgMemberships = [], usage }) {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -649,13 +681,18 @@ function GamesTab({ onNewGame, user, orgMemberships = [] }) {
   if (error) return <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "12px 16px", color: "#c0392b", fontSize: 13, marginBottom: 16 }}>{error}</div>;
 
   if (games.length === 0) return (
-    <div style={{ textAlign: "center", padding: "64px 20px" }}>
-      <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, marginBottom: 8, objectFit: "contain" }} />
-      <div style={{ fontSize: 26, fontWeight: 800, color: "#111", letterSpacing: "-0.02em", marginBottom: 16 }}>LaxStats</div>
-      <div style={{ fontSize: 16, fontWeight: 600, color: "#111", marginBottom: 6 }}>No personal games yet</div>
-      <div style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>Create a game to start tracking stats.</div>
-      <button style={{ padding: "12px 28px", fontSize: 15, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 12, cursor: "pointer" }}
-        onClick={onNewGame}>+ New Game</button>
+    <div>
+      <PersonalUsageMeter usage={usage} />
+      <div style={{ textAlign: "center", padding: "64px 20px" }}>
+        <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, marginBottom: 8, objectFit: "contain" }} />
+        <div style={{ fontSize: 26, fontWeight: 800, color: "#111", letterSpacing: "-0.02em", marginBottom: 16 }}>LaxStats</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: "#111", marginBottom: 6 }}>No personal games yet</div>
+        <div style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>Create a game to start tracking stats.</div>
+        {!usage?.at_limit && (
+          <button style={{ padding: "12px 28px", fontSize: 15, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 12, cursor: "pointer" }}
+            onClick={onNewGame}>+ New Game</button>
+        )}
+      </div>
     </div>
   );
 
@@ -677,6 +714,7 @@ function GamesTab({ onNewGame, user, orgMemberships = [] }) {
 
   return (
     <div>
+      <PersonalUsageMeter usage={usage} />
       {liveGames.map(card)}
       {pendingGames.map(card)}
       {finalGames.length > 0 && (() => {
@@ -848,6 +886,7 @@ export default function GameList() {
   const navigate = useNavigate();
   const { user, isAdmin, orgMemberships, loading: authLoading } = useAuth();
   const [tab, setTab] = useState("games");
+  const personalUsage = usePersonalGameUsage(user);
 
   function handleNewGame() {
     navigate("/games/new");
@@ -914,16 +953,23 @@ export default function GameList() {
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 28 }}>
             Stat Tracker
           </div>
-          {user && (
-            <button onClick={handleNewGame} style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "11px 22px", fontSize: 14, fontWeight: 700,
-              background: "#fff", color: "#111",
-              border: "none", borderRadius: 12, cursor: "pointer",
-            }}>
-              ＋ New Game
-            </button>
-          )}
+          {user && (() => {
+            const hasOrg = orgMemberships?.length > 0;
+            const heroBlocked = !hasOrg && personalUsage?.at_limit;
+            return (
+              <button onClick={heroBlocked ? undefined : handleNewGame} style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                padding: "11px 22px", fontSize: 14, fontWeight: 700,
+                background: heroBlocked ? "rgba(255,255,255,0.4)" : "#fff",
+                color: heroBlocked ? "rgba(0,0,0,0.35)" : "#111",
+                border: "none", borderRadius: 12,
+                cursor: heroBlocked ? "not-allowed" : "pointer",
+              }}
+                title={heroBlocked ? "Personal game limit reached — upgrade your plan" : undefined}>
+                ＋ New Game
+              </button>
+            );
+          })()}
         </div>
       </div>
 
@@ -952,7 +998,7 @@ export default function GameList() {
             ))}
           </div>
 
-          {tab === "games" && <GamesTab onNewGame={handleNewGame} user={user} orgMemberships={orgMemberships} />}
+          {tab === "games" && <GamesTab onNewGame={handleNewGame} user={user} orgMemberships={orgMemberships} usage={personalUsage} />}
           {tab === "orgs" && <OrgGamesSection orgMemberships={orgMemberships} />}
           {tab === "rosters" && <RostersTab />}
         </div>

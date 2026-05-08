@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { entitlementMsg } from "../utils/entitlement";
+import { usePersonalGameUsage } from "../hooks/usePersonalGameUsage";
 
 
 const GAME_TYPES = [
@@ -36,6 +37,7 @@ export default function CreateGame() {
   const location = useLocation();
   const { user, orgMemberships } = useAuth();
   useDocTitle("New Game");
+  const personalUsage = usePersonalGameUsage(user);
 
   // If launched from OrgDashboard/GameList, a membership object is passed via router state
   const preselected = location.state?.orgMembership ?? null;
@@ -86,12 +88,9 @@ export default function CreateGame() {
 
   async function createPersonalGame() {
     const name = `Game — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
-    const { data, error: err } = await supabase
-      .from("games")
-      .insert({ name, state: null, user_id: user.id, schema_ver: 2 })
-      .select("id").single();
-    if (err) { setError(err.message); setStep("choice"); return; }
-    navigate(`/games/${data.id}/score`);
+    const { data: gameId, error: err } = await supabase.rpc("create_personal_game", { p_name: name });
+    if (err) { setError(entitlementMsg(err.message)); setStep(orgMemberships.length > 0 ? "choice" : "choice"); return; }
+    navigate(`/games/${gameId}/score`);
   }
 
   async function handlePersonalChoice() {
@@ -169,10 +168,24 @@ export default function CreateGame() {
         {step === "choice" && (
           <>
             <h1 style={S.h1}>New Game</h1>
-            <button style={S.bigChoice} onClick={handlePersonalChoice}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 4 }}>Personal game</div>
-              <div style={{ fontSize: 13, color: "#888" }}>Just for you — no org or season required</div>
-            </button>
+            {(() => {
+              const atLimit = personalUsage?.at_limit;
+              const hasLimit = personalUsage?.game_limit !== null && personalUsage?.game_limit !== undefined;
+              return (
+                <button
+                  style={{ ...S.bigChoice, opacity: atLimit ? 0.6 : 1, cursor: atLimit ? "not-allowed" : "pointer" }}
+                  onClick={atLimit ? undefined : handlePersonalChoice}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 4 }}>Personal game</div>
+                  <div style={{ fontSize: 13, color: atLimit ? "#c0392b" : "#888" }}>
+                    {atLimit
+                      ? `Limit reached (${personalUsage.current_count} / ${personalUsage.game_limit}) — upgrade to add more`
+                      : hasLimit
+                      ? `Just for you · ${personalUsage.current_count} of ${personalUsage.game_limit} used`
+                      : "Just for you — no org or season required"}
+                  </div>
+                </button>
+              );
+            })()}
             {orgMemberships.map(m => (
               <button key={m.org_id} style={S.bigChoice} onClick={() => selectOrg(m)}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 4 }}>

@@ -1,9 +1,10 @@
 const FEATURE_LABELS = {
-  org_active_seasons:      "active seasons",
-  org_active_teams:        "active teams",
-  org_members:             "members",
-  org_games_per_season:    "games this season",
+  org_active_seasons:        "active seasons",
+  org_active_teams:          "active teams",
+  org_members:               "members",
+  org_games_per_season:      "games this season",
   org_member_personal_games: "personal games",
+  personal_games:            "personal games",
 };
 
 export function entitlementMsg(msg) {
