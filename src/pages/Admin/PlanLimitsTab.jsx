@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 
-const PLANS = ["free", "pro", "max", "giga"];
-const PLAN_LABELS = { free: "Free", pro: "Pro", max: "Max", giga: "Giga" };
+const PLANS = ["pro", "max", "giga"];
+const PLAN_LABELS = { pro: "Pro", max: "Max", giga: "Giga" };
 const PLAN_COLORS = {
-  free: "#888",
   pro:  "#1a6bab",
   max:  "#2a7a3b",
   giga: "#d4820a",

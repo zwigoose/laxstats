@@ -141,8 +141,8 @@ export default function Profile() {
                 </div>
               </div>
               {orgMembership && (() => {
-                const orgPlan = orgMembership.org?.plan ?? "free";
-                const opc = PLAN_COLOR[orgPlan] || PLAN_COLOR.free;
+                const orgPlan = orgMembership.org?.plan ?? "pro";
+                const opc = PLAN_COLOR[orgPlan] || PLAN_COLOR.pro;
                 return (
                   <div style={S.row}>
                     <span style={S.label}>Org plan ({orgMembership.org?.name})</span>

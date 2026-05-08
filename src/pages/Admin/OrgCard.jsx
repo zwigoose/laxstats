@@ -147,7 +147,7 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
     onDeleted(org.id);
   }
 
-  const pc  = PLAN_COLOR[org.plan] || PLAN_COLOR.free;
+  const pc  = PLAN_COLOR[org.plan] || PLAN_COLOR.pro;
   const inp = { padding: "6px 9px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", background: "#fff", boxSizing: "border-box" };
 
   return (

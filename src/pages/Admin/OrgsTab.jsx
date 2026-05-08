@@ -20,7 +20,7 @@ export default function OrgsTab() {
   const [newSlug, setNewSlug]         = useState("");
   const [newColor, setNewColor]       = useState(PRESET_COLORS[0]);
   const [newOwner, setNewOwner]       = useState("");
-  const [newPlan, setNewPlan]         = useState("free");
+  const [newPlan, setNewPlan]         = useState("pro");
   const [creating, setCreating]       = useState(false);
   const [createError, setCreateError] = useState(null);
   const [slugEdited, setSlugEdited]   = useState(false);

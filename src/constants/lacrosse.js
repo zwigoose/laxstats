@@ -48,7 +48,7 @@ export const PRESET_COLORS = [
   "#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a",
 ];
 
-export const PLANS            = ["free", "pro", "max", "giga"];
+export const PLANS            = ["pro", "max", "giga"];
 export const PERSONAL_PLANS   = ["free", "basic", "plus"];
 export const PLAN_STATUS      = ["active", "trialing", "past_due", "canceled"];
 export const ORG_ROLES        = ["org_admin", "coach", "scorekeeper", "viewer"];
@@ -56,7 +56,6 @@ export const ORG_ROLES        = ["org_admin", "coach", "scorekeeper", "viewer"];
 export const BOOLEAN_FEATURES = new Set(["pressbox", "season_stats", "multi_scorekeeper"]);
 
 export const PLAN_COLOR = {
-  free:  { bg: "#f5f5f5", color: "#888" },
   pro:   { bg: "#eef4fb", color: "#1a6bab" },
   max:   { bg: "#eaf6ec", color: "#2a7a3b" },
   giga:  { bg: "#fff8ec", color: "#d4820a" },

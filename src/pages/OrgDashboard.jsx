@@ -932,7 +932,7 @@ export default function OrgDashboard() {
             onClick={isOrgAdmin ? () => setColorOpen(v => !v) : undefined}
           />
           <span style={S.orgName}>{org.name}</span>
-          {org.plan && (() => { const pc = PLAN_COLOR[org.plan] || PLAN_COLOR.free; return (
+          {org.plan && (() => { const pc = PLAN_COLOR[org.plan] || PLAN_COLOR.pro; return (
             <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "2px 8px", background: pc.bg, color: pc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{org.plan}</span>
           ); })()}
           {role && <span style={S.badge(role)}>{ROLE_LABELS[role] ?? role}</span>}
