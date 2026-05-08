@@ -35,7 +35,16 @@ export function AuthProvider({ children }) {
         .eq("user_id", userId),
     ]);
 
-    setProfile(profileRes.data ?? { is_admin: false, personal_plan: "free", personal_plan_status: "active" });
+    if (profileRes.error) {
+      console.error("[AuthContext] profile fetch error:", profileRes.error);
+      // Fallback: fetch only is_admin so admin access is never lost due to schema issues
+      const { data: minProfile } = await supabase
+        .from("profiles").select("is_admin").eq("id", userId).single();
+      setProfile({ is_admin: minProfile?.is_admin ?? false, personal_plan: "free", personal_plan_status: "active" });
+    } else {
+      setProfile(profileRes.data);
+    }
+
     setOrgMemberships(
       (membershipsRes.data ?? []).map(m => ({
         org_id: m.org_id,

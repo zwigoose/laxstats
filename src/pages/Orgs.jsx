@@ -312,7 +312,7 @@ function SummaryBar({ memberships, orgData }) {
 
 export default function Orgs() {
   const navigate = useNavigate();
-  const { user, orgMemberships, loading: authLoading } = useAuth();
+  const { user, isAdmin, orgMemberships, loading: authLoading } = useAuth();
   useDocTitle("Organizations");
   const [orgData, setOrgData] = useState({});
   const [v2Scores, setV2Scores] = useState({});
@@ -393,12 +393,14 @@ export default function Orgs() {
                 Your Orgs
               </h1>
             </div>
-            <button
-              onClick={() => navigate("/orgs/new")}
-              style={{ padding: "9px 18px", fontSize: 13, fontWeight: 700, background: "#111", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
-            >
-              + New Org
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => navigate("/orgs/new")}
+                style={{ padding: "9px 18px", fontSize: 13, fontWeight: 700, background: "#111", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+              >
+                + New Org
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -417,15 +419,19 @@ export default function Orgs() {
             <div style={{ fontSize: 20, fontWeight: 800, color: "#111", marginBottom: 10, letterSpacing: "-0.02em" }}>
               No organizations yet
             </div>
-            <div style={{ fontSize: 14, color: "#888", marginBottom: 28, lineHeight: 1.7, maxWidth: 340, margin: "0 auto 28px" }}>
-              Create an org to manage teams, seasons, and stats across multiple scorekeepers — or ask your league admin for an invite.
+            <div style={{ fontSize: 14, color: "#888", lineHeight: 1.7, maxWidth: 340, margin: "0 auto 28px" }}>
+              {isAdmin
+                ? "Create an org to manage teams, seasons, and stats across multiple scorekeepers."
+                : "Ask your league admin to invite you to their organization, or contact us at hello@laxstats.app to get set up."}
             </div>
-            <button
-              onClick={() => navigate("/orgs/new")}
-              style={{ padding: "12px 28px", fontSize: 15, fontWeight: 700, background: "#111", color: "#fff", border: "none", borderRadius: 12, cursor: "pointer" }}
-            >
-              Create your first org →
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => navigate("/orgs/new")}
+                style={{ padding: "12px 28px", fontSize: 15, fontWeight: 700, background: "#111", color: "#fff", border: "none", borderRadius: 12, cursor: "pointer" }}
+              >
+                Create your first org →
+              </button>
+            )}
           </div>
         ) : (
           <>

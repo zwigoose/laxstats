@@ -21,7 +21,7 @@ const label = {
 
 export default function CreateOrg() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin, loading } = useAuth();
   useDocTitle("New Organization");
   const [name, setName]             = useState("");
   const [slug, setSlug]             = useState("");
@@ -56,12 +56,22 @@ export default function CreateOrg() {
       .from("org_members")
       .insert({ org_id: org.id, user_id: user.id, role: "org_admin" });
 
-    if (memberErr) { setError(memberErr.message); setSaving(false); return; }
+    if (memberErr) {
+      const msg = memberErr.message.includes("org_members_user_id_unique")
+        ? "You are already a member of another organization. Each user can only belong to one org."
+        : memberErr.message;
+      setError(msg); setSaving(false); return;
+    }
 
     navigate(`/orgs/${org.slug}`);
   }
 
   const canSubmit = name.trim() && slug.trim() && !saving;
+
+  if (!loading && !isAdmin) {
+    navigate("/orgs", { replace: true });
+    return null;
+  }
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5" }}>

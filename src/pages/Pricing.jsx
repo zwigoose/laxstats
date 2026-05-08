@@ -38,13 +38,13 @@ const PLAN_TIERS = [
 
 // null = not available (disabled)
 const FEATURES = [
-  { label: "Active seasons",    values: [1, 3, null],          format: n => n === null ? "∞" : String(n) },
-  { label: "Active teams",      values: [3, null, null],        format: n => n === null ? "∞" : String(n) },
-  { label: "Members",           values: [5, null, null],        format: n => n === null ? "∞" : String(n) },
-  { label: "Games per season",  values: [20, null, null],       format: n => n === null ? "∞" : String(n) },
-  { label: "Press Box",         values: [true, true, true],     format: null },
-  { label: "Season stats",      values: [true, true, true],     format: null },
-  { label: "Multi-scorekeeper", values: [false, true, true],    format: null },
+  { label: "Active seasons",    values: [1, 2, null],          format: n => n === null ? "∞" : String(n) },
+  { label: "Active teams",      values: [2, 6, null],          format: n => n === null ? "∞" : String(n) },
+  { label: "Members",           values: [2, 5, null],          format: n => n === null ? "∞" : String(n) },
+  { label: "Games per season",  values: [20, 25, null],        format: n => n === null ? "∞" : String(n) },
+  { label: "Press Box",         values: [true, true, true],    format: null },
+  { label: "Season stats",      values: [true, true, true],    format: null },
+  { label: "Multi-scorekeeper", values: [false, true, true],   format: null },
 ];
 
 function Check({ ok }) {
