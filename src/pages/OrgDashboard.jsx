@@ -6,7 +6,7 @@ import { useOrgRole } from "../hooks/useOrgRole";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { qLabel } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
-import { TeamCard, TeamForm, ColorPicker, PRESET_COLORS } from "./TeamManager";
+import { TeamCard, TeamForm, ColorPicker, OrgColorSection, PRESET_COLORS } from "./TeamManager";
 import { PLAN_COLOR } from "../constants/lacrosse";
 import { useOrgEntitlements } from "../hooks/useOrgEntitlements";
 import { entitlementMsg } from "../utils/entitlement";
@@ -418,7 +418,7 @@ function SeasonsTab({ org, slug, isOrgAdmin, entitlements }) {
 }
 
 // ── Teams tab ─────────────────────────────────────────────────────────────────
-function TeamsTab({ org, slug, isOrgAdmin, entitlements }) {
+function TeamsTab({ org, slug, isOrgAdmin, entitlements, onOrgColorChange }) {
   const navigate = useNavigate();
   const canManage = isOrgAdmin;
 
@@ -444,7 +444,7 @@ function TeamsTab({ org, slug, isOrgAdmin, entitlements }) {
     setSaving(true);
     setError(null);
     const { data: teamId, error: err } = await supabase.rpc("create_org_team", {
-      p_org_id: org.id, p_name: fields.name, p_color: fields.color,
+      p_org_id: org.id, p_name: fields.name,
     });
     if (err) { setError(entitlementMsg(err.message)); setSaving(false); return; }
     const { data } = await supabase.from("teams").select("id, name, color").eq("id", teamId).single();
@@ -454,9 +454,9 @@ function TeamsTab({ org, slug, isOrgAdmin, entitlements }) {
   }
 
   async function handleUpdateTeam(id, fields) {
-    const { error: err } = await supabase.from("teams").update(fields).eq("id", id);
+    const { error: err } = await supabase.from("teams").update({ name: fields.name }).eq("id", id);
     if (err) { setError(err.message); return; }
-    setTeams(prev => prev.map(t => t.id === id ? { ...t, ...fields } : t)
+    setTeams(prev => prev.map(t => t.id === id ? { ...t, name: fields.name } : t)
       .sort((a, b) => a.name.localeCompare(b.name)));
   }
 
@@ -492,6 +492,17 @@ function TeamsTab({ org, slug, isOrgAdmin, entitlements }) {
           </button>
         </div>
       </div>
+
+      {/* Org color */}
+      <OrgColorSection
+        orgId={org.id}
+        initialColor={org.color}
+        canManage={canManage}
+        onSaved={color => {
+          setTeams(prev => prev?.map(t => ({ ...t, color })));
+          onOrgColorChange?.(color);
+        }}
+      />
 
       {/* New team form */}
       {showNewTeam && (
@@ -882,7 +893,7 @@ export default function OrgDashboard() {
   useDocTitle(org?.name);
 
   useEffect(() => {
-    supabase.from("organizations").select("id, name, slug, plan")
+    supabase.from("organizations").select("id, name, slug, plan, color")
       .eq("slug", slug).single()
       .then(({ data, error: err }) => {
         if (err) { setError("Organization not found."); setLoading(false); return; }
@@ -939,7 +950,7 @@ export default function OrgDashboard() {
       <div style={S.body}>
         {tab === "games"   && <GamesTab   org={org} canScore={canScore} orgMembership={orgMembership} />}
         {tab === "seasons" && <SeasonsTab org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
-        {tab === "teams"   && <TeamsTab   org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
+        {tab === "teams"   && <TeamsTab   org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} onOrgColorChange={color => setOrg(prev => ({ ...prev, color }))} />}
         {tab === "players" && <PlayersTab org={org} isOrgAdmin={isOrgAdmin} />}
         {tab === "members" && <MembersTab org={org} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
         {tab === "stats"   && <StatsTab   org={org} />}

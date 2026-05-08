@@ -270,11 +270,10 @@ function ColorPicker({ value, onChange }) {
 
 function TeamForm({ initial, onSave, onCancel, saving }) {
   const [name, setName] = useState(initial?.name || "");
-  const [color, setColor] = useState(initial?.color || PRESET_COLORS[0]);
 
   function handleSubmit() {
     if (!name.trim() || saving) return;
-    onSave({ name: name.trim(), color });
+    onSave({ name: name.trim() });
   }
 
   return (
@@ -284,8 +283,6 @@ function TeamForm({ initial, onSave, onCancel, saving }) {
         onChange={e => setName(e.target.value)}
         onKeyDown={e => e.key === "Enter" && handleSubmit()}
         placeholder="Eagles" />
-      <span style={S.label}>Color</span>
-      <ColorPicker value={color} onChange={setColor} />
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         {onCancel && <button style={S.btnOut} onClick={onCancel}>Cancel</button>}
         <button style={{ ...S.btn, opacity: (!name.trim() || saving) ? 0.4 : 1, marginLeft: onCancel ? "auto" : 0 }}
@@ -293,6 +290,53 @@ function TeamForm({ initial, onSave, onCancel, saving }) {
           {saving ? "Saving…" : initial ? "Save changes" : "Create team"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function OrgColorSection({ orgId, initialColor, onSaved, canManage }) {
+  const [open, setOpen]       = useState(false);
+  const [color, setColor]     = useState(initialColor || PRESET_COLORS[0]);
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState(null);
+
+  async function handleChange(c) {
+    setColor(c);
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    const { error: err } = await supabase.from("organizations").update({ color: c }).eq("id", orgId);
+    setSaving(false);
+    if (err) { setError(err.message); return; }
+    onSaved?.(c);
+  }
+
+  if (!canManage) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <div style={{ width: 18, height: 18, borderRadius: "50%", background: color, border: "2px solid #e0e0e0", flexShrink: 0 }} />
+        <span style={{ fontSize: 12, color: "#888" }}>Org color</span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f8f8f8", borderRadius: 10, border: "1px solid #e8e8e8" }}>
+        <div style={{ width: 20, height: 20, borderRadius: "50%", background: color, border: "2px solid #e0e0e0", flexShrink: 0 }} />
+        <span style={{ fontSize: 12, color: "#555", flex: 1 }}>
+          Org color {saving && <span style={{ color: "#aaa" }}>· saving…</span>}
+        </span>
+        <button onClick={() => setOpen(v => !v)} style={{ ...S.btnOut, padding: "4px 10px", fontSize: 11 }}>
+          {open ? "Done" : "Change"}
+        </button>
+      </div>
+      {open && (
+        <div style={{ padding: "10px 12px", background: "#f8f8f8", borderRadius: "0 0 10px 10px", borderTop: "none", border: "1px solid #e8e8e8", marginTop: -1 }}>
+          <ColorPicker value={color} onChange={handleChange} />
+          {error && <div style={{ fontSize: 11, color: "#c0392b", marginTop: 6 }}>{error}</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -552,7 +596,7 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
   );
 }
 
-export { TeamCard, TeamForm, ColorPicker, PRESET_COLORS };
+export { TeamCard, TeamForm, ColorPicker, OrgColorSection, PRESET_COLORS };
 
 export default function TeamManager() {
   const { slug } = useParams();
@@ -577,7 +621,7 @@ export default function TeamManager() {
 
     const { data: orgData, error: orgErr } = await supabase
       .from("organizations")
-      .select("id, name, slug")
+      .select("id, name, slug, color")
       .eq("slug", slug)
       .single();
     if (orgErr || !orgData) { setError("Organization not found."); setLoading(false); return; }
@@ -598,7 +642,7 @@ export default function TeamManager() {
     setSaving(true);
     setError(null);
     const { data: teamId, error: err } = await supabase.rpc("create_org_team", {
-      p_org_id: org.id, p_name: fields.name, p_color: fields.color,
+      p_org_id: org.id, p_name: fields.name,
     });
     if (err) { setError(entitlementMsg(err.message)); setSaving(false); return; }
     const { data } = await supabase.from("teams").select("id, name, color").eq("id", teamId).single();
@@ -608,9 +652,9 @@ export default function TeamManager() {
   }
 
   async function handleUpdateTeam(id, fields) {
-    const { error: err } = await supabase.from("teams").update(fields).eq("id", id);
+    const { error: err } = await supabase.from("teams").update({ name: fields.name }).eq("id", id);
     if (err) { setError(err.message); return; }
-    setTeams(prev => prev.map(t => t.id === id ? { ...t, ...fields } : t).sort((a, b) => a.name.localeCompare(b.name)));
+    setTeams(prev => prev.map(t => t.id === id ? { ...t, name: fields.name } : t).sort((a, b) => a.name.localeCompare(b.name)));
   }
 
   async function handleDeleteTeam(id) {
@@ -647,6 +691,16 @@ export default function TeamManager() {
         </div>
 
         {error && <div style={S.err}>{error}</div>}
+
+        <OrgColorSection
+          orgId={org.id}
+          initialColor={org.color}
+          canManage={isCoach}
+          onSaved={color => {
+            setOrg(prev => ({ ...prev, color }));
+            setTeams(prev => prev.map(t => ({ ...t, color })));
+          }}
+        />
 
         {showNewTeam && (
           <div style={{ background: "#fff", border: "1px solid #e0e0e0", borderRadius: 14, padding: 18, marginBottom: 16 }}>
