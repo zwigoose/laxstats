@@ -7,6 +7,7 @@ import UsersTab from "./UsersTab";
 import RostersAdminTab from "./RostersAdminTab";
 import OrgsTab from "./OrgsTab";
 import MigrationTab from "./MigrationTab";
+import PlanLimitsTab from "./PlanLimitsTab";
 
 export default function Admin() {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ export default function Admin() {
         <div style={{ background: "#fff" }}>
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px" }}>
             <div style={{ display: "flex", gap: 4, padding: "12px 0 0", marginBottom: 0, borderBottom: "1px solid #e8e8e8" }}>
-              {[["games", "All Games"], ["users", "Users"], ["rosters", "Rosters"], ["orgs", "Orgs"], ["migration", "Migration"]].map(([id, label]) => (
+              {[["games", "All Games"], ["users", "Users"], ["rosters", "Rosters"], ["orgs", "Orgs"], ["plans", "Plans"], ["migration", "Migration"]].map(([id, label]) => (
                 <button key={id} onClick={() => setTab(id)} style={{
                   padding: "8px 18px", fontSize: 14, fontWeight: tab === id ? 700 : 500,
                   border: "none", background: "transparent", cursor: "pointer",
@@ -51,6 +52,7 @@ export default function Admin() {
         {tab === "users"     && <UsersTab />}
         {tab === "rosters"   && <RostersAdminTab />}
         {tab === "orgs"      && <OrgsTab />}
+        {tab === "plans"     && <PlanLimitsTab />}
         {tab === "migration" && <MigrationTab />}
       </div>
     </div>
