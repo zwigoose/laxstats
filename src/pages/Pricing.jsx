@@ -144,7 +144,7 @@ export default function Pricing() {
               <div style={S.tagline}>Included with every account</div>
               <div style={{ fontSize: 12, color: "#555", lineHeight: 1.65 }}>
                 Up to <strong>{freeGames} personal games</strong><br />
-                Full stats · Pressbox share link
+                Full stats
               </div>
               {!user && (
                 <button onClick={() => navigate("/login")} style={S.btn("#555")}>
@@ -163,7 +163,7 @@ export default function Pricing() {
               <div style={S.tagline}>For regular scorers</div>
               <div style={{ fontSize: 12, color: "#555", lineHeight: 1.65 }}>
                 Up to <strong>{basicGames} personal games</strong><br />
-                Full stats · Pressbox share link
+                Full stats
               </div>
               <button onClick={() => handleCta("Basic")} style={S.btn("#1a6bab")}>
                 Get Basic
@@ -181,7 +181,7 @@ export default function Pricing() {
               <div style={S.tagline}>For power users & coaches</div>
               <div style={{ fontSize: 12, color: "#555", lineHeight: 1.65 }}>
                 Up to <strong>{plusGames} personal games</strong><br />
-                Full stats · Pressbox share link
+                Full stats
               </div>
               <button onClick={() => handleCta("Plus")} style={S.btn("#2a7a3b")}>
                 Get Plus
