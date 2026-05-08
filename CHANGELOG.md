@@ -5,6 +5,24 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.10.2] — 2026-05-08
+
+### Fixed
+- **Player delete cascades correctly** — deleting a player from the org now also removes their `team_season_roster` entries; previously failed with a FK constraint 409 error
+- **Personal game cap banner shown for unlimited users** — the banner now renders even when `game_limit` is null (giga org members, admins), displaying `X / ∞` without a progress bar
+
+### Database
+- `team_season_roster.player_id`: added `ON DELETE CASCADE`
+- `personal_game_limit()`: giga org bonus (NULL) correctly yields unlimited combined cap; `personal_game_usage()` always returns a row so the UI can render the banner
+
+---
+
+## [2.10.1] — 2026-05-08
+
+_Intermediate hotfix — superseded by 2.10.2._
+
+---
+
 ## [2.10.0] — 2026-05-08
 
 ### Added
