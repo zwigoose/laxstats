@@ -594,8 +594,9 @@ function OrgGamesSection({ orgMemberships }) {
 
 // ── Personal Usage Meter ──────────────────────────────────────────────────────
 function PersonalUsageMeter({ usage }) {
-  if (!usage || usage.game_limit === null) return null;
-  const pct = Math.min(100, Math.round((usage.current_count / usage.game_limit) * 100));
+  if (!usage) return null;
+  const unlimited = usage.game_limit === null;
+  const pct = unlimited ? 0 : Math.min(100, Math.round((usage.current_count / usage.game_limit) * 100));
   const atLimit = usage.at_limit;
   return (
     <div style={{
@@ -603,17 +604,19 @@ function PersonalUsageMeter({ usage }) {
       border: `1px solid ${atLimit ? "#fdd" : "#e8e8e8"}`,
       borderRadius: 12, padding: "12px 14px", marginBottom: 14,
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: unlimited ? 0 : 6 }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: atLimit ? "#c0392b" : "#555" }}>
           {atLimit ? "Personal game limit reached" : "Personal games"}
         </span>
         <span style={{ fontSize: 12, color: "#888", fontVariantNumeric: "tabular-nums" }}>
-          {usage.current_count} / {usage.game_limit}
+          {unlimited ? `${usage.current_count} / ∞` : `${usage.current_count} / ${usage.game_limit}`}
         </span>
       </div>
-      <div style={{ height: 5, background: "#e0e0e0", borderRadius: 99, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: atLimit ? "#c0392b" : "#1a6bab", borderRadius: 99, transition: "width 0.3s" }} />
-      </div>
+      {!unlimited && (
+        <div style={{ height: 5, background: "#e0e0e0", borderRadius: 99, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: atLimit ? "#c0392b" : "#1a6bab", borderRadius: 99, transition: "width 0.3s" }} />
+        </div>
+      )}
       {atLimit && (
         <div style={{ fontSize: 11, color: "#c0392b", marginTop: 6 }}>
           Upgrade your plan to create more personal games.
