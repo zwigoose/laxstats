@@ -178,10 +178,178 @@ function GamesTab({ org, canScore, orgMembership }) {
 }
 
 // ── Seasons tab ───────────────────────────────────────────────────────────────
-function SeasonCard({ season, slug, isOrgAdmin, orgTeams, navigate }) {
+
+// Season-specific roster panel for one team within a season.
+function SeasonTeamRoster({ seasonId, teamId, orgId, isOrgAdmin }) {
+  const [roster, setRoster]       = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
+  const [orgPlayers, setOrgPlayers] = useState(null);
+  const [showAdd, setShowAdd]     = useState(false);
+  const [search, setSearch]       = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editJersey, setEditJersey] = useState("");
+  const [saving, setSaving]       = useState(false);
+
+  useEffect(() => { loadRoster(); }, [seasonId, teamId]);
+
+  async function loadRoster() {
+    setLoading(true);
+    const { data, error: err } = await supabase.rpc("get_season_team_roster", {
+      p_season_id: seasonId, p_team_id: teamId,
+    });
+    if (err) setError(err.message);
+    else setRoster(data || []);
+    setLoading(false);
+  }
+
+  async function loadOrgPlayers() {
+    if (orgPlayers !== null) return;
+    const { data } = await supabase.from("players")
+      .select("id, name, number, position").eq("org_id", orgId).order("name");
+    setOrgPlayers(data || []);
+  }
+
+  async function handleAdd(player) {
+    if (saving) return;
+    setSaving(true);
+    const { error: err } = await supabase.rpc("upsert_season_roster_player", {
+      p_season_id: seasonId, p_team_id: teamId,
+      p_player_id: player.id, p_jersey_num: player.number ?? null,
+    });
+    if (err) { setError(err.message); setSaving(false); return; }
+    setRoster(prev => {
+      const next = [...prev, { player_id: player.id, name: player.name, number: player.number, position: player.position, jersey_num: player.number ?? null }];
+      return next.sort((a, b) => {
+        const an = a.jersey_num ?? a.number ?? 9999;
+        const bn = b.jersey_num ?? b.number ?? 9999;
+        return an - bn || a.name.localeCompare(b.name);
+      });
+    });
+    setSaving(false);
+  }
+
+  async function handleRemove(playerId) {
+    const { error: err } = await supabase.rpc("remove_season_roster_player", {
+      p_season_id: seasonId, p_team_id: teamId, p_player_id: playerId,
+    });
+    if (err) { setError(err.message); return; }
+    setRoster(prev => prev.filter(p => p.player_id !== playerId));
+  }
+
+  async function handleSaveJersey(playerId) {
+    const jersey = editJersey.trim() !== "" ? parseInt(editJersey, 10) : null;
+    const { error: err } = await supabase.rpc("upsert_season_roster_player", {
+      p_season_id: seasonId, p_team_id: teamId,
+      p_player_id: playerId, p_jersey_num: jersey,
+    });
+    if (!err) setRoster(prev => prev.map(p => p.player_id === playerId ? { ...p, jersey_num: jersey } : p));
+    else setError(err.message);
+    setEditingId(null);
+  }
+
+  const rosterIds = new Set((roster || []).map(r => r.player_id));
+  const available = (orgPlayers || []).filter(p => !rosterIds.has(p.id));
+  const filtered  = search ? available.filter(p => p.name.toLowerCase().includes(search.toLowerCase())) : available;
+
+  if (loading) return <div style={{ padding: "10px 0 4px", fontSize: 13, color: "#bbb" }}>Loading…</div>;
+
+  return (
+    <div style={{ paddingTop: 10, paddingBottom: 4 }}>
+      {error && <div style={S.err}>{error}</div>}
+
+      {roster?.length === 0 && !showAdd && (
+        <div style={{ fontSize: 13, color: "#ccc", marginBottom: 8 }}>No players on roster.</div>
+      )}
+
+      {(roster || []).map(p => {
+        const disp = p.jersey_num ?? p.number;
+        return editingId === p.player_id ? (
+          <div key={p.player_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid #f5f5f5" }}>
+            <input type="number" autoFocus
+              style={{ width: 60, padding: "3px 6px", fontSize: 13, border: "1px solid #ccc", borderRadius: 6, fontFamily: "monospace" }}
+              value={editJersey}
+              onChange={e => setEditJersey(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleSaveJersey(p.player_id); if (e.key === "Escape") setEditingId(null); }}
+              placeholder="#"
+            />
+            <span style={{ flex: 1, fontSize: 13, color: "#111" }}>{p.name}</span>
+            <button onClick={() => handleSaveJersey(p.player_id)}
+              style={{ fontSize: 11, color: "#2a7a3b", background: "none", border: "1px solid #b5e0c0", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>Save</button>
+            <button onClick={() => setEditingId(null)}
+              style={{ fontSize: 11, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}>✕</button>
+          </div>
+        ) : (
+          <div key={p.player_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #f5f5f5" }}>
+            <span
+              style={{ fontSize: 12, fontWeight: 700, color: "#bbb", width: 32, textAlign: "right", fontFamily: "monospace", cursor: isOrgAdmin ? "pointer" : "default", flexShrink: 0 }}
+              onClick={() => { if (!isOrgAdmin) return; setEditingId(p.player_id); setEditJersey(disp != null ? String(disp) : ""); }}
+              title={isOrgAdmin ? "Edit jersey" : undefined}
+            >
+              {disp != null ? `#${disp}` : "—"}
+            </span>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: "#111" }}>{p.name}</span>
+            {p.position && <span style={{ fontSize: 11, color: "#aaa" }}>{p.position}</span>}
+            {isOrgAdmin && (
+              <button onClick={() => handleRemove(p.player_id)}
+                style={{ fontSize: 11, color: "#c0392b", background: "none", border: "1px solid #f0a0a0", borderRadius: 6, padding: "2px 6px", cursor: "pointer" }}>✕</button>
+            )}
+          </div>
+        );
+      })}
+
+      {isOrgAdmin && (
+        showAdd ? (
+          <div style={{ marginTop: 10 }}>
+            <input autoFocus
+              style={{ ...S.input, fontSize: 13, padding: "7px 10px", marginBottom: 6 }}
+              placeholder="Search org players…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {filtered.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#bbb", padding: "4px 0 6px" }}>
+                {orgPlayers?.length === 0 ? "No players in org pool yet." : "No matches."}
+              </div>
+            ) : (
+              <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff" }}>
+                {filtered.map(p => (
+                  <div key={p.id}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderBottom: "1px solid #f5f5f5", cursor: saving ? "default" : "pointer" }}
+                    onClick={() => handleAdd(p)}>
+                    <span style={{ fontSize: 12, color: "#bbb", width: 32, textAlign: "right", fontFamily: "monospace", flexShrink: 0 }}>
+                      {p.number != null ? `#${p.number}` : "—"}
+                    </span>
+                    <span style={{ flex: 1, fontSize: 13, color: "#111" }}>{p.name}</span>
+                    {p.position && <span style={{ fontSize: 11, color: "#aaa" }}>{p.position}</span>}
+                    <span style={{ fontSize: 11, color: "#2a7a3b", fontWeight: 600 }}>Add</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => { setShowAdd(false); setSearch(""); }}
+              style={{ marginTop: 6, fontSize: 12, color: "#888", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => { setShowAdd(true); loadOrgPlayers(); }}
+            style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: "#2a7a3b", background: "none", border: "1px solid #b5e0c0", borderRadius: 7, padding: "4px 10px", cursor: "pointer" }}
+          >
+            + Add player
+          </button>
+        )
+      )}
+    </div>
+  );
+}
+
+function SeasonCard({ season, slug, isOrgAdmin, orgTeams, orgId, navigate }) {
   const [open, setOpen]             = useState(false);
   const [seasonTeams, setSeasonTeams] = useState(null);
   const [loadingTeams, setLoadingTeams] = useState(false);
+  const [openRosterTeamId, setOpenRosterTeamId] = useState(null);
   const [addingTeam, setAddingTeam] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [saving, setSaving]         = useState(false);
@@ -270,16 +438,34 @@ function SeasonCard({ season, slug, isOrgAdmin, orgTeams, navigate }) {
               )}
 
               {seasonTeams.map(st => (
-                <div key={st.team_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: st.team?.color || "#888", flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: "#111" }}>{st.team?.name}</span>
-                  {isOrgAdmin && (
+                <div key={st.team_id}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: openRosterTeamId === st.team_id ? "none" : "1px solid #f5f5f5" }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: st.team?.color || "#888", flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: "#111" }}>{st.team?.name}</span>
                     <button
-                      onClick={() => handleRemoveTeam(st.team_id)}
-                      style={{ fontSize: 11, color: "#c0392b", background: "none", border: "1px solid #f0a0a0", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}
+                      onClick={e => { e.stopPropagation(); setOpenRosterTeamId(id => id === st.team_id ? null : st.team_id); }}
+                      style={{ fontSize: 11, fontWeight: 600, color: openRosterTeamId === st.team_id ? "#888" : "#1a6bab", background: "none", border: `1px solid ${openRosterTeamId === st.team_id ? "#e0e0e0" : "#c0d8f0"}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
                     >
-                      Remove
+                      Roster {openRosterTeamId === st.team_id ? "▲" : "▼"}
                     </button>
+                    {isOrgAdmin && (
+                      <button
+                        onClick={e => { e.stopPropagation(); handleRemoveTeam(st.team_id); }}
+                        style={{ fontSize: 11, color: "#c0392b", background: "none", border: "1px solid #f0a0a0", borderRadius: 6, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  {openRosterTeamId === st.team_id && (
+                    <div style={{ paddingLeft: 18, borderBottom: "1px solid #f5f5f5" }}>
+                      <SeasonTeamRoster
+                        seasonId={season.id}
+                        teamId={st.team_id}
+                        orgId={orgId}
+                        isOrgAdmin={isOrgAdmin}
+                      />
+                    </div>
                   )}
                 </div>
               ))}
@@ -410,6 +596,7 @@ function SeasonsTab({ org, slug, isOrgAdmin, entitlements }) {
           slug={slug}
           isOrgAdmin={isOrgAdmin}
           orgTeams={orgTeams}
+          orgId={org.id}
           navigate={navigate}
         />
       ))}
@@ -558,7 +745,10 @@ function PlayersTab({ org, isOrgAdmin }) {
     setLoading(true);
     const { data, error: err } = await supabase
       .from("players")
-      .select("id, name, number, position, team_players(jersey_num, team:teams(id, name, color))")
+      .select(`id, name, number, position,
+        team_players(jersey_num, team:teams(id, name, color)),
+        team_season_roster(jersey_num, season:seasons(id, name, start_date), team:teams(id, name, color))
+      `)
       .eq("org_id", org.id)
       .order("name");
     if (err) setError(err.message);
@@ -572,7 +762,7 @@ function PlayersTab({ org, isOrgAdmin }) {
     const { data, error: err } = await supabase
       .from("players")
       .insert({ org_id: org.id, name: newName.trim(), number: newNumber ? parseInt(newNumber) : null, position: newPos.trim() || null })
-      .select("id, name, number, position, team_players(jersey_num, team:teams(id, name, color))")
+      .select("id, name, number, position, team_players(jersey_num, team:teams(id, name, color)), team_season_roster(jersey_num, season:seasons(id, name, start_date), team:teams(id, name, color))")
       .single();
     if (err) { setError(err.message); setSaving(false); return; }
     setPlayers(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
@@ -680,6 +870,7 @@ function PlayersTab({ org, isOrgAdmin }) {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{p.name}</div>
                 {p.position && <div style={{ fontSize: 12, color: "#888", marginTop: 1 }}>{p.position}</div>}
+                {/* Current team memberships (baseline) */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
                   {p.team_players?.length > 0
                     ? p.team_players.map(tp => (
@@ -691,6 +882,40 @@ function PlayersTab({ org, isOrgAdmin }) {
                     : <span style={{ fontSize: 11, color: "#ccc" }}>No team</span>
                   }
                 </div>
+                {/* Season history */}
+                {(() => {
+                  const entries = p.team_season_roster || [];
+                  if (!entries.length) return null;
+                  const bySeasonId = {};
+                  entries.forEach(e => {
+                    const sid = e.season?.id;
+                    if (!sid) return;
+                    if (!bySeasonId[sid]) bySeasonId[sid] = { season: e.season, teams: [] };
+                    bySeasonId[sid].teams.push({ team: e.team, jersey_num: e.jersey_num });
+                  });
+                  const seasons = Object.values(bySeasonId).sort((a, b) => {
+                    const da = a.season?.start_date || "";
+                    const db = b.season?.start_date || "";
+                    return db.localeCompare(da);
+                  });
+                  return (
+                    <div style={{ marginTop: 6, borderTop: "1px solid #f5f5f5", paddingTop: 6 }}>
+                      {seasons.map(({ season, teams }) => (
+                        <div key={season.id} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 3 }}>
+                          <span style={{ fontSize: 11, color: "#bbb", whiteSpace: "nowrap", paddingTop: 1, minWidth: 80 }}>{season.name}</span>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {teams.map(({ team, jersey_num }) => (
+                              <span key={team?.id} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, background: "#f0f4f8", borderRadius: 10, padding: "1px 7px", color: "#555" }}>
+                                <span style={{ width: 6, height: 6, borderRadius: "50%", background: team?.color || "#888", display: "inline-block", flexShrink: 0 }} />
+                                {team?.name}{jersey_num != null ? ` #${jersey_num}` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
               {isOrgAdmin && (
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
