@@ -218,7 +218,7 @@ export default function Pricing() {
                 {fmtLimit(orgFeatures?.org_active_teams?.pro_limit)} teams · {fmtLimit(orgFeatures?.org_members?.pro_limit)} members<br />
                 {fmtLimit(orgFeatures?.org_games_per_season?.pro_limit)} games / season<br />
                 +{fmtLimit(orgProBonus)} personal games per member<br />
-                Press Box · Season stats · Multi-scorer
+                Press Box · Season stats
               </div>
               <button onClick={() => handleCta("Pro")} style={S.btn("#111")}>
                 Get Pro
