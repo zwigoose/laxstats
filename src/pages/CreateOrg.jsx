@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { useDocTitle } from "../hooks/useDocTitle";
+import { ColorPicker, PRESET_COLORS } from "./TeamManager";
 
 function slugify(str) {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -25,6 +26,7 @@ export default function CreateOrg() {
   useDocTitle("New Organization");
   const [name, setName]             = useState("");
   const [slug, setSlug]             = useState("");
+  const [color, setColor]           = useState(PRESET_COLORS[0]);
   const [slugTouched, setSlugTouched] = useState(false);
   const [saving, setSaving]         = useState(false);
   const [error, setError]           = useState(null);
@@ -46,7 +48,7 @@ export default function CreateOrg() {
 
     const { data: org, error: orgErr } = await supabase
       .from("organizations")
-      .insert({ name: name.trim(), slug: slug.trim(), created_by: user.id })
+      .insert({ name: name.trim(), slug: slug.trim(), color, created_by: user.id })
       .select("id, slug")
       .single();
 
@@ -100,6 +102,15 @@ export default function CreateOrg() {
             onChange={e => handleNameChange(e.target.value)}
             onKeyDown={e => e.key === "Enter" && canSubmit && handleSubmit()}
             placeholder="Notre Dame Prep" />
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <span style={label}>Org color</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: color, border: "2px solid #e0e0e0", flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: "#888", fontFamily: "monospace" }}>{color}</span>
+          </div>
+          <ColorPicker value={color} onChange={setColor} />
         </div>
 
         <div style={{ marginBottom: 28 }}>

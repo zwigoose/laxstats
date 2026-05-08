@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { getGameInfo } from "../../utils/game";
 import { PLANS, PLAN_STATUS, ORG_ROLES, BOOLEAN_FEATURES, PLAN_COLOR, STATUS_COLOR } from "../../constants/lacrosse";
 import { displayName } from "./helpers";
+import { ColorPicker, PRESET_COLORS } from "../TeamManager";
 
 export default function OrgCard({ org, users, onUpdated, onDeleted }) {
   const navigate = useNavigate();
@@ -17,8 +18,11 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
 
   const [showNewTeam, setShowNewTeam]   = useState(false);
   const [newTeamName, setNewTeamName]   = useState("");
-  const [newTeamColor, setNewTeamColor] = useState("#444444");
   const [creatingTeam, setCreatingTeam] = useState(false);
+
+  const [orgColor, setOrgColor]         = useState(org.color || PRESET_COLORS[0]);
+  const [editingColor, setEditingColor] = useState(false);
+  const [savingColor, setSavingColor]   = useState(false);
 
   const [showNewGame, setShowNewGame] = useState(false);
   const [gameOwner, setGameOwner]     = useState("");
@@ -59,13 +63,24 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
     setCreatingTeam(true);
     const { data, error: err } = await supabase
       .from("teams")
-      .insert({ name: newTeamName.trim(), color: newTeamColor, org_id: org.id })
+      .insert({ name: newTeamName.trim(), org_id: org.id })
       .select("id, name, color")
       .single();
     if (err) { setError(err.message); setCreatingTeam(false); return; }
     setTeams(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
-    setNewTeamName(""); setNewTeamColor("#444444"); setShowNewTeam(false); setCreatingTeam(false);
+    setNewTeamName(""); setShowNewTeam(false); setCreatingTeam(false);
     onUpdated({ ...org, team_count: Number(org.team_count) + 1 });
+  }
+
+  async function handleSaveOrgColor(color) {
+    setSavingColor(true);
+    const { error: err } = await supabase.from("organizations").update({ color }).eq("id", org.id);
+    setSavingColor(false);
+    if (err) { setError(err.message); return; }
+    setOrgColor(color);
+    setTeams(prev => prev.map(t => ({ ...t, color })));
+    setEditingColor(false);
+    onUpdated({ ...org, color });
   }
 
   function handleCreateGame() {
@@ -138,6 +153,7 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
   return (
     <div style={{ border: "1px solid #e8e8e8", borderRadius: 14, marginBottom: 10, overflow: "hidden", background: "#fff", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer" }} onClick={toggle}>
+        <div style={{ width: 14, height: 14, borderRadius: "50%", background: orgColor, border: "2px solid #e0e0e0", flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>{org.name}</span>
@@ -177,6 +193,30 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
                     </select>
                     <button onClick={savePlan} disabled={savingPlan} style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>{savingPlan ? "…" : "Save"}</button>
                     <button onClick={() => { setEditPlan(false); setPlan(org.plan); setPlanStatus(org.plan_status); }} style={{ padding: "6px 12px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555" }}>Cancel</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Org color */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Org Color</div>
+                {!editingColor ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: orgColor, border: "2px solid #e0e0e0", flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, color: "#555", fontFamily: "monospace" }}>{orgColor}</span>
+                    <button onClick={() => setEditingColor(true)} style={{ fontSize: 12, color: "#1a6bab", background: "none", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 9px", cursor: "pointer" }}>Edit</button>
+                  </div>
+                ) : (
+                  <div>
+                    <ColorPicker value={orgColor} onChange={setOrgColor} />
+                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                      <button onClick={() => handleSaveOrgColor(orgColor)} disabled={savingColor}
+                        style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                        {savingColor ? "…" : "Save"}
+                      </button>
+                      <button onClick={() => { setEditingColor(false); setOrgColor(org.color || PRESET_COLORS[0]); }}
+                        style={{ padding: "6px 12px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555" }}>Cancel</button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -288,16 +328,11 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <input style={{ ...inp, flex: 1, minWidth: 120 }} placeholder="Team name" value={newTeamName}
                         onChange={e => setNewTeamName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleCreateTeam()} autoFocus />
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: 24, height: 24, borderRadius: "50%", background: newTeamColor, border: "1px solid #ddd", flexShrink: 0 }} />
-                        <input type="color" value={newTeamColor} onChange={e => setNewTeamColor(e.target.value)}
-                          style={{ width: 36, height: 28, padding: 2, border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", background: "#fff" }} title="Team color" />
-                      </div>
                       <button onClick={handleCreateTeam} disabled={!newTeamName.trim() || creatingTeam}
                         style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: newTeamName.trim() && !creatingTeam ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
                         {creatingTeam ? "…" : "Create"}
                       </button>
-                      <button onClick={() => { setShowNewTeam(false); setNewTeamName(""); setNewTeamColor("#444444"); }}
+                      <button onClick={() => { setShowNewTeam(false); setNewTeamName(""); }}
                         style={{ padding: "6px 10px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555", flexShrink: 0 }}>Cancel</button>
                     </div>
                   </div>

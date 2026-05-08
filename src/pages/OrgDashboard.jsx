@@ -890,6 +890,7 @@ export default function OrgDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tab, setTab]     = useState(location.state?.tab ?? "games");
+  const [colorOpen, setColorOpen] = useState(false);
   useDocTitle(org?.name);
 
   useEffect(() => {
@@ -924,6 +925,12 @@ export default function OrgDashboard() {
       {/* Sticky header + tab bar */}
       <div style={{ position: "sticky", top: 0, zIndex: 10 }}>
         <div style={S.header}>
+          {/* Org color swatch — clickable for org admins */}
+          <div
+            style={{ width: 18, height: 18, borderRadius: "50%", background: org.color || "#1a6bab", border: "2px solid rgba(255,255,255,0.3)", flexShrink: 0, cursor: isOrgAdmin ? "pointer" : "default" }}
+            title={isOrgAdmin ? "Change org color" : "Org color"}
+            onClick={isOrgAdmin ? () => setColorOpen(v => !v) : undefined}
+          />
           <span style={S.orgName}>{org.name}</span>
           {org.plan && (() => { const pc = PLAN_COLOR[org.plan] || PLAN_COLOR.free; return (
             <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "2px 8px", background: pc.bg, color: pc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{org.plan}</span>
@@ -946,6 +953,20 @@ export default function OrgDashboard() {
           </div>
         </div>
       </div>
+
+      {isOrgAdmin && colorOpen && (
+        <div style={{ maxWidth: 640, margin: "0 auto", padding: "12px 16px 0" }}>
+          <OrgColorSection
+            orgId={org.id}
+            initialColor={org.color}
+            canManage
+            onSaved={color => {
+              setOrg(prev => ({ ...prev, color }));
+              setColorOpen(false);
+            }}
+          />
+        </div>
+      )}
 
       <div style={S.body}>
         {tab === "games"   && <GamesTab   org={org} canScore={canScore} orgMembership={orgMembership} />}

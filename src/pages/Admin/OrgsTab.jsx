@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import { PLANS } from "../../constants/lacrosse";
 import { displayName } from "./helpers";
 import OrgCard from "./OrgCard";
+import { ColorPicker, PRESET_COLORS } from "../TeamManager";
 
 function slugify(str) {
   return str.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -17,6 +18,7 @@ export default function OrgsTab() {
   const [showCreate, setShowCreate]   = useState(false);
   const [newName, setNewName]         = useState("");
   const [newSlug, setNewSlug]         = useState("");
+  const [newColor, setNewColor]       = useState(PRESET_COLORS[0]);
   const [newOwner, setNewOwner]       = useState("");
   const [newPlan, setNewPlan]         = useState("free");
   const [creating, setCreating]       = useState(false);
@@ -49,8 +51,8 @@ export default function OrgsTab() {
 
     const { data: orgRow, error: orgErr } = await supabase
       .from("organizations")
-      .insert({ name: newName.trim(), slug: newSlug.trim(), plan: newPlan, plan_status: "active" })
-      .select("id, slug, name, plan, plan_status")
+      .insert({ name: newName.trim(), slug: newSlug.trim(), plan: newPlan, plan_status: "active", color: newColor })
+      .select("id, slug, name, plan, plan_status, color")
       .single();
     if (orgErr) { setCreateError(orgErr.message); setCreating(false); return; }
 
@@ -63,7 +65,7 @@ export default function OrgsTab() {
     if (fresh) setOrgs(fresh);
 
     setShowCreate(false);
-    setNewName(""); setNewSlug(""); setNewOwner(""); setNewPlan("free"); setSlugEdited(false);
+    setNewName(""); setNewSlug(""); setNewOwner(""); setNewPlan("free"); setNewColor(PRESET_COLORS[0]); setSlugEdited(false);
     setCreating(false);
   }
 
@@ -108,6 +110,14 @@ export default function OrgsTab() {
                     {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Org Color</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", background: newColor, border: "1px solid #ddd", flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, color: "#aaa", fontFamily: "monospace" }}>{newColor}</span>
+                </div>
+                <ColorPicker value={newColor} onChange={setNewColor} />
               </div>
               {createError && (
                 <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 8, padding: "8px 12px", color: "#c0392b", fontSize: 12, marginBottom: 10 }}>{createError}</div>
