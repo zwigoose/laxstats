@@ -1,11 +1,42 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useDocTitle } from "../hooks/useDocTitle";
+import { supabase } from "../lib/supabase";
 
-function Check({ ok }) {
-  if (ok === true)  return <span style={{ color: "#2a7a3b", fontSize: 17, lineHeight: 1 }}>✓</span>;
-  if (ok === false) return <span style={{ color: "#ddd", fontSize: 17, lineHeight: 1 }}>—</span>;
-  return null;
+// Features to show in the org comparison table, in display order.
+const ORG_FEATURE_ORDER = [
+  "org_active_seasons",
+  "org_active_teams",
+  "org_members",
+  "org_games_per_season",
+  "org_member_personal_games",
+  "pressbox",
+  "season_stats",
+  "multi_scorekeeper",
+];
+
+const ORG_FEATURE_LABELS = {
+  org_active_seasons:       "Active seasons",
+  org_active_teams:         "Active teams",
+  org_members:              "Members",
+  org_games_per_season:     "Games per season",
+  org_member_personal_games:"Bonus personal games / member",
+  pressbox:                 "Press Box",
+  season_stats:             "Season stats",
+  multi_scorekeeper:        "Multi-scorekeeper",
+};
+
+// These features are on/off rather than numeric caps.
+const BOOLEAN_FEATURES = new Set(["pressbox", "season_stats", "multi_scorekeeper"]);
+
+function fmtLimit(val, isBool) {
+  if (val === null || val === undefined) return "∞";
+  if (isBool) return val > 0
+    ? <span style={{ color: "#2a7a3b", fontSize: 17, lineHeight: 1 }}>✓</span>
+    : <span style={{ color: "#ddd", fontSize: 17, lineHeight: 1 }}>—</span>;
+  if (val === 0) return <span style={{ color: "#ddd", fontSize: 17, lineHeight: 1 }}>—</span>;
+  return String(val);
 }
 
 const S = {
@@ -16,32 +47,73 @@ const S = {
   card: (accent, recommended) => ({
     background: "#fff",
     border: recommended ? `2px solid ${accent}` : "1px solid #e8e8e8",
-    borderRadius: 16,
-    padding: "22px 20px",
-    position: "relative",
+    borderRadius: 16, padding: "22px 20px", position: "relative", flex: 1,
     boxShadow: recommended ? `0 4px 20px ${accent}22` : "0 1px 6px rgba(0,0,0,0.05)",
-    flex: 1,
   }),
-  planName: (color) => ({ fontSize: 11, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }),
+  badge: (color, bg) => ({
+    position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)",
+    fontSize: 10, fontWeight: 700, color, background: bg,
+    border: `1px solid ${color}44`, borderRadius: 20, padding: "2px 10px",
+    letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap",
+  }),
+  planName: (color) => ({
+    fontSize: 11, fontWeight: 700, color,
+    textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6,
+  }),
   price: { fontSize: 26, fontWeight: 800, color: "#111", letterSpacing: "-0.02em" },
   period: { fontSize: 12, color: "#aaa", marginLeft: 2 },
   tagline: { fontSize: 12, color: "#888", marginBottom: 18, marginTop: 2 },
-  btn: (color, recommended) => ({
+  btn: (bg) => ({
     width: "100%", padding: "9px", fontSize: 13, fontWeight: 700,
-    background: recommended ? color : "#111",
-    color: "#fff", border: "none", borderRadius: 9, cursor: "pointer",
-    marginTop: 4,
+    background: bg, color: "#fff", border: "none", borderRadius: 9, cursor: "pointer", marginTop: 4,
   }),
 };
 
 export default function Pricing() {
   useDocTitle("Plans & Pricing");
-  const navigate = useNavigate();
-  const { user } = useAuth();
+  const navigate  = useNavigate();
+  const { user }  = useAuth();
+
+  const [orgFeatures,    setOrgFeatures]    = useState(null); // { [id]: { pro_limit, max_limit } }
+  const [personalLimits, setPersonalLimits] = useState(null); // { free: n, basic: n, plus: n }
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from("plan_features").select("id, pro_limit, max_limit"),
+      supabase.from("personal_plan_limits").select("plan, game_limit"),
+    ]).then(([pfRes, plRes]) => {
+      if (!pfRes.error) {
+        const map = {};
+        (pfRes.data || []).forEach(r => { map[r.id] = r; });
+        setOrgFeatures(map);
+      }
+      if (!plRes.error) {
+        const map = {};
+        (plRes.data || []).forEach(r => { map[r.plan] = r.game_limit; });
+        setPersonalLimits(map);
+      }
+    });
+  }, []);
 
   function handleCta(planName) {
     alert(`Billing setup is coming soon. To get on the ${planName} plan, email us at hello@laxstats.app.`);
   }
+
+  const freeGames  = personalLimits?.free  ?? "—";
+  const basicGames = personalLimits?.basic ?? "—";
+  const plusGames  = personalLimits?.plus  ?? "—";
+
+  const orgProBonus  = orgFeatures?.org_member_personal_games?.pro_limit  ?? null;
+  const orgMaxBonus  = orgFeatures?.org_member_personal_games?.max_limit  ?? null;
+
+  // Build a human-readable example for the cap explainer
+  function capExample() {
+    const b = typeof basicGames === "number" ? basicGames : null;
+    const m = typeof orgMaxBonus === "number" ? orgMaxBonus : null;
+    if (b !== null && m !== null) return `${b} + ${m} = ${b + m}`;
+    return null;
+  }
+  const example = capExample();
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", background: "#f5f5f5", minHeight: "100%" }}>
@@ -53,12 +125,11 @@ export default function Pricing() {
             Simple, honest pricing
           </h1>
           <p style={{ fontSize: 15, color: "#666", margin: 0, lineHeight: 1.6 }}>
-            Score on your own for free, or run a full organization.<br />
-            No hidden fees.
+            Score on your own for free, or run a full organization.<br />No hidden fees.
           </p>
         </div>
 
-        {/* ── Personal plans ───────────────────────────────────── */}
+        {/* ── Personal plans ─────────────────────────────────────── */}
         <div style={{ marginBottom: 44 }}>
           <div style={S.sectionLabel}>Personal — score on your own</div>
 
@@ -71,12 +142,12 @@ export default function Pricing() {
                 <span style={S.period}>/ mo</span>
               </div>
               <div style={S.tagline}>Included with every account</div>
-              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6 }}>
-                Up to <strong>3 personal games</strong><br />
-                Score, review stats, share Pressbox
+              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.65 }}>
+                Up to <strong>{freeGames} personal games</strong><br />
+                Full stats · Pressbox share link
               </div>
               {!user && (
-                <button onClick={() => navigate("/login")} style={S.btn("#555", false)}>
+                <button onClick={() => navigate("/login")} style={S.btn("#555")}>
                   Sign up free
                 </button>
               )}
@@ -90,47 +161,46 @@ export default function Pricing() {
                 <span style={S.period}>/ mo</span>
               </div>
               <div style={S.tagline}>For regular scorers</div>
-              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6 }}>
-                Up to <strong>10 personal games</strong><br />
-                Score, review stats, share Pressbox
+              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.65 }}>
+                Up to <strong>{basicGames} personal games</strong><br />
+                Full stats · Pressbox share link
               </div>
-              <button onClick={() => handleCta("Basic")} style={S.btn("#1a6bab", false)}>
+              <button onClick={() => handleCta("Basic")} style={S.btn("#1a6bab")}>
                 Get Basic
               </button>
             </div>
 
             {/* Plus */}
             <div style={S.card("#2a7a3b", true)}>
-              <div style={{ position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)",
-                fontSize: 10, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec",
-                border: "1px solid #2a7a3b44", borderRadius: 20, padding: "2px 10px",
-                letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
-                Best value
-              </div>
+              <div style={S.badge("#2a7a3b", "#eaf6ec")}>Best value</div>
               <div style={S.planName("#2a7a3b")}>Plus</div>
               <div style={{ display: "flex", alignItems: "baseline" }}>
                 <span style={S.price}>$10</span>
                 <span style={S.period}>/ mo</span>
               </div>
               <div style={S.tagline}>For power users & coaches</div>
-              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6 }}>
-                Up to <strong>20 personal games</strong><br />
-                Score, review stats, share Pressbox
+              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.65 }}>
+                Up to <strong>{plusGames} personal games</strong><br />
+                Full stats · Pressbox share link
               </div>
-              <button onClick={() => handleCta("Plus")} style={S.btn("#2a7a3b", true)}>
+              <button onClick={() => handleCta("Plus")} style={S.btn("#2a7a3b")}>
                 Get Plus
               </button>
             </div>
           </div>
 
           {/* Personal game cap explainer */}
-          <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 12, padding: "14px 18px", fontSize: 13, color: "#555", lineHeight: 1.65 }}>
+          <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 12, padding: "14px 18px", fontSize: 13, color: "#555", lineHeight: 1.7 }}>
             <span style={{ fontWeight: 700, color: "#111" }}>How the personal game cap works: </span>
-            Personal games are private scorebook entries you create outside of any organization — great for scrimmages, pickup games, or solo stat-keeping. Your plan determines how many you can have at one time. If you join an org, org games don't count against your personal cap, and your org's plan may raise your personal limit automatically.
+            Personal games are private scorebook entries you create outside of any organization. Your cap is <strong>cumulative</strong> — it combines your personal plan allowance with a bonus from your org&apos;s plan.
+            {example && (
+              <> For example, a Basic subscriber in a Max org can have up to <strong>{example}</strong> personal games.</>
+            )}
+            {" "}Org games never count against your personal cap.
           </div>
         </div>
 
-        {/* ── Org plans ────────────────────────────────────────── */}
+        {/* ── Org plans ──────────────────────────────────────────── */}
         <div style={{ marginBottom: 32 }}>
           <div style={S.sectionLabel}>Organizations — manage your team or league</div>
 
@@ -144,25 +214,20 @@ export default function Pricing() {
               </div>
               <div style={S.tagline}>For a single team or small club</div>
               <div style={{ fontSize: 12, color: "#555", lineHeight: 1.7 }}>
-                2 active seasons<br />
-                4 teams<br />
-                5 members<br />
-                20 games per season<br />
+                {fmtLimit(orgFeatures?.org_active_seasons?.pro_limit)} active season{orgFeatures?.org_active_seasons?.pro_limit !== 1 ? "s" : ""}<br />
+                {fmtLimit(orgFeatures?.org_active_teams?.pro_limit)} teams · {fmtLimit(orgFeatures?.org_members?.pro_limit)} members<br />
+                {fmtLimit(orgFeatures?.org_games_per_season?.pro_limit)} games / season<br />
+                +{fmtLimit(orgProBonus)} personal games per member<br />
                 Press Box · Season stats · Multi-scorer
               </div>
-              <button onClick={() => handleCta("Pro")} style={S.btn("#111", false)}>
+              <button onClick={() => handleCta("Pro")} style={S.btn("#111")}>
                 Get Pro
               </button>
             </div>
 
             {/* Max */}
             <div style={S.card("#2a7a3b", true)}>
-              <div style={{ position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)",
-                fontSize: 10, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec",
-                border: "1px solid #2a7a3b44", borderRadius: 20, padding: "2px 10px",
-                letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
-                Most popular
-              </div>
+              <div style={S.badge("#2a7a3b", "#eaf6ec")}>Most popular</div>
               <div style={S.planName("#2a7a3b")}>Max</div>
               <div style={{ display: "flex", alignItems: "baseline" }}>
                 <span style={S.price}>$20</span>
@@ -170,13 +235,13 @@ export default function Pricing() {
               </div>
               <div style={S.tagline}>For leagues and multi-team programs</div>
               <div style={{ fontSize: 12, color: "#555", lineHeight: 1.7 }}>
-                Unlimited active seasons<br />
-                Unlimited teams<br />
-                Unlimited members<br />
-                Unlimited games<br />
+                {fmtLimit(orgFeatures?.org_active_seasons?.max_limit)} active seasons<br />
+                {fmtLimit(orgFeatures?.org_active_teams?.max_limit)} teams · {fmtLimit(orgFeatures?.org_members?.max_limit)} members<br />
+                {fmtLimit(orgFeatures?.org_games_per_season?.max_limit)} games / season<br />
+                +{fmtLimit(orgMaxBonus)} personal games per member<br />
                 Press Box · Season stats · Multi-scorer
               </div>
-              <button onClick={() => handleCta("Max")} style={S.btn("#2a7a3b", true)}>
+              <button onClick={() => handleCta("Max")} style={S.btn("#2a7a3b")}>
                 Get Max
               </button>
             </div>
@@ -189,33 +254,29 @@ export default function Pricing() {
               <div style={{ padding: "13px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#1a6bab", textTransform: "uppercase", letterSpacing: "0.07em" }}>Pro</div>
               <div style={{ padding: "13px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#2a7a3b", textTransform: "uppercase", letterSpacing: "0.07em" }}>Max</div>
             </div>
-            {[
-              { label: "Active seasons",    pro: "2",   max: "∞" },
-              { label: "Active teams",      pro: "4",   max: "∞" },
-              { label: "Members",           pro: "5",   max: "∞" },
-              { label: "Games per season",  pro: "20",  max: "∞" },
-              { label: "Press Box",         pro: true,  max: true },
-              { label: "Season stats",      pro: true,  max: true },
-              { label: "Multi-scorekeeper", pro: true,  max: true },
-            ].map((row, i, arr) => (
-              <div key={row.label} style={{
-                display: "grid", gridTemplateColumns: "1fr 100px 100px",
-                borderBottom: i < arr.length - 1 ? "1px solid #f5f5f5" : "none",
-                background: i % 2 === 0 ? "#fff" : "#fafafa",
-              }}>
-                <div style={{ padding: "12px 20px", fontSize: 13, color: "#333" }}>{row.label}</div>
-                <div style={{ padding: "12px 8px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#111" }}>
-                  {typeof row.pro === "boolean" ? <Check ok={row.pro} /> : row.pro}
+            {ORG_FEATURE_ORDER.filter(id => orgFeatures?.[id] !== undefined || orgFeatures === null).map((id, i, arr) => {
+              const feature = orgFeatures?.[id];
+              const isBool  = BOOLEAN_FEATURES.has(id);
+              return (
+                <div key={id} style={{
+                  display: "grid", gridTemplateColumns: "1fr 100px 100px",
+                  borderBottom: i < arr.length - 1 ? "1px solid #f5f5f5" : "none",
+                  background: i % 2 === 0 ? "#fff" : "#fafafa",
+                }}>
+                  <div style={{ padding: "12px 20px", fontSize: 13, color: "#333" }}>{ORG_FEATURE_LABELS[id] ?? id}</div>
+                  <div style={{ padding: "12px 8px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#111" }}>
+                    {feature ? fmtLimit(feature.pro_limit, isBool) : "—"}
+                  </div>
+                  <div style={{ padding: "12px 8px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#111" }}>
+                    {feature ? fmtLimit(feature.max_limit, isBool) : "—"}
+                  </div>
                 </div>
-                <div style={{ padding: "12px 8px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#111" }}>
-                  {typeof row.max === "boolean" ? <Check ok={row.max} /> : row.max}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div style={{ marginTop: 10, fontSize: 12, color: "#bbb", textAlign: "center" }}>
-            Org plans are billed per organization. One org admin can manage the subscription.
+            Org plans are billed per organization.
           </div>
         </div>
 
@@ -228,7 +289,7 @@ export default function Pricing() {
             <div style={{ fontSize: 13, color: "#666" }}>
               {user
                 ? "View your current personal plan and org memberships."
-                : "Create an account and score your first 3 games at no cost."}
+                : "Create an account and score your first games at no cost."}
             </div>
           </div>
           {user ? (
