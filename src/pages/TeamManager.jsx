@@ -388,7 +388,12 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [players, setPlayers] = useState(null);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
-  const [addingPlayer, setAddingPlayer] = useState(false);
+  // addMode: null | "pick" | "new"
+  const [addMode, setAddMode] = useState(null);
+  const [orgPlayers, setOrgPlayers] = useState(null);
+  const [pickSearch, setPickSearch] = useState("");
+  const [pickingPlayer, setPickingPlayer] = useState(null);
+  const [pickJersey, setPickJersey] = useState("");
   const [editingPlayerId, setEditingPlayerId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -420,10 +425,41 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
     if (!expanded) loadPlayers();
     setExpanded(v => !v);
     setEditing(false);
-    setAddingPlayer(false);
+    setAddMode(null);
+    setPickingPlayer(null);
+    setPickSearch("");
     setEditingPlayerId(null);
     setConfirmDelete(false);
     setImportingRoster(false);
+  }
+
+  async function loadOrgPlayers() {
+    if (orgPlayers !== null) return;
+    const { data } = await supabase.from("players")
+      .select("id, name, number, position").eq("org_id", orgId).order("name");
+    setOrgPlayers(data || []);
+  }
+
+  async function handlePickPlayer() {
+    if (!pickingPlayer || saving) return;
+    setSaving(true);
+    setPlayerError(null);
+    const jersey = pickJersey.trim() !== "" ? parseInt(pickJersey, 10) : null;
+    const { error: err } = await supabase.from("team_players")
+      .insert({ team_id: team.id, player_id: pickingPlayer.id, jersey_num: jersey });
+    if (err) { setPlayerError(err.message); setSaving(false); return; }
+    const entry = { ...pickingPlayer, jersey_num: jersey };
+    setPlayers(prev => {
+      const next = [...(prev || []), entry];
+      return next.sort((a, b) => {
+        const na = a.jersey_num ?? a.number, nb = b.jersey_num ?? b.number;
+        if (na != null && nb != null) return na - nb;
+        if (na != null) return -1; if (nb != null) return 1;
+        return a.name.localeCompare(b.name);
+      });
+    });
+    setAddMode(null); setPickingPlayer(null); setPickJersey(""); setPickSearch("");
+    setSaving(false);
   }
 
   async function handleSaveTeam(fields) {
@@ -436,14 +472,12 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
   async function handleAddPlayer(fields) {
     setSaving(true);
     setPlayerError(null);
-    // Create the player in the org pool
     const { data: player, error: pErr } = await supabase
       .from("players")
       .insert({ org_id: orgId, name: fields.name, number: fields.number, position: fields.position })
       .select("id, name, number, position")
       .single();
     if (pErr) { setPlayerError(pErr.message); setSaving(false); return; }
-    // Assign to this team
     const { error: tErr } = await supabase
       .from("team_players")
       .insert({ team_id: team.id, player_id: player.id, jersey_num: null });
@@ -458,7 +492,7 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
         return a.name.localeCompare(b.name);
       });
     });
-    setAddingPlayer(false);
+    setAddMode(null);
     setSaving(false);
   }
 
@@ -555,17 +589,91 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
                 <div style={{ fontSize: 13, color: "#aaa", marginBottom: 10 }}>No players yet.</div>
               )}
 
-              {canManage && !addingPlayer && !importingRoster && (
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => setAddingPlayer(true)}>+ Add player</button>
-                  <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => { setAddingPlayer(false); setImportingRoster(true); }}>Import roster</button>
+              {canManage && addMode === null && !importingRoster && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => { setAddMode("pick"); loadOrgPlayers(); }}>+ Add existing</button>
+                  <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => setAddMode("new")}>+ Create new</button>
+                  <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => { setImportingRoster(true); }}>Import roster</button>
                 </div>
               )}
 
-              {canManage && addingPlayer && (
+              {/* Pick from org pool */}
+              {canManage && addMode === "pick" && (() => {
+                const onTeam = new Set((players || []).map(p => p.id));
+                const available = (orgPlayers || []).filter(p => !onTeam.has(p.id));
+                const filtered = pickSearch
+                  ? available.filter(p => p.name.toLowerCase().includes(pickSearch.toLowerCase()))
+                  : available;
+                return (
+                  <div style={{ background: "#f7f8fa", border: "1px solid #e0e0e0", borderRadius: 12, padding: 12, marginTop: 4 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Add from org pool</div>
+                      <button style={S.btnOut} onClick={() => { setAddMode(null); setPickingPlayer(null); setPickSearch(""); }}>Cancel</button>
+                    </div>
+                    {orgPlayers === null ? (
+                      <div style={{ fontSize: 13, color: "#aaa" }}>Loading…</div>
+                    ) : pickingPlayer ? (
+                      <div>
+                        <div style={{ fontSize: 13, color: "#111", marginBottom: 8 }}>
+                          Adding <strong>{pickingPlayer.name}</strong> to {team.name}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                          <span style={{ fontSize: 12, color: "#888" }}>Jersey # for this team</span>
+                          <input type="number" autoFocus
+                            style={{ width: 70, padding: "5px 8px", fontSize: 13, border: "1px solid #ddd", borderRadius: 7, fontFamily: "monospace" }}
+                            value={pickJersey}
+                            onChange={e => setPickJersey(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && handlePickPlayer()}
+                            placeholder={pickingPlayer.number != null ? `${pickingPlayer.number}` : "#"}
+                          />
+                          <span style={{ fontSize: 11, color: "#bbb" }}>leave blank to use #{pickingPlayer.number ?? "—"}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button style={S.btnOut} onClick={() => { setPickingPlayer(null); setPickJersey(""); }}>← Back</button>
+                          <button style={{ ...S.btnSm, opacity: saving ? 0.5 : 1 }} disabled={saving} onClick={handlePickPlayer}>
+                            {saving ? "Adding…" : "Add to team"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          style={{ ...S.input, fontSize: 13, padding: "7px 10px", marginBottom: 8 }}
+                          placeholder="Search players…"
+                          value={pickSearch}
+                          onChange={e => setPickSearch(e.target.value)}
+                          autoFocus
+                        />
+                        {filtered.length === 0 ? (
+                          <div style={{ fontSize: 12, color: "#bbb", padding: "4px 0" }}>
+                            {available.length === 0 ? "All org players are already on this team." : "No matches."}
+                          </div>
+                        ) : (
+                          <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #e5e5e5", borderRadius: 8, background: "#fff" }}>
+                            {filtered.map(p => (
+                              <div key={p.id}
+                                style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderBottom: "1px solid #f5f5f5", cursor: "pointer" }}
+                                onClick={() => { setPickingPlayer(p); setPickJersey(""); }}>
+                                <span style={{ fontSize: 12, color: "#bbb", width: 28, textAlign: "right", fontFamily: "monospace", flexShrink: 0 }}>
+                                  {p.number != null ? `#${p.number}` : "—"}
+                                </span>
+                                <span style={{ flex: 1, fontSize: 13, color: "#111" }}>{p.name}</span>
+                                {p.position && <span style={{ fontSize: 11, color: "#aaa" }}>{p.position}</span>}
+                                <span style={{ fontSize: 11, color: "#1a6bab", fontWeight: 600 }}>Select</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {canManage && addMode === "new" && (
                 <PlayerForm teamId={team.id} saving={saving}
                   onSave={handleAddPlayer}
-                  onCancel={() => setAddingPlayer(false)} />
+                  onCancel={() => setAddMode(null)} />
               )}
 
               {canManage && importingRoster && (
