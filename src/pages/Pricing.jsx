@@ -80,6 +80,7 @@ export default function Pricing() {
   const [loadingPlan,    setLoadingPlan]    = useState(null); // plan key being checked out
   const [checkoutError,  setCheckoutError]  = useState(null);
   const [selectedOrgId,  setSelectedOrgId]  = useState(null);
+  const [newOrgName,     setNewOrgName]     = useState("");
 
   const checkoutSuccess = searchParams.get("checkout") === "success";
 
@@ -122,6 +123,8 @@ export default function Pricing() {
     handleCheckout(autostartPlan, resolvedOrgId);
   }, [user, autostartPlan]);
 
+  const isNewOrgFlow = user && adminOrgs.length === 0;
+
   async function handleCheckout(planKey, orgId) {
     if (!user) {
       const next = encodeURIComponent(`/pricing?plan=${planKey}${orgSlug ? `&org=${orgSlug}` : ""}`);
@@ -131,9 +134,10 @@ export default function Pricing() {
     setLoadingPlan(planKey);
     setCheckoutError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("create-checkout-session", {
-        body: { plan_key: planKey, ...(orgId ? { org_id: orgId } : {}) },
-      });
+      const body = { plan_key: planKey };
+      if (orgId)                  body.org_id   = orgId;
+      else if (newOrgName.trim()) body.org_name  = newOrgName.trim();
+      const { data, error } = await supabase.functions.invoke("create-checkout-session", { body });
       if (error || !data?.url) throw new Error(error?.message ?? "Could not start checkout");
       window.location.href = data.url;
     } catch (err) {
@@ -269,6 +273,22 @@ export default function Pricing() {
         <div style={{ marginBottom: 32 }}>
           <div style={S.sectionLabel}>Organizations — manage your team or league</div>
 
+          {/* New org name — shown when user has no orgs yet */}
+          {isNewOrgFlow && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 13, color: "#555", fontWeight: 600, marginBottom: 6 }}>
+                Organization name
+              </label>
+              <input
+                value={newOrgName}
+                onChange={e => setNewOrgName(e.target.value)}
+                placeholder="Notre Dame Prep Lacrosse"
+                style={{ width: "100%", fontSize: 14, padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 9, background: "#fff", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}
+              />
+              <div style={{ fontSize: 12, color: "#aaa", marginTop: 5 }}>We&apos;ll create your organization when your subscription activates.</div>
+            </div>
+          )}
+
           {/* Org selector — shown only when the user is admin of 2+ orgs */}
           {user && adminOrgs.length > 1 && (
             <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
@@ -307,7 +327,7 @@ export default function Pricing() {
               ) : (
                 <button
                   onClick={() => handleCheckout("pro", resolvedOrgId)}
-                  disabled={loadingPlan === "pro" || (user && adminOrgs.length > 0 && !resolvedOrgId)}
+                  disabled={loadingPlan === "pro" || (user && adminOrgs.length > 0 && !resolvedOrgId) || (isNewOrgFlow && !newOrgName.trim())}
                   style={S.btn("#111")}
                 >
                   {loadingPlan === "pro" ? "Redirecting…" : "Get Pro"}
@@ -336,7 +356,7 @@ export default function Pricing() {
               ) : (
                 <button
                   onClick={() => handleCheckout("max", resolvedOrgId)}
-                  disabled={loadingPlan === "max" || (user && adminOrgs.length > 0 && !resolvedOrgId)}
+                  disabled={loadingPlan === "max" || (user && adminOrgs.length > 0 && !resolvedOrgId) || (isNewOrgFlow && !newOrgName.trim())}
                   style={S.btn("#2a7a3b")}
                 >
                   {loadingPlan === "max" ? "Redirecting…" : "Get Max"}

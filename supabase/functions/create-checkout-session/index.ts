@@ -41,7 +41,7 @@ serve(async (req) => {
 
     // ── Input ───────────────────────────────────────────────────────
     const body = await req.json().catch(() => ({}));
-    const { plan_key, org_id } = body as { plan_key: string; org_id?: string };
+    const { plan_key, org_id: bodyOrgId, org_name } = body as { plan_key: string; org_id?: string; org_name?: string };
 
     if (!plan_key || (!PERSONAL_PLANS.has(plan_key) && !ORG_PLANS.has(plan_key))) {
       return json({ error: "Invalid plan_key" }, 400);
@@ -50,25 +50,51 @@ serve(async (req) => {
     const priceId = Deno.env.get(`STRIPE_PRICE_${plan_key.toUpperCase()}`);
     if (!priceId) return json({ error: `Price not configured for plan: ${plan_key}` }, 500);
 
-    const admin      = createClient(supabaseUrl, serviceRoleKey);
-    const isOrgPlan  = ORG_PLANS.has(plan_key);
+    const admin     = createClient(supabaseUrl, serviceRoleKey);
+    const isOrgPlan = ORG_PLANS.has(plan_key);
 
     // ── Resolve or create Stripe customer ───────────────────────────
     let stripeCustomerId: string | null = null;
+    let org_id = bodyOrgId;
 
     if (isOrgPlan) {
-      if (!org_id) return json({ error: "org_id required for org plans" }, 400);
+      if (!org_id && org_name?.trim()) {
+        // New user — create the org and add them as org_admin
+        const slug = org_name.trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 48)
+          + "-" + Math.random().toString(36).slice(2, 6);
 
-      // Verify caller is org_admin
-      const { data: membership } = await admin
-        .from("org_members")
-        .select("role")
-        .eq("org_id", org_id)
-        .eq("user_id", user.id)
-        .single();
+        const { data: newOrg, error: orgErr } = await admin
+          .from("organizations")
+          .insert({ name: org_name.trim(), slug, plan: plan_key, plan_status: "active", color: "#1a6bab" })
+          .select("id")
+          .single();
 
-      if (membership?.role !== "org_admin") {
-        return json({ error: "Only org admins can purchase org plans" }, 403);
+        if (orgErr || !newOrg) return json({ error: orgErr?.message ?? "Failed to create org" }, 500);
+
+        await admin.from("org_members").insert({ org_id: newOrg.id, user_id: user.id, role: "org_admin" });
+        org_id = newOrg.id;
+      }
+
+      if (!org_id) return json({ error: "org_id or org_name required for org plans" }, 400);
+
+      // Verify caller is org_admin (skip for newly created org — they definitely are)
+      if (org_id !== bodyOrgId) {
+        // freshly created, no need to re-verify
+      } else {
+        const { data: membership } = await admin
+          .from("org_members")
+          .select("role")
+          .eq("org_id", org_id)
+          .eq("user_id", user.id)
+          .single();
+
+        if (membership?.role !== "org_admin") {
+          return json({ error: "Only org admins can purchase org plans" }, 403);
+        }
       }
 
       const { data: org } = await admin
