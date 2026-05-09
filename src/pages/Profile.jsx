@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDocTitle } from "../hooks/useDocTitle";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { PLAN_COLOR } from "../constants/lacrosse";
@@ -40,6 +40,8 @@ const PERSONAL_PLAN_COLOR = {
 export default function Profile() {
   const { user, profile, orgMemberships, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const checkoutSuccess = searchParams.get("checkout") === "success";
   useDocTitle("Profile");
 
   const memberSince = user?.created_at
@@ -101,6 +103,12 @@ export default function Profile() {
   return (
     <div style={S.page}>
       <div style={S.heading}>Profile</div>
+
+      {checkoutSuccess && (
+        <div style={{ background: "#eaf6ec", border: "1px solid #b7dfc1", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#2a7a3b", fontWeight: 600 }}>
+          Payment successful — your plan has been updated. It may take a moment to reflect.
+        </div>
+      )}
 
       {/* ── Account info ── */}
       <div style={S.card}>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDocTitle } from "../hooks/useDocTitle";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -312,6 +312,8 @@ function SummaryBar({ memberships, orgData }) {
 
 export default function Orgs() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const checkoutSuccess = searchParams.get("checkout") === "success";
   const { user, isAdmin, orgMemberships, loading: authLoading } = useAuth();
   useDocTitle("Organizations");
   const [orgData, setOrgData] = useState({});
@@ -404,6 +406,12 @@ export default function Orgs() {
           </div>
         </div>
       </div>
+
+      {checkoutSuccess && (
+        <div style={{ background: "#eaf6ec", borderBottom: "1px solid #b7dfc1", padding: "12px 20px", textAlign: "center", fontSize: 14, color: "#2a7a3b", fontWeight: 600 }}>
+          Payment successful — your org plan is active. It may take a moment to appear below.
+        </div>
+      )}
 
       {/* Body */}
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "28px 20px" }}>

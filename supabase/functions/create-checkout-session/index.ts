@@ -134,8 +134,10 @@ serve(async (req) => {
       mode: "subscription",
       customer: stripeCustomerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${siteUrl}/pricing?checkout=success`,
-      cancel_url:  `${siteUrl}/pricing`,
+      success_url: isOrgPlan
+        ? `${siteUrl}/orgs?checkout=success`
+        : `${siteUrl}/profile?checkout=success`,
+      cancel_url: `${siteUrl}/pricing`,
       subscription_data: { metadata: subMetadata },
     });
 
