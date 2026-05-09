@@ -187,18 +187,6 @@ describe("Profile — change email", () => {
     await waitFor(() => expect(screen.getByText(/Confirmation sent/)).toBeTruthy());
   });
 
-  it("rejects @laxstats.app addresses without calling auth.updateUser", async () => {
-    renderProfile();
-    await waitFor(() => screen.getByPlaceholderText("new@example.com"));
-    fireEvent.change(screen.getByPlaceholderText("new@example.com"), {
-      target: { value: "admin@laxstats.app" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Update" }));
-    await waitFor(() =>
-      expect(screen.getByText(/Enter a real email address/)).toBeTruthy()
-    );
-    expect(supabase.auth.updateUser).not.toHaveBeenCalled();
-  });
 
   it("shows Supabase error when update fails", async () => {
     supabase.auth.updateUser.mockResolvedValue({ error: { message: "Email already in use" } });

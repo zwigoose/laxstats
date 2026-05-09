@@ -3,10 +3,7 @@ import { useDocTitle } from "../hooks/useDocTitle";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { displayName, FAKE_DOMAIN } from "./Admin/helpers";
 import { PLAN_COLOR } from "../constants/lacrosse";
-
-const FAKE = FAKE_DOMAIN; // "@laxstats.app"
 
 const S = {
   page:       { maxWidth: 480, margin: "0 auto", padding: "28px 16px 40px", fontFamily: "system-ui, sans-serif" },
@@ -45,8 +42,6 @@ export default function Profile() {
   const navigate = useNavigate();
   useDocTitle("Profile");
 
-  const isLaxstatsAccount = user?.email?.endsWith(FAKE);
-  const username  = user ? displayName(user.email) : "";
   const memberSince = user?.created_at
     ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })
     : "—";
@@ -72,10 +67,6 @@ export default function Profile() {
 
   async function changeEmail() {
     const trimmed = newEmail.trim();
-    if (trimmed.toLowerCase().endsWith(FAKE)) {
-      setEmailStatus({ error: "Enter a real email address, not a LaxStats username." });
-      return;
-    }
     setEmailStatus("saving");
     const { error } = await supabase.auth.updateUser({ email: trimmed });
     if (error) { setEmailStatus({ error: error.message }); return; }
@@ -114,10 +105,7 @@ export default function Profile() {
       {/* ── Account info ── */}
       <div style={S.card}>
         <div style={S.cardTitle}>Account</div>
-        {isLaxstatsAccount
-          ? <Field label="Username" value={username} />
-          : <Field label="Email" value={user.email} />
-        }
+        <Field label="Email" value={user.email} />
         <Field label="Member since" value={memberSince} />
       </div>
 
@@ -195,7 +183,7 @@ export default function Profile() {
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
             style={S.input}
-            placeholder={username}
+            placeholder="Display name"
             value={displayNameVal}
             onChange={e => { setDisplayNameVal(e.target.value); setDisplayNameStatus(null); }}
             onKeyDown={e => e.key === "Enter" && saveDisplayName()}
@@ -216,11 +204,6 @@ export default function Profile() {
       {/* ── Change email ── */}
       <div style={S.card}>
         <div style={S.cardTitle}>Change email</div>
-        {isLaxstatsAccount && (
-          <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>
-            You currently sign in with the username <strong>{username}</strong>. Adding a real email lets you use it to sign in instead.
-          </div>
-        )}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
             style={S.input}
