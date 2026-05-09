@@ -18,6 +18,59 @@ function normalizeStatus(status: string): string {
   return VALID_STATUSES.has(status) ? status : "active";
 }
 
+async function createOrgFromSub(
+  admin: ReturnType<typeof createClient>,
+  stripe: Stripe,
+  sub: Stripe.Subscription,
+) {
+  const { plan_key, user_id, org_name } = sub.metadata ?? {};
+  if (!plan_key || !user_id || !org_name) {
+    console.error("[stripe-webhook] createOrgFromSub: missing metadata", sub.metadata);
+    return;
+  }
+
+  // Guard: don't create a duplicate if already linked
+  if (sub.metadata?.org_id) {
+    console.log("[stripe-webhook] org_id already in metadata, skipping org creation");
+    return;
+  }
+
+  const slug = org_name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48)
+    + "-" + Math.random().toString(36).slice(2, 6);
+
+  const { data: newOrg, error: orgErr } = await admin
+    .from("organizations")
+    .insert({
+      name:               org_name,
+      slug,
+      plan:               plan_key,
+      plan_status:        "active",
+      stripe_sub_id:      sub.id,
+      stripe_customer_id: typeof sub.customer === "string" ? sub.customer : null,
+      color:              "#1a6bab",
+    })
+    .select("id")
+    .single();
+
+  if (orgErr || !newOrg) {
+    console.error("[stripe-webhook] failed to create org:", orgErr);
+    return;
+  }
+
+  await admin.from("org_members").insert({ org_id: newOrg.id, user_id, role: "org_admin" });
+
+  // Stamp org_id onto subscription metadata so future events can find the org
+  await stripe.subscriptions.update(sub.id, {
+    metadata: { ...sub.metadata, org_id: newOrg.id },
+  });
+
+  console.log("[stripe-webhook] org created:", newOrg.id);
+}
+
 serve(async (req) => {
   const supabaseUrl    = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -38,71 +91,58 @@ serve(async (req) => {
     return json({ error: "Invalid signature" }, 400);
   }
 
+  console.log("[stripe-webhook] received:", event.type);
+
   try {
     switch (event.type) {
-      case "customer.subscription.created":
+
+      // ── Checkout completed — primary trigger for new purchases ──────────────
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.mode !== "subscription" || !session.subscription) break;
+
+        const sub = await stripe.subscriptions.retrieve(
+          session.subscription as string
+        );
+        const { plan_key, user_id, org_id, org_name } = sub.metadata ?? {};
+        if (!plan_key) break;
+
+        if (ORG_PLANS.has(plan_key)) {
+          if (!org_id && org_name) {
+            // New org purchase — create the org now
+            await createOrgFromSub(admin, stripe, sub);
+          } else if (org_id) {
+            // Existing org upgrade through Checkout
+            await admin.from("organizations").update({
+              plan:          plan_key,
+              plan_status:   normalizeStatus(sub.status),
+              stripe_sub_id: sub.id,
+            }).eq("id", org_id);
+          }
+        } else if (user_id && PERSONAL_PLANS.has(plan_key)) {
+          await admin.from("profiles").update({
+            personal_plan:        plan_key,
+            personal_plan_status: normalizeStatus(sub.status),
+            stripe_sub_id:        sub.id,
+          }).eq("id", user_id);
+        }
+        break;
+      }
+
+      // ── Subscription updated — renewals, plan changes, status changes ───────
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
-        const { plan_key, user_id, org_id: metaOrgId, org_name } = sub.metadata ?? {};
+        const { plan_key, user_id, org_id } = sub.metadata ?? {};
         if (!plan_key) break;
 
         const dbStatus = normalizeStatus(sub.status);
 
-        if (ORG_PLANS.has(plan_key)) {
-          let resolvedOrgId = metaOrgId;
-
-          if (!resolvedOrgId && org_name && user_id) {
-            // New org purchase — create org now that payment succeeded
-            const slug = org_name
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "-")
-              .replace(/^-|-$/g, "")
-              .slice(0, 48)
-              + "-" + Math.random().toString(36).slice(2, 6);
-
-            const { data: newOrg, error: orgErr } = await admin
-              .from("organizations")
-              .insert({
-                name:              org_name,
-                slug,
-                plan:              plan_key,
-                plan_status:       dbStatus,
-                stripe_sub_id:     sub.id,
-                stripe_customer_id: typeof sub.customer === "string" ? sub.customer : null,
-                color:             "#1a6bab",
-              })
-              .select("id")
-              .single();
-
-            if (orgErr || !newOrg) {
-              console.error("[stripe-webhook] failed to create org:", orgErr);
-              break;
-            }
-
-            await admin.from("org_members").insert({
-              org_id: newOrg.id,
-              user_id,
-              role: "org_admin",
-            });
-
-            // Stamp org_id onto subscription metadata for future webhook events
-            await stripe.subscriptions.update(sub.id, {
-              metadata: { ...sub.metadata, org_id: newOrg.id },
-            });
-
-            resolvedOrgId = newOrg.id;
-          }
-
-          if (resolvedOrgId) {
-            // For existing-org upgrades (subscription.updated), sync plan/status
-            if (metaOrgId) {
-              await admin.from("organizations").update({
-                plan:              plan_key,
-                plan_status:       dbStatus,
-                stripe_sub_id:     sub.id,
-              }).eq("id", resolvedOrgId);
-            }
-          }
+        if (org_id && ORG_PLANS.has(plan_key)) {
+          await admin.from("organizations").update({
+            plan:          plan_key,
+            plan_status:   dbStatus,
+            stripe_sub_id: sub.id,
+          }).eq("id", org_id);
         } else if (user_id && PERSONAL_PLANS.has(plan_key)) {
           await admin.from("profiles").update({
             personal_plan:        plan_key,
@@ -113,13 +153,14 @@ serve(async (req) => {
         break;
       }
 
+      // ── Subscription deleted — cancellation ─────────────────────────────────
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
         const { plan_key, user_id, org_id } = sub.metadata ?? {};
 
         if (org_id && ORG_PLANS.has(plan_key)) {
           await admin.from("organizations").update({
-            plan_status:  "canceled",
+            plan_status:   "canceled",
             stripe_sub_id: null,
           }).eq("id", org_id);
         } else if (user_id) {
