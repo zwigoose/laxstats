@@ -12,7 +12,6 @@ function json(body: unknown, status = 200) {
 const PERSONAL_PLANS = new Set(["basic", "plus"]);
 const ORG_PLANS      = new Set(["pro", "max"]);
 
-// Stripe subscription statuses that map 1:1 to our plan_status enum
 const VALID_STATUSES = new Set(["active", "trialing", "past_due", "canceled"]);
 
 function normalizeStatus(status: string): string {
@@ -33,7 +32,6 @@ serve(async (req) => {
 
   let event: Stripe.Event;
   try {
-    // constructEventAsync is required in async runtimes (Deno)
     event = await stripe.webhooks.constructEventAsync(body, sig!, webhookSecret);
   } catch (err) {
     console.error("[stripe-webhook] signature verification failed:", err);
@@ -45,17 +43,66 @@ serve(async (req) => {
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
-        const { plan_key, user_id, org_id } = sub.metadata ?? {};
+        const { plan_key, user_id, org_id: metaOrgId, org_name } = sub.metadata ?? {};
         if (!plan_key) break;
 
         const dbStatus = normalizeStatus(sub.status);
 
-        if (org_id && ORG_PLANS.has(plan_key)) {
-          await admin.from("organizations").update({
-            plan:         plan_key,
-            plan_status:  dbStatus,
-            stripe_sub_id: sub.id,
-          }).eq("id", org_id);
+        if (ORG_PLANS.has(plan_key)) {
+          let resolvedOrgId = metaOrgId;
+
+          if (!resolvedOrgId && org_name && user_id) {
+            // New org purchase — create org now that payment succeeded
+            const slug = org_name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-|-$/g, "")
+              .slice(0, 48)
+              + "-" + Math.random().toString(36).slice(2, 6);
+
+            const { data: newOrg, error: orgErr } = await admin
+              .from("organizations")
+              .insert({
+                name:              org_name,
+                slug,
+                plan:              plan_key,
+                plan_status:       dbStatus,
+                stripe_sub_id:     sub.id,
+                stripe_customer_id: typeof sub.customer === "string" ? sub.customer : null,
+                color:             "#1a6bab",
+              })
+              .select("id")
+              .single();
+
+            if (orgErr || !newOrg) {
+              console.error("[stripe-webhook] failed to create org:", orgErr);
+              break;
+            }
+
+            await admin.from("org_members").insert({
+              org_id: newOrg.id,
+              user_id,
+              role: "org_admin",
+            });
+
+            // Stamp org_id onto subscription metadata for future webhook events
+            await stripe.subscriptions.update(sub.id, {
+              metadata: { ...sub.metadata, org_id: newOrg.id },
+            });
+
+            resolvedOrgId = newOrg.id;
+          }
+
+          if (resolvedOrgId) {
+            // For existing-org upgrades (subscription.updated), sync plan/status
+            if (metaOrgId) {
+              await admin.from("organizations").update({
+                plan:              plan_key,
+                plan_status:       dbStatus,
+                stripe_sub_id:     sub.id,
+              }).eq("id", resolvedOrgId);
+            }
+          }
         } else if (user_id && PERSONAL_PLANS.has(plan_key)) {
           await admin.from("profiles").update({
             personal_plan:        plan_key,
@@ -71,7 +118,6 @@ serve(async (req) => {
         const { plan_key, user_id, org_id } = sub.metadata ?? {};
 
         if (org_id && ORG_PLANS.has(plan_key)) {
-          // Keep plan name for display; mark status canceled so entitlement checks fail
           await admin.from("organizations").update({
             plan_status:  "canceled",
             stripe_sub_id: null,
@@ -87,7 +133,6 @@ serve(async (req) => {
       }
 
       default:
-        // Unhandled event type — acknowledge and move on
         break;
     }
 
