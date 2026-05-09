@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
         .select("is_admin, personal_plan, personal_plan_status, display_name")
         .eq("id", userId).single(),
       supabase.from("org_members")
-        .select("org_id, role, organizations(id, name, slug, plan)")
+        .select("org_id, role, organizations(id, name, slug, plan, plan_status)")
         .eq("user_id", userId),
     ]);
 

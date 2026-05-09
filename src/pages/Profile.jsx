@@ -126,9 +126,20 @@ export default function Profile() {
         <div style={S.cardTitle}>Plan</div>
         {(() => {
           const orgMembership = orgMemberships[0] ?? null;
-          const personalPlan = profile?.personal_plan ?? "free";
+          const personalPlan   = profile?.personal_plan ?? "free";
           const personalStatus = profile?.personal_plan_status ?? "active";
           const pc = PERSONAL_PLAN_COLOR[personalPlan] || PERSONAL_PLAN_COLOR.free;
+          const hasPersonalSub = personalPlan !== "free";
+          const isOrgAdmin = orgMembership?.role === "org_admin";
+
+          async function openPortal(orgId) {
+            const { data, error } = await supabase.functions.invoke("create-portal-session", {
+              body: orgId ? { org_id: orgId } : {},
+            });
+            if (error || !data?.url) { alert("Could not open billing portal. Please contact hello@laxstats.app."); return; }
+            window.location.href = data.url;
+          }
+
           return (
             <>
               <div style={{ ...S.row, marginBottom: 10 }}>
@@ -138,10 +149,16 @@ export default function Profile() {
                   {personalStatus !== "active" && (
                     <span style={{ fontSize: 12, color: personalStatus === "past_due" ? "#d4820a" : "#c0392b" }}>{personalStatus.replace("_", " ")}</span>
                   )}
+                  {hasPersonalSub && (
+                    <button onClick={() => openPortal(null)} style={{ fontSize: 11, color: "#1a6bab", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                      Manage →
+                    </button>
+                  )}
                 </div>
               </div>
               {orgMembership && (() => {
-                const orgPlan = orgMembership.org?.plan ?? "pro";
+                const orgPlan   = orgMembership.org?.plan ?? "pro";
+                const orgStatus = orgMembership.org?.plan_status ?? "active";
                 const opc = PLAN_COLOR[orgPlan] || PLAN_COLOR.pro;
                 return (
                   <div style={S.row}>
@@ -149,6 +166,14 @@ export default function Profile() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "2px 9px", background: opc.bg, color: opc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{orgPlan}</span>
                       <span style={{ fontSize: 12, color: "#aaa" }}>{orgMembership.role?.replace("org_", "")}</span>
+                      {orgStatus !== "active" && (
+                        <span style={{ fontSize: 12, color: orgStatus === "past_due" ? "#d4820a" : "#c0392b" }}>{orgStatus.replace("_", " ")}</span>
+                      )}
+                      {isOrgAdmin && (
+                        <button onClick={() => openPortal(orgMembership.org_id)} style={{ fontSize: 11, color: "#1a6bab", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                          Manage →
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
