@@ -30,8 +30,8 @@ BEGIN
   UPDATE games SET away_team_id = NULL
     WHERE away_team_id IN (SELECT id FROM teams WHERE org_id = p_org_id);
 
-  -- 4. Delete scorekeeper invites for owned games (no guaranteed CASCADE).
-  DELETE FROM scorekeeper_invites
+  -- 4. Delete scorekeeper rows for owned games (no guaranteed CASCADE).
+  DELETE FROM game_scorekeepers
     WHERE game_id IN (SELECT id FROM games WHERE org_id = p_org_id);
 
   -- 5. Delete owned games (game_events and game_scorekeepers CASCADE).
