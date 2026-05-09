@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { supabase } from "../lib/supabase";
@@ -71,11 +71,31 @@ const S = {
 
 export default function Pricing() {
   useDocTitle("Plans & Pricing");
-  const navigate  = useNavigate();
-  const { user }  = useAuth();
+  const navigate      = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user, orgMemberships } = useAuth();
 
-  const [orgFeatures,    setOrgFeatures]    = useState(null); // { [id]: { pro_limit, max_limit } }
-  const [personalLimits, setPersonalLimits] = useState(null); // { free: n, basic: n, plus: n }
+  const [orgFeatures,    setOrgFeatures]    = useState(null);
+  const [personalLimits, setPersonalLimits] = useState(null);
+  const [loadingPlan,    setLoadingPlan]    = useState(null); // plan key being checked out
+  const [checkoutError,  setCheckoutError]  = useState(null);
+  const [selectedOrgId,  setSelectedOrgId]  = useState(null);
+
+  const checkoutSuccess = searchParams.get("checkout") === "success";
+
+  // Orgs where the current user is an admin — eligible for org plan purchase
+  const adminOrgs = orgMemberships.filter(m => m.role === "org_admin");
+
+  // Resolve which org to use for an org plan checkout:
+  // 1. ?org=<slug> query param (coming from OrgDashboard upgrade link)
+  // 2. selectedOrgId state (multi-org picker)
+  // 3. Only one admin org — use it automatically
+  const orgSlug    = searchParams.get("org");
+  const orgFromUrl = orgSlug ? adminOrgs.find(m => m.org?.slug === orgSlug) : null;
+  const resolvedOrgId =
+    orgFromUrl?.org_id ??
+    selectedOrgId ??
+    (adminOrgs.length === 1 ? adminOrgs[0].org_id : null);
 
   useEffect(() => {
     Promise.all([
@@ -95,8 +115,20 @@ export default function Pricing() {
     });
   }, []);
 
-  function handleCta(planName) {
-    alert(`Billing setup is coming soon. To get on the ${planName} plan, email us at hello@laxstats.app.`);
+  async function handleCheckout(planKey, orgId) {
+    if (!user) { navigate("/login"); return; }
+    setLoadingPlan(planKey);
+    setCheckoutError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout-session", {
+        body: { plan_key: planKey, ...(orgId ? { org_id: orgId } : {}) },
+      });
+      if (error || !data?.url) throw new Error(error?.message ?? "Could not start checkout");
+      window.location.href = data.url;
+    } catch (err) {
+      setCheckoutError(err.message);
+      setLoadingPlan(null);
+    }
   }
 
   const freeGames  = personalLimits?.free  ?? "—";
@@ -118,6 +150,20 @@ export default function Pricing() {
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", background: "#f5f5f5", minHeight: "100%" }}>
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "36px 20px 60px" }}>
+
+        {/* Checkout success banner */}
+        {checkoutSuccess && (
+          <div style={{ background: "#eaf6ec", border: "1px solid #b2dfb8", borderRadius: 10, padding: "12px 18px", marginBottom: 24, fontSize: 14, color: "#1a5c2a", fontWeight: 600 }}>
+            Payment successful — your plan has been updated. It may take a moment to reflect.
+          </div>
+        )}
+
+        {/* Checkout error banner */}
+        {checkoutError && (
+          <div style={{ background: "#fff0f0", border: "1px solid #fcc", borderRadius: 10, padding: "12px 18px", marginBottom: 24, fontSize: 13, color: "#c00" }}>
+            {checkoutError}
+          </div>
+        )}
 
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 44 }}>
@@ -165,8 +211,12 @@ export default function Pricing() {
                 Up to <strong>{basicGames} personal games</strong><br />
                 Full stats
               </div>
-              <button onClick={() => handleCta("Basic")} style={S.btn("#1a6bab")}>
-                Get Basic
+              <button
+                onClick={() => handleCheckout("basic")}
+                disabled={loadingPlan === "basic"}
+                style={S.btn("#1a6bab")}
+              >
+                {loadingPlan === "basic" ? "Redirecting…" : "Get Basic"}
               </button>
             </div>
 
@@ -183,8 +233,12 @@ export default function Pricing() {
                 Up to <strong>{plusGames} personal games</strong><br />
                 Full stats
               </div>
-              <button onClick={() => handleCta("Plus")} style={S.btn("#2a7a3b")}>
-                Get Plus
+              <button
+                onClick={() => handleCheckout("plus")}
+                disabled={loadingPlan === "plus"}
+                style={S.btn("#2a7a3b")}
+              >
+                {loadingPlan === "plus" ? "Redirecting…" : "Get Plus"}
               </button>
             </div>
           </div>
@@ -204,6 +258,23 @@ export default function Pricing() {
         <div style={{ marginBottom: 32 }}>
           <div style={S.sectionLabel}>Organizations — manage your team or league</div>
 
+          {/* Org selector — shown only when the user is admin of 2+ orgs */}
+          {user && adminOrgs.length > 1 && (
+            <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
+              <label style={{ fontSize: 13, color: "#555", fontWeight: 600 }}>Purchasing for:</label>
+              <select
+                value={selectedOrgId ?? ""}
+                onChange={e => setSelectedOrgId(e.target.value || null)}
+                style={{ fontSize: 13, padding: "5px 10px", borderRadius: 7, border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}
+              >
+                <option value="">— select an org —</option>
+                {adminOrgs.map(m => (
+                  <option key={m.org_id} value={m.org_id}>{m.org?.name ?? m.org_id}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
             {/* Pro */}
             <div style={S.card("#1a6bab", false)}>
@@ -220,9 +291,17 @@ export default function Pricing() {
                 +{fmtLimit(orgProBonus)} personal games per member<br />
                 Press Box · Season stats
               </div>
-              <button onClick={() => handleCta("Pro")} style={S.btn("#111")}>
-                Get Pro
-              </button>
+              {user && adminOrgs.length > 1 && !resolvedOrgId ? (
+                <p style={{ fontSize: 12, color: "#aaa", marginTop: 8, textAlign: "center" }}>Select an org above to continue</p>
+              ) : (
+                <button
+                  onClick={() => handleCheckout("pro", resolvedOrgId)}
+                  disabled={loadingPlan === "pro" || (user && adminOrgs.length > 0 && !resolvedOrgId)}
+                  style={S.btn("#111")}
+                >
+                  {loadingPlan === "pro" ? "Redirecting…" : "Get Pro"}
+                </button>
+              )}
             </div>
 
             {/* Max */}
@@ -241,9 +320,17 @@ export default function Pricing() {
                 +{fmtLimit(orgMaxBonus)} personal games per member<br />
                 Press Box · Season stats · Multi-scorer
               </div>
-              <button onClick={() => handleCta("Max")} style={S.btn("#2a7a3b")}>
-                Get Max
-              </button>
+              {user && adminOrgs.length > 1 && !resolvedOrgId ? (
+                <p style={{ fontSize: 12, color: "#aaa", marginTop: 8, textAlign: "center" }}>Select an org above to continue</p>
+              ) : (
+                <button
+                  onClick={() => handleCheckout("max", resolvedOrgId)}
+                  disabled={loadingPlan === "max" || (user && adminOrgs.length > 0 && !resolvedOrgId)}
+                  style={S.btn("#2a7a3b")}
+                >
+                  {loadingPlan === "max" ? "Redirecting…" : "Get Max"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -306,7 +393,7 @@ export default function Pricing() {
         </div>
 
         <div style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: "#ccc" }}>
-          Billing coming soon — email hello@laxstats.app to get started.
+          Questions? Email us at hello@laxstats.app
         </div>
 
       </div>
