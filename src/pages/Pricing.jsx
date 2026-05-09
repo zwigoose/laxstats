@@ -115,8 +115,19 @@ export default function Pricing() {
     });
   }, []);
 
+  // Auto-trigger checkout when returning from login with ?plan= in the URL.
+  const autostartPlan = searchParams.get("plan");
+  useEffect(() => {
+    if (!user || !autostartPlan || loadingPlan) return;
+    handleCheckout(autostartPlan, resolvedOrgId);
+  }, [user, autostartPlan]);
+
   async function handleCheckout(planKey, orgId) {
-    if (!user) { navigate("/login"); return; }
+    if (!user) {
+      const next = encodeURIComponent(`/pricing?plan=${planKey}${orgSlug ? `&org=${orgSlug}` : ""}`);
+      navigate(`/login?next=${next}`);
+      return;
+    }
     setLoadingPlan(planKey);
     setCheckoutError(null);
     try {
