@@ -282,7 +282,7 @@ export default function Pricing() {
               <input
                 value={newOrgName}
                 onChange={e => setNewOrgName(e.target.value)}
-                placeholder="Notre Dame Prep Lacrosse"
+                placeholder="School/Organization Name"
                 style={{ width: "100%", fontSize: 14, padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 9, background: "#fff", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}
               />
               <div style={{ fontSize: 12, color: "#aaa", marginTop: 5 }}>We&apos;ll create your organization when your subscription activates.</div>
