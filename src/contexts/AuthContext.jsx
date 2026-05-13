@@ -55,6 +55,16 @@ export function AuthProvider({ children }) {
     setProfileLoading(false);
   }
 
+  // Allows any page to force a re-read of profile + org memberships from the DB.
+  // Used by Orgs.jsx after a Stripe checkout redirect to detect the webhook-created org.
+  const refreshProfile = useCallback(() => {
+    const uid = session?.user?.id;
+    if (!uid) return Promise.resolve();
+    return loadProfile(uid);
+  // loadProfile is a stable closure — the session dep captures the user id
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
+
   // Returns the caller's role in a given org, or null if not a member
   const getOrgRole = useCallback((orgId) => {
     const m = orgMemberships.find(m => m.org_id === orgId);
@@ -69,6 +79,7 @@ export function AuthProvider({ children }) {
     isPlatformAdmin: profile?.is_admin ?? false,
     orgMemberships,
     getOrgRole,
+    refreshProfile,
     loading: session === undefined || profileLoading,
   };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -314,7 +314,7 @@ export default function Orgs() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const checkoutSuccess = searchParams.get("checkout") === "success";
-  const { user, isAdmin, orgMemberships, loading: authLoading } = useAuth();
+  const { user, isAdmin, orgMemberships, loading: authLoading, refreshProfile } = useAuth();
   useDocTitle("Organizations");
   const [orgData, setOrgData] = useState({});
   const [v2Scores, setV2Scores] = useState({});
@@ -326,6 +326,39 @@ export default function Orgs() {
     if (orgMemberships.length === 0) { setLoading(false); return; }
     loadOrgData();
   }, [authLoading, orgMemberships]);
+
+  // After a Stripe checkout redirect, the webhook creates the org asynchronously.
+  // Poll refreshProfile every 2s (up to 30s) until a new org membership appears,
+  // then redirect the user to that org's dashboard.
+  const pollRef        = useRef(null);
+  const knownOrgIdsRef = useRef(null);
+
+  useEffect(() => {
+    if (!checkoutSuccess || authLoading) return;
+
+    // Snapshot the org ids that exist before the webhook fires.
+    knownOrgIdsRef.current = new Set(orgMemberships.map(m => m.org_id));
+
+    let elapsed = 0;
+    pollRef.current = setInterval(async () => {
+      elapsed += 2;
+      await refreshProfile();
+      if (elapsed >= 30) clearInterval(pollRef.current);
+    }, 2000);
+
+    return () => clearInterval(pollRef.current);
+  // Only start the poller once (when authLoading settles after a checkout redirect)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutSuccess, authLoading]);
+
+  // Redirect as soon as a new org membership shows up in context.
+  useEffect(() => {
+    if (!checkoutSuccess || !knownOrgIdsRef.current) return;
+    const newMembership = orgMemberships.find(m => !knownOrgIdsRef.current.has(m.org_id));
+    if (!newMembership) return;
+    clearInterval(pollRef.current);
+    navigate(`/orgs/${newMembership.org.slug}`, { replace: true });
+  }, [orgMemberships, checkoutSuccess, navigate]);
 
   async function loadOrgData() {
     const orgIds = orgMemberships.map(m => m.org_id);
