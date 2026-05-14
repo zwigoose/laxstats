@@ -72,9 +72,9 @@ export default function PlayerStatsTable({
     borderBottom: "1px solid #e5e5e5", background: "#f5f5f5",
     cursor: "pointer", whiteSpace: "nowrap",
   };
-  const thL  = { ...thBase, textAlign: "left", cursor: "default", padding: compact ? "5px 10px" : "8px 14px" };
+  const thL  = { ...thBase, textAlign: "left", cursor: "default", padding: compact ? "5px 10px" : "8px 14px", position: "sticky", left: 0, zIndex: 2, borderRight: "1px solid #e5e5e5" };
   const th   = sorted => ({ ...thBase, padding: compact ? "5px 6px" : "8px 8px", color: sorted ? "#111" : "#888" });
-  const tdL  = { fontSize: fs, padding: compact ? "4px 10px" : "9px 14px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "left", whiteSpace: "nowrap" };
+  const tdL  = { fontSize: fs, padding: compact ? "4px 10px" : "9px 14px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "left", whiteSpace: "nowrap", position: "sticky", left: 0, background: "#fff", zIndex: 1, borderRight: "1px solid #f0f0f0" };
   const td   = sorted => ({ fontSize: fs, padding: compact ? "4px 6px" : "9px 8px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "right", fontWeight: sorted ? 600 : 400 });
   const badge = { display: "inline-block", borderRadius: "50%", background: "#f0f0f0", fontWeight: 600, textAlign: "center", color: "#888", flexShrink: 0,
     width: compact ? 18 : 24, height: compact ? 18 : 24,
@@ -135,7 +135,7 @@ export default function PlayerStatsTable({
                     <tr key={`h-${ti}`}>
                       <td
                         colSpan={statKeys.length + 1}
-                        style={{ padding: compact ? "4px 10px 2px" : "8px 14px 4px", fontSize: compact ? 10 : 11, fontWeight: 600, color: teamColors[ti], background: "#fafafa" }}
+                        style={{ padding: compact ? "4px 10px 2px" : "8px 14px 4px", fontSize: compact ? 10 : 11, fontWeight: 600, color: teamColors[ti], background: "#fafafa", position: "sticky", left: 0, zIndex: 1 }}
                       >
                         {teams[ti].name.toUpperCase()}
                       </td>
