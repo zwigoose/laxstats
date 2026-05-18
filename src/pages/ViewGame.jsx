@@ -9,6 +9,7 @@ import {
 } from "../components/LaxStats";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { dbRowToEntry } from "../hooks/useGameEvents";
+import { timeToSeconds, getElapsedTime, formatHudlTime } from "../utils/game";
 import GameTimeline from "../components/GameTimeline";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
 
@@ -70,6 +71,10 @@ export default function ViewGame() {
   const [inviteLink,  setInviteLink]  = useState(null);
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
   const [inviteError, setInviteError] = useState(null);
+
+  // Film export state
+  const [qtrLength, setQtrLength] = useState("12");
+  const [videoOffset, setVideoOffset] = useState("0");
 
   // Away org "Add to my season" state
   const [awayOrgRole, setAwayOrgRole]       = useState(null); // role string if viewer is a member of away org
@@ -240,6 +245,48 @@ export default function ViewGame() {
   };
 
   const scoringTimeline = useMemo(() => buildScoringTimeline(filteredLog), [filteredLog]);
+
+  
+  const exportToHudl = () => {
+    const qLen = parseInt(qtrLength) || 12;
+    const offset = parseInt(videoOffset) || 0;
+    
+    const sortedLog = [...log].sort((a, b) => {
+      if (a.quarter !== b.quarter) return a.quarter - b.quarter;
+      const timeA = timeToSeconds(a.goalTime || a.penaltyTime || a.timeoutTime || "0:00");
+      const timeB = timeToSeconds(b.goalTime || b.penaltyTime || b.timeoutTime || "0:00");
+      return timeB - timeA;
+    });
+
+    const csvRows = [
+      ["Time", "Period", "Team", "Player", "Event", "Details"].join(",")
+    ];
+
+    sortedLog.forEach(e => {
+      const elapsed = getElapsedTime(e, qLen) + offset;
+      const timeStr = formatHudlTime(elapsed);
+      const teamName = teams[e.teamIdx]?.name || "";
+      const playerName = e.player ? `#${e.player.num} ${e.player.name}` : "";
+      const eventLabel = e.event;
+      const details = e.shotOutcome || e.foulName || "";
+      
+      csvRows.push([
+        timeStr,
+        e.quarter,
+        `"${teamName}"`,
+        `"${playerName}"`,
+        `"${eventLabel}"`,
+        `"${details}"`
+      ].join(","));
+    });
+
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `hudl_export_${(game?.name || "game").replace(/\s+/g, "_")}.csv`;
+    link.click();
+  };
 
   async function handleLinkToSeason() {
     if (!addSeasonId) return;
@@ -437,7 +484,7 @@ export default function ViewGame() {
 
             {/* Stats sub-tabs */}
             <div style={S.tabsRow}>
-              {["summary", "players", "timeline"].map(t => (
+              {["summary", "players", "timeline", "film"].map(t => (
                 <button key={t} style={S.tabBtn(statsTab === t)} onClick={() => setStatsTab(t)}>
                   {t.charAt(0).toUpperCase() + t.slice(1)}
                 </button>
@@ -497,6 +544,57 @@ export default function ViewGame() {
                   playerStats={playerStats}
                   statKeys={PLAYER_STAT_KEYS}
                 />
+              </div>
+            )}
+
+
+            {/* Film Sync & Export */}
+            {statsTab === "film" && (
+              <div style={{ ...S.summaryCard, background: "#fff", border: "1px solid #e5e5e5" }}>
+                <div style={{ ...S.summaryLabel, marginBottom: 16 }}>Hudl / Krossover Export</div>
+                
+                <div style={{ display: "grid", gap: 16, marginBottom: 20 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, color: "#888", marginBottom: 4 }}>Quarter Length (minutes)</label>
+                    <input 
+                      type="number" 
+                      value={qtrLength} 
+                      onChange={e => setQtrLength(e.target.value)}
+                      style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: 6 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, color: "#888", marginBottom: 4 }}>Video Offset (seconds from start)</label>
+                    <input 
+                      type="number" 
+                      value={videoOffset} 
+                      onChange={e => setVideoOffset(e.target.value)}
+                      style={{ width: "100%", padding: "8px", border: "1px solid #ddd", borderRadius: 6 }}
+                    />
+                    <small style={{ color: "#aaa", fontSize: 11 }}>Use this to align the first event with your video timeline.</small>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={exportToHudl}
+                  style={{ 
+                    width: "100%", 
+                    padding: "12px", 
+                    background: "#111", 
+                    color: "#fff", 
+                    border: "none", 
+                    borderRadius: 8, 
+                    fontWeight: 600, 
+                    cursor: "pointer" 
+                  }}
+                >
+                  Download CSV for Hudl
+                </button>
+
+                <div style={{ marginTop: 20, fontSize: 12, color: "#666", lineHeight: "1.5" }}>
+                  <strong>Sync Tip:</strong> Find the exact video timestamp of the first goal or penalty. 
+                  Subtract the game clock time of that event from the video timestamp to find your offset.
+                </div>
               </div>
             )}
 

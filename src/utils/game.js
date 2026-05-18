@@ -40,3 +40,22 @@ export function getGameInfo(game) {
   const gameDate = s.gameDate || game.created_at?.split("T")[0];
   return { t0, t1, score0, score1, gameOver: s.gameOver, started, currentQuarter, latestTime, gameDate };
 }
+export function timeToSeconds(timeStr) {
+  if (!timeStr) return 0;
+  const [m, s] = timeStr.split(":").map(Number);
+  return (m || 0) * 60 + (s || 0);
+}
+
+export function getElapsedTime(event, qtrLengthMin = 12) {
+  const qtrLengthSec = qtrLengthMin * 60;
+  const timeStr = event.goalTime || event.penaltyTime || event.timeoutTime || "0:00";
+  const remainingSec = timeToSeconds(timeStr);
+  const elapsedInQtr = qtrLengthSec - remainingSec;
+  return (event.quarter - 1) * qtrLengthSec + elapsedInQtr;
+}
+
+export function formatHudlTime(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = Math.floor(totalSeconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
