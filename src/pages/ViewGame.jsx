@@ -11,6 +11,8 @@ import { useDocTitle } from "../hooks/useDocTitle";
 import { dbRowToEntry } from "../hooks/useGameEvents";
 import GameTimeline from "../components/GameTimeline";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
+import { toPng } from "html-to-image";
+import HeroCard from "../components/HeroCard";
 
 function getLatestTime(log, currentQuarter) {
   if (!log?.length) return null;
@@ -70,6 +72,18 @@ export default function ViewGame() {
   const [inviteLink,  setInviteLink]  = useState(null);
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
   const [inviteError, setInviteError] = useState(null);
+  const [showHeroCard, setShowHeroCard] = useState(false);
+  const allStats = useMemo(() => {
+    if (!game?.state) return { home: { score: 0, players: [] }, away: { score: 0, players: [] } };
+    const log = v2Log || [];
+    const homePlayers = buildPlayerStats(game.state.teams[0], log, 0);
+    const awayPlayers = buildPlayerStats(game.state.teams[1], log, 1);
+    return {
+      home: { score: buildTeamTotals(homePlayers).score, players: homePlayers },
+      away: { score: buildTeamTotals(awayPlayers).score, players: awayPlayers }
+    };
+  }, [game?.state, v2Log]);
+
 
   // Away org "Add to my season" state
   const [awayOrgRole, setAwayOrgRole]       = useState(null); // role string if viewer is a member of away org
@@ -98,6 +112,16 @@ export default function ViewGame() {
     setInviteLink(`${window.location.origin}/games/${id}/score?token=${token}`);
     setInviteState("ready");
   }
+
+  const downloadHeroCard = async () => {
+    const node = document.getElementById('hero-card-capture');
+    if (!node) return;
+    const dataUrl = await toPng(node, { pixelRatio: 2 });
+    const link = document.createElement('a');
+    link.download = `hero-card-${id}.png`;
+    link.href = dataUrl;
+    link.click();
+  };
 
   function copyInviteLink() {
     navigator.clipboard.writeText(inviteLink).then(() => {
@@ -510,6 +534,26 @@ export default function ViewGame() {
           </>
         )}
       </div>
+      {showHeroCard && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1000,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20
+        }}>
+          <div style={{ marginBottom: 20, display: 'flex', gap: 10 }}>
+            <button style={{ ...S.copyBtn, background: '#fff' }} onClick={() => setShowHeroCard(false)}>Close</button>
+            <button style={{ ...S.copyBtn, background: '#4caf50', color: '#fff', border: 'none' }} onClick={downloadHeroCard}>Download PNG</button>
+          </div>
+          <div style={{ transform: 'scale(0.5)', transformOrigin: 'center', maxHeight: '90vh', overflow: 'auto' }}>
+            <HeroCard 
+              game={game?.state || {}} 
+              homeTeam={game?.state?.teams[0] || {}} 
+              awayTeam={game?.state?.teams[1] || {}} 
+              stats={allStats}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
