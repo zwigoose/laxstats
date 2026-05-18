@@ -42,6 +42,7 @@ export default function LaxStats({
   const [completedQuarters, setCompletedQuarters] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   const [gameDate, setGameDate] = useState(() => (createdAt ?? new Date().toISOString()).split("T")[0]);
+  const [gameTime, setGameTime] = useState("12:00");
 
   // Step machine:
   // team | event | player
@@ -104,6 +105,7 @@ export default function LaxStats({
     setGameOver(initialState.gameOver ?? false);
     setTrackingStarted(initialState.trackingStarted ?? false);
     if (initialState.gameDate) setGameDate(initialState.gameDate);
+    if (initialState.gameTime) setGameTime(initialState.gameTime);
     if (initialState._nextId) _nextId = initialState._nextId;
     setScreen(initialState.gameOver ? "stats" : initialState.trackingStarted ? "track" : "setup");
     resetEntry();
@@ -116,9 +118,9 @@ export default function LaxStats({
   // Notify parent of state changes (for Supabase save)
   useEffect(() => {
     if (!onStateChange || !hydratedRef.current) return;
-    onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, _nextId });
+    onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, gameTime, _nextId });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate]);
+  }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, gameTime]);
 
   // v2: sync quarter/game-over state broadcast by the primary scorer
   useEffect(() => {
@@ -252,6 +254,7 @@ export default function LaxStats({
     const tech = group.find(e => e.event === "penalty_tech");
     const pfoul = group.find(e => e.event === "penalty_min");
     const primary = groupPrimary(group);
+    const gTime = primary.gameTime || primary.goalTime || primary.penaltyTime || primary.timeoutTime;
     const teamName = teams[primary.teamIdx]?.name;
     const playerStr = primary.player ? `#${primary.player.num} ${primary.player.name}` : teamName;
 
@@ -271,12 +274,12 @@ export default function LaxStats({
     if (tech) return `🟨 ${tech.foulName ? `${tech.foulName} (Technical)` : "Technical foul"} — ${playerStr} · ${teamName}`;
     if (pfoul) return `🟥 ${pfoul.foulName ? `${pfoul.foulName} (${pfoul.penaltyMin}min)` : `Personal foul (${pfoul.penaltyMin}min)`} — ${playerStr} · ${teamName}`;
     const { icon, label } = entryDisplayInfo(primary);
-    return `${icon} ${label} — ${playerStr} · ${teamName}`;
+    return `${icon} ${label} — ${playerStr} · ${teamName}${gTime ? ` · ${gTime}` : ""}`;
   }
 
   // ── Helpers ─────────────────────────────────────────────────────
   function mkEntry(teamIdx, event, player, extra = {}) {
-    return { id: nextId(), teamIdx, event, player: player || null, quarter: currentQuarter, groupId: null, ...extra };
+    return { id: nextId(), teamIdx, event, player: player || null, quarter: currentQuarter, gameTime, groupId: null, ...extra };
   }
 
   function resetEntry() {
@@ -543,6 +546,11 @@ export default function LaxStats({
     setParsedRosters([r0, r1]);
     setTrackingStarted(true);
     setScreen("track");
+    resetEntry();
+  }
+
+  function handleGameTime(t) {
+    setGameTime(t);
     resetEntry();
   }
 
@@ -1098,6 +1106,15 @@ export default function LaxStats({
       {/* ══ TRACK ══ */}
       {screen === "track" && (
         <div>
+          {step === "ask_game_time" && (
+            <TimeKeypad
+              title="Set Game Clock"
+              description="Current time remaining in the quarter"
+              initialValue={gameTime}
+              onCancel={resetEntry}
+              onConfirm={handleGameTime}
+            />
+          )}
           {/* Persistent last-entry banner */}
           {lastEntry && step === "team" && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f0f0f0", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 13 }}>
@@ -1143,6 +1160,12 @@ export default function LaxStats({
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOT(currentQuarter) ? "#e67e22" : "#4caf50", display: "inline-block" }}></span>
                   {curQLabel} — Live
                 </div>
+                <button
+                  style={{ fontSize: 13, fontWeight: 600, color: "#1a6bab", background: "#f0f7ff", border: "1px solid #c8dff5", borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}
+                  onClick={() => { setStep("ask_game_time"); setScreen("track"); }}
+                >
+                  ⏱️ {gameTime}
+                </button>
                 <div style={{ fontSize: 15, fontWeight: 500 }}>
                   <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
                   <span style={{ margin: "0 8px", color: "#ccc" }}>—</span>

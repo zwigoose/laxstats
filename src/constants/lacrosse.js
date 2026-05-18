@@ -15,7 +15,7 @@ export const STAT_KEYS = [
   "goal","emo_goal","emo_fail","mdd_success","mdd_fail","shot","sog",
   "shot_saved","shot_blocked","ground_ball","faceoff_win",
   "turnover","forced_to","penalty_tech","penalty_min","assist",
-  "clear","failed_clear","successful_ride","failed_ride",
+  "clear","failed_clear","successful_ride","failed_ride","possessions","possession_efficiency",
 ];
 
 export const STAT_LABELS = {
@@ -23,7 +23,7 @@ export const STAT_LABELS = {
   shot:"Sh", sog:"SOG", shot_saved:"Sv", shot_blocked:"Blk",
   ground_ball:"GB", faceoff_win:"FW", turnover:"TO", forced_to:"CTO",
   penalty_tech:"Tech", penalty_min:"PF Min", assist:"A",
-  clear:"Clr", failed_clear:"FCl", successful_ride:"SRide", failed_ride:"FRide",
+  clear:"Clr", failed_clear:"FCl", successful_ride:"SRide", failed_ride:"FRide", possessions:"Poss", possession_efficiency:"Eff",
 };
 
 export const PENALTY_OPTIONS = [

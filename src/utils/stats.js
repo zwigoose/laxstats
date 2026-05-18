@@ -119,6 +119,14 @@ export function buildTeamTotals(entries, completedQuarters = []) {
   totals[1].emo_fail = totals[0].mdd_success;
   totals[0].sog = totals[0].goal + totals[1].shot_saved;
   totals[1].sog = totals[1].goal + totals[0].shot_saved;
+
+  // Possession stats: A possession ends in a goal, turnover, or failed clear.
+  // We also include opponent saves as they signify an ended offensive possession.
+  [0, 1].forEach(ti => {
+    const opponentSaves = totals[1 - ti].shot_saved || 0;
+    totals[ti].possessions = totals[ti].goal + totals[ti].turnover + (totals[ti].failed_clear || 0) + opponentSaves;
+    totals[ti].possession_efficiency = totals[ti].possessions > 0 ? (totals[ti].goal / totals[ti].possessions) : 0;
+  });
   return totals;
 }
 
