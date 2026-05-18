@@ -26,6 +26,7 @@ export function dbRowToEntry(row) {
     player:        row.player_num
       ? { num: row.player_num, name: row.player_name ?? `#${row.player_num}` }
       : null,
+    player_id:     row.player_id,
     quarter:       row.quarter,
     teamStat:      row.is_team_stat ?? false,
     goalTime:      row.goal_time    ?? undefined,

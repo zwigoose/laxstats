@@ -58,7 +58,7 @@ export function buildPlayerStats(entries) {
   entries.forEach(e => {
     if (e.teamStat) return;
     const k = `${e.teamIdx}__${e.player.num}__${e.player.name}`;
-    if (!map[k]) map[k] = { teamIdx: e.teamIdx, player: e.player, ...Object.fromEntries(STAT_KEYS.map(s => [s, 0])) };
+    if (!map[k]) map[k] = { teamIdx: e.teamIdx, player: e.player, player_id: e.player_id, ...Object.fromEntries(STAT_KEYS.map(s => [s, 0])) };
     if (e.event === "penalty_tech") map[k].penalty_tech++;
     else if (e.event === "penalty_min") map[k].penalty_min += e.penaltyMin || 0;
     else if (e.event === "goal") {

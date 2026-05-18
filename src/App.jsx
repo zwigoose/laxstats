@@ -14,6 +14,7 @@ import CreateGame from "./pages/CreateGame";
 import Orgs from "./pages/Orgs";
 import Profile from "./pages/Profile";
 import Pricing from "./pages/Pricing";
+import PlayerProfile from "./pages/PlayerProfile";
 import { version } from "../package.json";
 
 // Single source of truth for layout heights — consumed here and via CSS variables.
@@ -141,6 +142,7 @@ function AppRoutes() {
           <Route path="/orgs/:slug/teams"         element={<PrivateRoute><TeamManager /></PrivateRoute>} />
           <Route path="/admin"                    element={<PrivateRoute><Admin /></PrivateRoute>} />
           <Route path="/profile"                  element={<PrivateRoute><Profile /></PrivateRoute>} />
+          <Route path="/players/:id"              element={<PlayerProfile />} />
           <Route path="/pricing"                  element={<Pricing />} />
         </Routes>
       </div>

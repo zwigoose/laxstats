@@ -115,7 +115,11 @@ function StatLeaders({ playerStats }) {
             <div key={`${p.player_id ?? p.player_name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
               <span style={{ fontSize: 12, color: "#bbb", width: 16, textAlign: "right" }}>{i + 1}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player_name}</div>
+                {p.player_id ? (
+                  <Link to={`/players/${p.player_id}`} style={{ fontSize: 14, fontWeight: 600, color: "#1a6bab", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "none" }}>{p.player_name}</Link>
+                ) : (
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player_name}</div>
+                )}
               </div>
               <span style={{ fontSize: 16, fontWeight: 700, color: "#111", fontVariantNumeric: "tabular-nums" }}>{p[statKey]}</span>
               <span style={{ fontSize: 11, color: "#aaa", width: 28 }}>{statLabel}</span>

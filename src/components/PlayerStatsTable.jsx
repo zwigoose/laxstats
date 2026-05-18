@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { parseRoster } from "../utils/stats";
 import { STAT_KEYS, STAT_LABELS } from "../constants/lacrosse";
 
@@ -145,7 +146,11 @@ export default function PlayerStatsTable({
                     <tr key={`${ti}-${i}`}>
                       <td style={tdL}>
                         <span style={badge}>#{row.player.num}</span>
-                        {row.player.name}
+                        {row.player_id ? (
+                          <Link to={`/players/${row.player_id}`} style={{ color: "#1a6bab", textDecoration: "none", fontWeight: 600 }}>{row.player.name}</Link>
+                        ) : (
+                          row.player.name
+                        )}
                       </td>
                       {statKeys.map(k => (
                         <td key={k} style={{ ...td(sortKey === k), opacity: row[k] === 0 ? 0.3 : 1 }}>
