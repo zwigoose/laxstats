@@ -10,6 +10,7 @@ import {
 import S from "../../styles/laxStats";
 import TimeKeypad from "./TimeKeypad";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../PlayerStatsTable";
+import FieldMapInput from "./FieldMapInput";
 
 export { EVENTS, STAT_KEYS, STAT_LABELS, buildPlayerStats, buildTeamTotals, buildLogGroups, buildScoringTimeline, qLabel, isOT, toSecs, entryDisplayInfo };
 
@@ -56,6 +57,7 @@ export default function LaxStats({
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [pendingEntries, setPendingEntries] = useState([]);
+  const [pendingFlashText, setPendingFlashText] = useState("");
   const [penaltyType, setPenaltyType] = useState(null);
   const [penaltyFoulName, setPenaltyFoulName] = useState(null);
   const [penaltyNR, setPenaltyNR] = useState(false);
@@ -634,13 +636,21 @@ export default function LaxStats({
     const isEmo = defendingInBox > scoringInBox;
     const entries = pendingEntries.map(e => e.event === "goal" ? { ...e, goalTime: t, emo: isEmo || undefined } : e);
     const assister = entries.find(e => e.event === "assist");
-    commitEntries(entries, `Goal${isEmo ? " (EMO)" : ""} — #${selectedPlayer.num} ${selectedPlayer.name}${assister ? ` (assist #${assister.player?.num})` : ""}`);
+    setPendingEntries(entries);
+    setPendingFlashText(`Goal${isEmo ? " (EMO)" : ""} — #${selectedPlayer.num} ${selectedPlayer.name}${assister ? ` (assist #${assister.player?.num})` : ""}`);
+    setStep("ask_shot_location");
   }
 
   // Shot flow: outcome picker → optional player picker
+  function handleShotLocationSelected(loc) {
+    const entries = pendingEntries.map(e => (e.event === "shot" || e.event === "goal") ? { ...e, shotX: loc.x, shotY: loc.y } : e);
+    commitEntries(entries, pendingFlashText);
+  }
+
   function handleShotOutcome(outcome) {
     if (outcome === "missed") {
-      commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
+      setPendingFlashText(`Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
+      setStep("ask_shot_location");
     } else if (outcome === "saved") {
       setStep("save_player");
     } else if (outcome === "blocked") {
@@ -649,10 +659,14 @@ export default function LaxStats({
   }
   function handleSavePlayerSelected(goalie) {
     setLastGoalie(prev => prev.map((g, i) => i === (1 - selectedTeam) ? goalie : g));
-    commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_saved", goalie)], `Shot (saved) — #${selectedPlayer.num} ${selectedPlayer.name} · saved by #${goalie.num} ${goalie.name}`);
+    setPendingEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_saved", goalie)]);
+    setPendingFlashText(`Shot (saved) — #${selectedPlayer.num} ${selectedPlayer.name} · saved by #${goalie.num} ${goalie.name}`);
+    setStep("ask_shot_location");
   }
   function handleBlockerSelected(blockingPlayer) {
-    commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_blocked", blockingPlayer)], `Shot blocked — #${selectedPlayer.num} ${selectedPlayer.name} · blocked by #${blockingPlayer.num} ${blockingPlayer.name}`);
+    setPendingEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_blocked", blockingPlayer)]);
+    setPendingFlashText(`Shot blocked — #${selectedPlayer.num} ${selectedPlayer.name} · blocked by #${blockingPlayer.num} ${blockingPlayer.name}`);
+    setStep("ask_shot_location");
   }
 
   // Forced TO flow: pick the opposing player who turned it over
@@ -1596,6 +1610,11 @@ export default function LaxStats({
                 );
               })()}
             </div>
+          )}
+
+          {/* Shot Location */}
+          {step === "ask_shot_location" && (
+            <FieldMapInput onLocationSelected={handleShotLocationSelected} />
           )}
 
           {/* End quarter */}

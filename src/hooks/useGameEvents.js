@@ -34,6 +34,8 @@ export function dbRowToEntry(row) {
     nonReleasable: row.is_non_releasable ?? false,
     penaltyMin:    row.penalty_minutes  ?? undefined,
     shotOutcome:   row.shot_outcome     ?? undefined,
+    shotX:         row.shot_x           ?? undefined,
+    shotY:         row.shot_y           ?? undefined,
     foulName:           row.foul_name            ?? undefined,
     isPossibleDuplicate: row.is_possible_duplicate ?? false,
     seq:                row.seq,
@@ -60,6 +62,8 @@ export function entryToDbRow(entry, gameId, userId) {
     is_non_releasable: entry.nonReleasable  ?? false,
     penalty_minutes:   entry.penaltyMin     ?? null,
     shot_outcome:      entry.shotOutcome    ?? null,
+    shot_x:            entry.shotX          ?? null,
+    shot_y:            entry.shotY          ?? null,
     foul_name:         entry.foulName       ?? null,
     created_by:        userId,
   };
