@@ -119,6 +119,13 @@ export function buildTeamTotals(entries, completedQuarters = []) {
   totals[1].emo_fail = totals[0].mdd_success;
   totals[0].sog = totals[0].goal + totals[1].shot_saved;
   totals[1].sog = totals[1].goal + totals[0].shot_saved;
+
+  const poss = buildPossessionStats(entries);
+  totals[0].possessions = poss[0].count;
+  totals[1].possessions = poss[1].count;
+  totals[0].possession_eff = poss[0].efficiency;
+  totals[1].possession_eff = poss[1].efficiency;
+
   return totals;
 }
 
@@ -222,6 +229,50 @@ export function buildScoringTimeline(entries) {
       if (timeout) return { type: "timeout", timeout };
       return { type: "penalty", penalty };
     });
+}
+
+
+export function buildPossessionStats(entries) {
+  const groups = buildLogGroups(entries);
+  const possessions = [0, 0];
+  const goals = [0, 0];
+  let currentTeam = null;
+
+  groups.forEach(group => {
+    const primary = group.find(e => e.event === "goal") || group.find(e => e.event === "shot") || group[0];
+    const teamIdx = primary.teamIdx;
+
+    if (primary.event === "faceoff_win") {
+      possessions[teamIdx]++;
+      currentTeam = teamIdx;
+    } else if (primary.event === "ground_ball") {
+      if (currentTeam !== teamIdx) {
+        possessions[teamIdx]++;
+        currentTeam = teamIdx;
+      }
+    } else if (primary.event === "clear") {
+      if (currentTeam !== teamIdx) {
+        possessions[teamIdx]++;
+        currentTeam = teamIdx;
+      }
+    } else if (primary.event === "goal") {
+      if (currentTeam !== teamIdx) possessions[teamIdx]++;
+      goals[teamIdx]++;
+      currentTeam = null; // Possession ends after goal
+    } else if (primary.event === "turnover") {
+      currentTeam = 1 - teamIdx;
+      possessions[currentTeam]++;
+    } else if (primary.event === "shot_saved") {
+      currentTeam = 1 - teamIdx;
+      possessions[currentTeam]++;
+    }
+  });
+
+  return possessions.map((p, i) => ({
+    count: p,
+    goals: goals[i],
+    efficiency: p > 0 ? (goals[i] / p) : 0
+  }));
 }
 
 export function entryDisplayInfo(entry) {

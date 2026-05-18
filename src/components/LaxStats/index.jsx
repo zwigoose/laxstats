@@ -32,6 +32,7 @@ export default function LaxStats({
   // org game props — optional; omit for personal games
   orgContext = null,          // { orgId, orgName, seasonName } — shows org banner + loads org teams
   onOrgTeamSelected = null,   // async (teamIdx, teamId) => void — persist home/away_team_id
+  oneHandedMode = false,
 }) {
   const [screen, setScreen] = useState("setup"); // setup | track | stats | log
   const [trackingStarted, setTrackingStarted] = useState(false);
@@ -71,6 +72,7 @@ export default function LaxStats({
 
   const [statsTab, setStatsTab] = useState("summary");
   const [statsQtr, setStatsQtr] = useState("all");
+  const [isListening, setIsListening] = useState(false);
 
   // ── Supabase integration hooks ───────────────────────────────────
   const hydratedRef = useRef(false);
@@ -273,6 +275,81 @@ export default function LaxStats({
     const { icon, label } = entryDisplayInfo(primary);
     return `${icon} ${label} — ${playerStr} · ${teamName}`;
   }
+
+  // ── Voice-to-Stat ───────────────────────────────────────────────
+  function processVoiceCommand(text) {
+    console.log("[Voice]", text);
+    const lowerText = text.toLowerCase();
+    
+    // Keyword: Goal
+    if (lowerText.includes("goal") && step === "event") {
+      const goalEv = EVENTS.find(e => e.id === "goal");
+      if (goalEv) {
+        setSelectedEvent(goalEv);
+        setStep("player");
+      }
+      return;
+    }
+
+    // Keyword: Assist
+    if (lowerText.includes("assist") && step === "ask_assist") {
+      handleAssistYes();
+      return;
+    }
+
+    // Keyword: Number [X]
+    const numMatch = lowerText.match(/(?:number|#)\s*(\d+)/) || lowerText.match(/\b(\d+)\b/);
+    if (numMatch) {
+      const num = numMatch[1];
+      const findAndSelect = (roster, handler) => {
+        const p = roster?.find(player => String(player.num) === num);
+        if (p) handler(p);
+      };
+
+      if (step === "player") {
+        findAndSelect(parsedRosters[selectedTeam], handlePlayerSelected);
+      } else if (step === "assist_player") {
+        findAndSelect(parsedRosters[selectedTeam], handleAssistPlayerSelected);
+      } else if (step === "save_player") {
+        findAndSelect(parsedRosters[1 - selectedTeam], handleSavePlayerSelected);
+      } else if (step === "blocked_player") {
+        findAndSelect(parsedRosters[1 - selectedTeam], handleBlockerSelected);
+      } else if (step === "ask_forced_to_player") {
+        findAndSelect(parsedRosters[1 - selectedTeam], handleForcedToPlayerSelected);
+      }
+    }
+  }
+
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!isListening || !SpeechRecognition) return;
+    
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[event.results.length - 1][0].transcript;
+      processVoiceCommand(transcript);
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === 'not-allowed') setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      if (isListening) {
+        try { recognition.start(); } catch (e) { /* already started */ }
+      }
+    };
+
+    recognition.start();
+    return () => {
+      recognition.onend = null;
+      recognition.stop();
+    };
+  }, [isListening, step, selectedTeam, parsedRosters]);
 
   // ── Helpers ─────────────────────────────────────────────────────
   function mkEntry(teamIdx, event, player, extra = {}) {
@@ -564,7 +641,8 @@ export default function LaxStats({
       if (ev.id === "faceoff_win") {
         setLastFaceoffWinner(prev => prev.map((v, i) => i === selectedTeam ? player : v));
       }
-      commitEntries([mkEntry(selectedTeam, ev.id, player)], `${ev.label} — #${player.num} ${player.name}`);
+      setPendingEntries([mkEntry(selectedTeam, ev.id, player)]);
+      setStep("ask_game_time");
     }
   }
 
@@ -612,10 +690,18 @@ export default function LaxStats({
     commitEntries(entries, `Goal${isEmo ? " (EMO)" : ""} — #${selectedPlayer.num} ${selectedPlayer.name}${assister ? ` (assist #${assister.player?.num})` : ""}`);
   }
 
+  function handleGameTime(t) {
+    const entries = pendingEntries.map(e => ({ ...e, gameTime: t }));
+    const primary = entries.find(e => e.event === "goal") || entries.find(e => e.event === "shot") || entries[0];
+    const { icon, label } = entryDisplayInfo(primary);
+    const playerStr = primary.teamStat ? "" : (primary.player ? ` — #${primary.player.num} ${primary.player.name}` : "");
+    commitEntries(entries, `${icon} ${label}${playerStr} at ${t}`);
+  }
+
   // Shot flow: outcome picker → optional player picker
   function handleShotOutcome(outcome) {
     if (outcome === "missed") {
-      commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
+      setStep("ask_game_time");
     } else if (outcome === "saved") {
       setStep("save_player");
     } else if (outcome === "blocked") {
@@ -624,16 +710,18 @@ export default function LaxStats({
   }
   function handleSavePlayerSelected(goalie) {
     setLastGoalie(prev => prev.map((g, i) => i === (1 - selectedTeam) ? goalie : g));
-    commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_saved", goalie)], `Shot (saved) — #${selectedPlayer.num} ${selectedPlayer.name} · saved by #${goalie.num} ${goalie.name}`);
+    setPendingEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_saved", goalie)]);
+    setStep("ask_game_time");
   }
   function handleBlockerSelected(blockingPlayer) {
-    commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_blocked", blockingPlayer)], `Shot blocked — #${selectedPlayer.num} ${selectedPlayer.name} · blocked by #${blockingPlayer.num} ${blockingPlayer.name}`);
+    setPendingEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_blocked", blockingPlayer)]);
+    setStep("ask_game_time");
   }
 
   // Forced TO flow: pick the opposing player who turned it over
   function handleForcedToPlayerSelected(victim) {
-    const entries = [...pendingEntries, mkEntry(1 - selectedTeam, "turnover", victim)];
-    commitEntries(entries, `Caused TO — #${selectedPlayer.num} ${selectedPlayer.name} → TO by #${victim.num} ${victim.name}`);
+    setPendingEntries([...pendingEntries, mkEntry(1 - selectedTeam, "turnover", victim)]);
+    setStep("ask_game_time");
   }
 
   // Penalty flow — time is captured first (before player), then player, then type/details
@@ -1097,7 +1185,33 @@ export default function LaxStats({
 
       {/* ══ TRACK ══ */}
       {screen === "track" && (
-        <div>
+        <div style={oneHandedMode ? { display: "flex", flexDirection: "column", minHeight: "calc(100dvh - 120px)" } : {}}>
+          {/* Voice Control Toggle */}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+             {(window.SpeechRecognition || window.webkitSpeechRecognition) && (
+               <button 
+                 onClick={() => setIsListening(!isListening)}
+                 style={{ 
+                   background: isListening ? "#fff1f0" : "#fff",
+                   border: `1px solid ${isListening ? "#ffa39e" : "#ddd"}`,
+                   borderRadius: 20,
+                   padding: "4px 12px",
+                   fontSize: 12,
+                   fontWeight: 500,
+                   color: isListening ? "#cf1322" : "#555",
+                   display: "flex",
+                   alignItems: "center",
+                   gap: 6,
+                   cursor: "pointer",
+                   boxShadow: isListening ? "0 0 8px rgba(255,77,79,0.2)" : "none"
+                 }}
+               >
+                 <span style={{ color: isListening ? "#cf1322" : "#888", fontSize: 14 }}>{isListening ? "●" : "🎤"}</span>
+                 {isListening ? "Listening..." : "Voice Off"}
+               </button>
+             )}
+          </div>
+
           {/* Persistent last-entry banner */}
           {lastEntry && step === "team" && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f0f0f0", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 13 }}>
@@ -1137,7 +1251,8 @@ export default function LaxStats({
 
           {/* Team select */}
           {step === "team" && (
-            <div>
+            <div style={oneHandedMode ? { display: "flex", flexDirection: "column", flex: 1 } : {}}>
+              <div style={oneHandedMode ? { order: 1 } : {}}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <div style={S.qtrPill}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOT(currentQuarter) ? "#e67e22" : "#4caf50", display: "inline-block" }}></span>
@@ -1150,6 +1265,8 @@ export default function LaxStats({
                 </div>
               </div>
               {isOT(currentQuarter) && <div style={{ fontSize: 12, color: "#e67e22", background: "#fff8f0", border: "1px solid #f0d9b5", borderRadius: 8, padding: "6px 12px", marginBottom: 12, textAlign: "center" }}>Sudden death — next goal wins</div>}
+              </div>
+              <div style={oneHandedMode ? { order: 2, marginTop: "auto" } : {}}>
               <div style={S.stepLabel}>Who scored / acted?</div>
               <div style={S.teamBtns}>
                 {[0, 1].map(ti => (
@@ -1202,6 +1319,7 @@ export default function LaxStats({
                 </div>
               )}
 
+              <div style={oneHandedMode ? { order: 3, paddingBottom: 20 } : {}}>
               <button style={S.endQtrBtn(gameOver || scorekeeperRole === "secondary")}
                 title={scorekeeperRole === "secondary" ? "Only the primary scorer can end a quarter" : undefined}
                 onClick={() => { if (!gameOver && scorekeeperRole !== "secondary") setStep("endqtr"); }}>
@@ -1210,13 +1328,16 @@ export default function LaxStats({
               <div style={{ textAlign: "center", marginTop: 10 }}>
                 <button style={S.tabBtn(false)} onClick={() => setScreen("stats")}>View stats →</button>
               </div>
+              </div>
             </div>
           )}
 
           {/* Event select */}
           {step === "event" && (
-            <div>
+            <div style={oneHandedMode ? { display: "flex", flexDirection: "column", flex: 1 } : {}}>
+              <div style={oneHandedMode ? { order: 2, marginTop: "auto" } : {}}>
               <button style={S.backBtn} onClick={resetEntry}>← Back</button>
+              <div style={oneHandedMode ? { order: 1 } : {}}>
               <div style={{
                 background: teamColors[selectedTeam],
                 borderRadius: 10,
@@ -1262,8 +1383,9 @@ export default function LaxStats({
 
           {/* Player select */}
           {step === "player" && (
-            <div>
+            <div style={oneHandedMode ? { display: "flex", flexDirection: "column", flex: 1 } : {}}>
               <button style={S.backBtn} onClick={() => setStep("event")}>← Back</button>
+              <div style={oneHandedMode ? { order: 1 } : {}}>
               <div style={{ ...S.stepLabel }}>{selectedEvent?.label} — Which player?</div>
               {(() => {
                 const isFaceoff = selectedEvent?.id === "faceoff_win";
@@ -1373,6 +1495,40 @@ export default function LaxStats({
                 allowEqualToCeiling={false}
                 onConfirm={handleGoalTime}
               />
+            </div>
+          )}
+
+          {/* General event: time remaining */}
+          {step === "ask_game_time" && (
+            <div>
+              <button style={S.backBtn} onClick={() => {
+                const ev = selectedEvent;
+                if (ev.id === "shot" && step === "ask_game_time") setStep("ask_shot_outcome");
+                else if (ev.id === "forced_to") setStep("ask_forced_to_player");
+                else if (ev.teamStat) setStep("event");
+                else setStep("player");
+              }}>← Back</button>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>
+                {pendingContext()}
+              </div>
+              <div style={S.questionCard}>
+                <div style={S.questionText}>Time remaining in {curQLabel}?</div>
+              </div>
+              <TimeKeypad
+                maxSeconds={isOT(currentQuarter) ? 240 : 720}
+                ceilingSecs={timeCeilingSecs}
+                allowEqualToCeiling={false}
+                onConfirm={handleGameTime}
+              />
+              <button style={{ ...S.btnSecondary, marginTop: 8 }} onClick={() => {
+                const entries = pendingEntries;
+                const primary = entries.find(e => e.event === "goal") || entries.find(e => e.event === "shot") || entries[0];
+                const { icon, label } = entryDisplayInfo(primary);
+                const playerStr = primary.teamStat ? "" : (primary.player ? ` — #${primary.player.num} ${primary.player.name}` : "");
+                commitEntries(entries, `${icon} ${label}${playerStr}`);
+              }}>
+                Log without time
+              </button>
             </div>
           )}
 
@@ -1754,6 +1910,8 @@ export default function LaxStats({
                 { heading: "Possession" },
                 { label: "Ground Balls", key: "ground_ball" }, { label: "Faceoffs Won", key: "faceoff_win" },
                 { label: "Turnovers", key: "turnover" },
+                { label: "Total Possessions", key: "possessions" },
+                { label: "Possession Efficiency", custom: possEff },
                 { heading: "Clearing" },
                 { label: "Successful Clears", key: "clear" }, { label: "Failed Clears", key: "failed_clear" },
                 { label: "Clearing %", custom: clearPct },

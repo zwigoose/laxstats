@@ -34,6 +34,14 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
   const saveInFlight = useRef(false);
   const tokenRef     = useRef(null);
   const [gameName, setGameName]   = useState(game?.name || "");
+  const [showSettings, setShowSettings] = useState(false);
+  const [oneHandedMode, setOneHandedMode] = useState(() => localStorage.getItem("laxstats:one-handed-mode") === "true");
+
+  const toggleOneHandedMode = () => {
+    const newVal = !oneHandedMode;
+    setOneHandedMode(newVal);
+    localStorage.setItem("laxstats:one-handed-mode", String(newVal));
+  };
   useDocTitle(gameName || "Scorekeeper");
   const [inviteLink,  setInviteLink]  = useState(null);
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
@@ -250,7 +258,38 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
             {inviteState === "generating" ? "…" : (inviteLink || inviteState === "error") ? "Hide" : "Invite scorer"}
           </button>
         )}
+        <button style={S.viewBtn} onClick={() => setShowSettings(!showSettings)}>
+          {showSettings ? "✕ Close" : "Settings ⚙️"}
+        </button>
         <button style={S.viewBtn} onClick={() => navigate(`/games/${id}/view`)}>Live view →</button>
+      </div>
+
+      {showSettings && (
+        <div style={{ padding: "12px 16px", background: "#f9f9f9", borderBottom: "1px solid #e5e5e5", fontFamily: "system-ui, sans-serif" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>One-Handed Mode</div>
+              <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>Optimizes layout for thumb-only scoring</div>
+            </div>
+            <button 
+              onClick={toggleOneHandedMode}
+              style={{ 
+                padding: "6px 16px", 
+                borderRadius: 20, 
+                border: "none",
+                background: oneHandedMode ? "#1a6bab" : "#ddd",
+                color: oneHandedMode ? "#fff" : "#555",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 700,
+                transition: "background 0.2s"
+              }}
+            >
+              {oneHandedMode ? "ON" : "OFF"}
+            </button>
+          </div>
+        </div>
+      )}
       </div>
 
       {inviteState === "error" && (
@@ -292,6 +331,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
             const col = teamIdx === 0 ? "home_team_id" : "away_team_id";
             await updateGame(id, { [col]: teamId });
           }}
+          oneHandedMode={oneHandedMode}
           onCancel={async () => {
             await deleteAllGameEvents(id, userId);
             await deleteGame(id);
