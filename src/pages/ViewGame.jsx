@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -77,7 +77,21 @@ export default function ViewGame() {
   const [awaySeasons, setAwaySeasons]       = useState([]);
   const [addSeasonState, setAddSeasonState] = useState("idle"); // idle | picking | saving | done
   const [addSeasonId, setAddSeasonId]       = useState("");
+  
   const [addSeasonError, setAddSeasonError] = useState(null);
+
+  const teamsRef = useRef([]);
+  const userRef = useRef(user);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   function copyUrl() {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -122,6 +136,29 @@ export default function ViewGame() {
       }, (payload) => {
         if (payload.new.deleted_at) return;
         const entry = dbRowToEntry(payload.new);
+
+        // Trigger notification for goals from other users
+        if (payload.new.event_type === "goal" && payload.new.created_by !== userRef.current?.id) {
+          const tName = teamsRef.current[payload.new.team_idx]?.name || "Team";
+          const title = `GOAL! ${tName} scored!`;
+          const body = `${payload.new.player_name ? (payload.new.player_name + ' scored ') : ''}at ${payload.new.goal_time} in ${qLabel(payload.new.quarter)}`;
+          
+          if ("Notification" in window && Notification.permission === "granted") {
+            if ("serviceWorker" in navigator) {
+              navigator.serviceWorker.ready.then(reg => {
+                reg.showNotification(title, {
+                  body,
+                  icon: '/LaxStatsIcon.png',
+                  badge: '/favicon-96x96.png',
+                  data: window.location.href
+                });
+              });
+            } else {
+              new Notification(title, { body, icon: '/LaxStatsIcon.png' });
+            }
+          }
+        }
+
         setV2Log(prev => {
           if (!prev) return [entry];
           if (prev.some(e => e.dbId === entry.dbId)) return prev;
@@ -194,6 +231,7 @@ export default function ViewGame() {
   // ── Derived from game state ──────────────────────────────────────
   const state = game?.state;
   const teams = state?.teams || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
+  useEffect(() => { teamsRef.current = teams; }, [teams]);
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
   const log = v2Log ?? [];
   const currentQuarter = state?.currentQuarter || 1;
