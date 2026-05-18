@@ -86,4 +86,25 @@ const S = {
   timelineRow: (c) => ({ borderBottom: "1px solid #f0f0f0", background: "transparent" }),
 };
 
+
+  oneHandedContainer: (active) => ({
+    display: active ? "flex" : "contents",
+    flexDirection: active ? "column" : "initial",
+    justifyContent: active ? "flex-end" : "initial",
+    position: active ? "fixed" : "static",
+    bottom: active ? 0 : "auto",
+    left: active ? 0 : "auto",
+    right: active ? 0 : "auto",
+    height: active ? "100%" : "auto",
+    padding: active ? "12px" : "0",
+    background: active ? "rgba(255,255,255,0.95)" : "transparent",
+    backdropFilter: active ? "blur(10px)" : "none",
+    zIndex: active ? 100 : 1,
+  }),
+  oneHandedControls: (active) => ({
+    display: active ? "grid" : "contents",
+    gridTemplateColumns: active ? "repeat(3, 1fr)" : "initial",
+    gap: active ? "8px" : "0",
+    paddingBottom: active ? "20px" : "0",
+  }),
 export default S;

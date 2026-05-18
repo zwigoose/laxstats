@@ -42,6 +42,7 @@ export default function LaxStats({
   const [completedQuarters, setCompletedQuarters] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   const [gameDate, setGameDate] = useState(() => (createdAt ?? new Date().toISOString()).split("T")[0]);
+  const [oneHandedMode, setOneHandedMode] = useState(false);
 
   // Step machine:
   // team | event | player
