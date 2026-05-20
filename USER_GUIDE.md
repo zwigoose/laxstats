@@ -9,32 +9,33 @@ LaxStats is an electronic scorebook and league management platform for men's lac
 1. [Accounts & Login](#1-accounts--login)
 2. [Navigation](#2-navigation)
 3. [Your Profile](#3-your-profile)
-4. [Organizations](#4-organizations)
-5. [Season & Team Management](#5-season--team-management)
-6. [Roster Management](#6-roster-management)
-7. [Creating and Managing Games](#7-creating-and-managing-games)
-8. [Scorekeeper — Setup](#8-scorekeeper--setup)
-9. [Scorekeeper — Tracking Events](#9-scorekeeper--tracking-events)
-10. [Event Reference](#10-event-reference)
-11. [Timeouts](#11-timeouts)
-12. [Quarter & Game Management](#12-quarter--game-management)
-13. [Multi-User Scoring](#13-multi-user-scoring)
-14. [Editing and Deleting Entries](#14-editing-and-deleting-entries)
-15. [Stats Views](#15-stats-views)
-16. [Live View](#16-live-view)
-17. [Press Box](#17-press-box)
-18. [Admin Panel](#18-admin-panel)
-19. [Stat Definitions](#19-stat-definitions)
+4. [Plans & Billing](#4-plans--billing)
+5. [Organizations](#5-organizations)
+6. [Season & Team Management](#6-season--team-management)
+7. [Roster Management](#7-roster-management)
+8. [Creating and Managing Games](#8-creating-and-managing-games)
+9. [Scorekeeper — Setup](#9-scorekeeper--setup)
+10. [Scorekeeper — Tracking Events](#10-scorekeeper--tracking-events)
+11. [Event Reference](#11-event-reference)
+12. [Timeouts](#12-timeouts)
+13. [Quarter & Game Management](#13-quarter--game-management)
+14. [Multi-User Scoring](#14-multi-user-scoring)
+15. [Editing and Deleting Entries](#15-editing-and-deleting-entries)
+16. [Stats Views](#16-stats-views)
+17. [Live View](#17-live-view)
+18. [Press Box](#18-press-box)
+19. [Admin Panel](#19-admin-panel)
+20. [Stat Definitions](#20-stat-definitions)
 
 ---
 
 ## 1. Accounts & Login
 
 ### Signing in
-Enter your **username** and **password** on the login screen and tap **Sign in**. If you have a real email address registered, you can enter that instead — the app detects the `@` and uses it as-is.
+Enter your **email** and **password** on the login screen and tap **Sign in**.
 
 ### Creating an account
-Tap **Sign up** on the login screen, choose a username and password (minimum 6 characters), and tap **Create account**. An admin can also create an account for you from the Admin panel.
+Tap **Sign up** on the login screen, enter your email address and a password (minimum 6 characters), and tap **Create account**. A confirmation email will be sent — click the link to activate your account. A platform admin can also create an account for you from the Admin panel.
 
 ### Signing in as a guest scorer
 If someone sends you a scorer invite link, open it in any browser. The app will sign you in automatically as a guest — no account or password required. You'll be taken directly to the scorekeeper. Guest sessions are tied to that link and that game only.
@@ -61,20 +62,56 @@ The top nav bar is visible on all pages except the Scorekeeper and Press Box (wh
 Tap the initials avatar button in the top-right corner of the nav bar to open `/profile`.
 
 ### Display name
-Enter a name in the **Display name** field and tap **Save**. This name is shown in place of your username wherever your name appears in the app. Leave it blank to use your username instead.
+Enter a name in the **Display name** field and tap **Save**. This name appears throughout the app in place of your email address. Leave it blank to fall back to your email.
 
 ### Changing your email
-Enter a new email address and tap **Update**. A confirmation email is sent to the new address — the change does not take effect until you click the link in that email. `@laxstats.app` addresses are not accepted here (those are internal usernames, not real emails).
+Enter a new email address and tap **Update**. A confirmation email is sent to the new address — the change does not take effect until you click the link in that email.
 
 ### Changing your password
-Enter your new password twice and tap **Change password**. The password must be at least 6 characters. No current password is required since you are already signed in.
+Enter your new password twice and tap **Change password**. Minimum 6 characters. No current password is required since you are already signed in.
+
+### Personal plan
+Your current personal plan (Free, Basic, or Plus) and its status are shown on the profile page. Tap **Manage billing** to upgrade, downgrade, or cancel via the Stripe billing portal. Tap **Upgrade plan** to go to the pricing page.
 
 ### Signing out
 Tap **Sign out** at the bottom of the profile page.
 
 ---
 
-## 4. Organizations
+## 4. Plans & Billing
+
+### Personal plans
+
+| Plan | Monthly | Personal game limit |
+|---|---|---|
+| **Free** | $0 | 3 games |
+| **Basic** | $5 | 10 games |
+| **Plus** | $10 | 20 games |
+
+Org members receive a bonus on top of their personal plan limit (Pro org: +10, Max org: +20).
+
+### Org plans
+
+| Plan | Monthly | Key features |
+|---|---|---|
+| **Pro** | $10 | Registered teams, seasons, season stats, Press Box |
+| **Max** | $20 | Everything in Pro + multi-scorer, higher limits |
+
+### Purchasing a plan
+Go to `/pricing`, choose a plan, and complete checkout via Stripe. For org plans, enter a name for your organization. You will be redirected back to LaxStats when payment is complete.
+
+### Canceling
+Open your Profile and tap **Manage billing**. From the Stripe billing portal you can cancel at any time. Access continues until the end of the current billing period; after that the org or personal plan is locked to its free-tier limits.
+
+### What happens when an org plan expires
+- New game creation, new seasons, and adding members are blocked
+- All existing games, stats, and data remain readable
+- Org admins see a banner on the org dashboard with a **Renew →** link
+- To start a new org instead of renewing the old one, go to `/pricing` and create a new org
+
+---
+
+## 5. Organizations
 
 Organizations are the top-level structure for teams, seasons, and games. A single org can represent a program, a club, or a league.
 
@@ -101,7 +138,7 @@ Members are managed from the org dashboard by an org admin or platform admin.
 
 ---
 
-## 5. Season & Team Management
+## 6. Season & Team Management
 
 ### Creating a season
 From the org dashboard **Seasons** tab, tap **+ New Season**. Enter a name (e.g. *Spring 2026*) and optional start and end dates.
@@ -120,7 +157,7 @@ Per-season stats roll up automatically across all games in the season for any re
 
 ---
 
-## 5. Roster Management
+## 7. Roster Management
 
 Saved rosters let you enter a team once and load it into any future personal game in a single tap. For org games, use registered teams instead.
 
@@ -141,14 +178,14 @@ The `#` is optional. Players must have unique numbers.
 You can share a roster with another user so they can load it into their games.
 
 1. Expand the team row you want to share.
-2. In the **Sharing** section, type the other user's username and tap **Find**.
-3. Confirm the username shown and tap **Share**.
+2. In the **Sharing** section, enter the other user's email address and tap **Find**.
+3. Confirm the user shown and tap **Share**.
 
 Shared users can load the roster but cannot edit or delete it.
 
 ---
 
-## 6. Creating and Managing Games
+## 8. Creating and Managing Games
 
 ### Creating a game
 Tap **＋ New Game** on the home screen. You will be asked to choose:
@@ -166,7 +203,7 @@ On the home screen, tap **🗑** on any game card and confirm twice. Deletion is
 
 ---
 
-## 7. Scorekeeper — Setup
+## 9. Scorekeeper — Setup
 
 ### Home and Away
 The left team card is always **Home**, the right is **Away**. Home team buttons are white with a colored border; away team buttons are solid color — matches jersey colors on the field.
@@ -191,7 +228,7 @@ Once both rosters pass validation, tap **Start Tracking →**.
 
 ---
 
-## 8. Scorekeeper — Tracking Events
+## 10. Scorekeeper — Tracking Events
 
 The **Track** tab follows a guided step flow:
 
@@ -218,7 +255,7 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 
 ---
 
-## 9. Event Reference
+## 11. Event Reference
 
 ### Goal 🥍
 **Follow-ups:** Assist? → EMO? → Time remaining
@@ -258,7 +295,7 @@ Team stat. Log when the defense kills a penalty without conceding. Automatically
 ### Timeout ⏸️
 Team stat. **Follow-up:** Time remaining (or tap **Log without time**).
 
-See [Timeouts](#10-timeouts) for allowances per period.
+See [Timeouts](#12-timeouts) for allowances per period.
 
 ### Successful Clear ⬆️
 Team stat. Automatically credits the opposing team with a Failed Ride.
@@ -268,7 +305,7 @@ Team stat. Automatically credits the opposing team with a Successful Ride.
 
 ---
 
-## 10. Timeouts
+## 12. Timeouts
 
 **Allowance per team:**
 - **First half** (Q1 + Q2 combined): 2 timeouts
@@ -279,7 +316,7 @@ Remaining counts are shown on the team select buttons. Unused first-half timeout
 
 ---
 
-## 11. Quarter & Game Management
+## 13. Quarter & Game Management
 
 ### Ending a quarter
 Tap **End Q# →** at the bottom of the Track screen. A confirmation screen shows a stat summary. Tap the confirm button to lock the quarter.
@@ -293,7 +330,7 @@ Sudden death. The game auto-finalizes on the first OT goal.
 
 ---
 
-## 12. Multi-User Scoring
+## 14. Multi-User Scoring
 
 Multiple people can score the same game simultaneously from separate devices.
 
@@ -320,7 +357,7 @@ If two scorers log the same clock-anchored event (a goal or timeout at the same 
 
 ---
 
-## 13. Editing and Deleting Entries
+## 15. Editing and Deleting Entries
 
 ### Editing an entry
 1. Go to the **Event Log** tab.
@@ -340,7 +377,7 @@ Immediately after any new entry, tap **undo** in the confirmation banner to remo
 
 ---
 
-## 14. Stats Views
+## 16. Stats Views
 
 Stats are available in the Scorekeeper (**Stats** and **Event Log** tabs), the Live View, and the Press Box. A **quarter filter** at the top lets you view all quarters combined or any individual quarter.
 
@@ -361,7 +398,7 @@ For org games linked to a season, per-season stats roll up automatically for reg
 
 ---
 
-## 15. Live View
+## 17. Live View
 
 Open via **View** on any game card, or navigate to `/games/:id/view`.
 
@@ -374,7 +411,7 @@ The header shows **● Live** or **Final**. For live games, the latest recorded 
 
 ---
 
-## 16. Press Box
+## 18. Press Box
 
 Open via **Press Box** on any game card, the Live View header, or navigate to `/games/:id/pressbox`.
 
@@ -393,7 +430,7 @@ Press Box access is controlled per-game. Personal games require a platform admin
 
 ---
 
-## 17. Admin Panel
+## 19. Admin Panel
 
 Admin accounts have access to `/admin`. An **Admin** link appears in the top nav for admin accounts.
 
@@ -409,7 +446,7 @@ Each game row's **⚙** panel offers:
 **+ New Game for User** creates a v2 game under any user's account.
 
 ### Users tab
-- **Create User** — username and password; the user can sign in immediately
+- **Create User** — email and password; the user can sign in immediately
 - Each user row expands to show their games
 - **Make admin / Revoke admin** — toggle admin privileges
 - **🗑** — delete a user account (two-stage confirmation)
@@ -428,7 +465,7 @@ Tools for converting v1 JSONB-log games into the v2 normalized format.
 
 ---
 
-## 18. Stat Definitions
+## 20. Stat Definitions
 
 ### Scoring
 

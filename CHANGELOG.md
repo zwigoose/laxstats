@@ -5,6 +5,30 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.11.0] — 2026-05-19
+
+### Added
+- **QR code on Live View** — a **QR** button on `/games/:id/view` opens a modal with a scannable QR code for the game URL; tap **Save image** to download as PNG; replaces the invite-scorer link panel on that page
+- **Branded confirmation and password-reset emails** — LaxStats-styled HTML templates (blue wordmark, card layout, CTA button) replace the default Supabase emails for signup confirmation and password reset; templates versioned in `supabase/templates/`
+- **Subscription period tracking** — `cancel_at_period_end` and `current_period_end` columns added to `organizations` and `profiles`; the Stripe webhook now stamps both fields on every subscription event so the app knows when a billing period ends and whether a cancellation is scheduled
+- **Org plan status banners** — org admins see a contextual banner at the top of the org dashboard: yellow "Cancels on [date]" when cancellation is pending, red "Payment past due" with a billing link, or red "Subscription expired" with a renew link when the org is locked
+- **Post-checkout polling on Profile** — `/profile?checkout=success` now polls `refreshProfile` every 2 s (up to 30 s) until the webhook updates `personal_plan`, matching the existing behaviour on `/orgs`
+
+### Changed
+- **New-org flow unblocked for canceled admin orgs** — users whose only admin orgs are in `canceled` status now see the new-org creation form on `/pricing` instead of being stuck in an upgrade-only flow; they can re-subscribe to the old org via the dashboard "Renew →" link or start a brand-new org
+- **Post-checkout redirect fires immediately** — the Orgs page no longer polls for the full 30 s when the webhook processed before the page loaded; it redirects as soon as auth settles, choosing the most recently joined org by `created_at`
+
+### Infrastructure
+- Stripe test-mode keys and webhook endpoint wired to the staging Supabase project; `SITE_URL` set correctly so checkout redirects land on `staging.laxstats.app`
+- `stripe-webhook` Edge Function redeployed with `--no-verify-jwt` so Stripe can POST without a bearer token (security is handled by webhook signature verification inside the function)
+- `create_at` added to `org_members` select in `AuthContext` to support newest-org detection
+
+### Database
+- `organizations`: added `cancel_at_period_end BOOLEAN NOT NULL DEFAULT false`, `current_period_end TIMESTAMPTZ`
+- `profiles`: added `cancel_at_period_end BOOLEAN NOT NULL DEFAULT false`, `current_period_end TIMESTAMPTZ`
+
+---
+
 ## [2.10.2] — 2026-05-08
 
 ### Fixed
