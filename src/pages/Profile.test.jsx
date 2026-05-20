@@ -8,8 +8,6 @@ import Profile from "./Profile";
 const profileData = vi.hoisted(() => ({ value: { display_name: null } }));
 
 vi.mock("../lib/supabase", () => {
-  // update() must return something with .eq() AND be thenable itself.
-  // Spread chain methods onto the thenable so the chain doesn't break.
   const makeUpdateResult = (error = null) => ({
     eq:   vi.fn().mockReturnValue({ then: (fn) => Promise.resolve({ error }).then(fn) }),
     then: (fn) => Promise.resolve({ error }).then(fn),
@@ -42,8 +40,11 @@ import { supabase } from "../lib/supabase";
 // ── AuthContext mock ───────────────────────────────────────────────────────────
 
 const authState = vi.hoisted(() => ({
-  user:    { id: "user-1", email: "john@laxstats.app", created_at: "2026-01-15T00:00:00Z" },
-  loading: false,
+  user:           { id: "user-1", email: "john@example.com", created_at: "2026-01-15T00:00:00Z" },
+  profile:        { display_name: null, personal_plan: "free", personal_plan_status: "active" },
+  orgMemberships: [],
+  loading:        false,
+  refreshProfile: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../contexts/AuthContext", () => ({
@@ -52,9 +53,9 @@ vi.mock("../contexts/AuthContext", () => ({
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function renderProfile() {
+function renderProfile(search = "") {
   return render(
-    <MemoryRouter initialEntries={["/profile"]}>
+    <MemoryRouter initialEntries={[`/profile${search}`]}>
       <Routes>
         <Route path="/profile" element={<Profile />} />
         <Route path="/"        element={<div>Home</div>} />
@@ -66,11 +67,13 @@ function renderProfile() {
 beforeEach(() => {
   vi.clearAllMocks();
 
-  profileData.value = { display_name: null };
-  authState.user    = { id: "user-1", email: "john@laxstats.app", created_at: "2026-01-15T00:00:00Z" };
-  authState.loading = false;
+  profileData.value       = { display_name: null };
+  authState.user          = { id: "user-1", email: "john@example.com", created_at: "2026-01-15T00:00:00Z" };
+  authState.profile       = { display_name: null, personal_plan: "free", personal_plan_status: "active" };
+  authState.orgMemberships = [];
+  authState.loading       = false;
+  authState.refreshProfile = vi.fn().mockResolvedValue(undefined);
 
-  const eqAfterUpdate = { then: (fn) => Promise.resolve({ error: null }).then(fn) };
   supabase._chain.select.mockReturnThis();
   supabase._chain.eq.mockReturnThis();
   supabase._chain.single.mockImplementation(() =>
@@ -85,18 +88,10 @@ beforeEach(() => {
 // ── Account info ───────────────────────────────────────────────────────────────
 
 describe("Profile — account info", () => {
-  it("shows Username label and username for laxstats.app accounts", async () => {
-    renderProfile();
-    await waitFor(() => expect(screen.getByText("Username")).toBeTruthy());
-    // "john" appears in both the account info span and the email description <strong>
-    expect(screen.getAllByText("john").length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("shows Email label for real-email accounts", async () => {
-    authState.user = { ...authState.user, email: "john@gmail.com" };
+  it("shows Email label and the user's email address", async () => {
     renderProfile();
     await waitFor(() => expect(screen.getByText("Email")).toBeTruthy());
-    expect(screen.getByText("john@gmail.com")).toBeTruthy();
+    expect(screen.getByText("john@example.com")).toBeTruthy();
   });
 
   it("shows member since month and year", async () => {
@@ -108,26 +103,26 @@ describe("Profile — account info", () => {
 // ── Display name ───────────────────────────────────────────────────────────────
 
 describe("Profile — display name", () => {
-  it("fetches display_name from profiles on mount", async () => {
+  it("seeds the display name input from AuthContext profile", async () => {
+    authState.profile = { ...authState.profile, display_name: "Seeded Name" };
     renderProfile();
-    await waitFor(() => {
-      expect(supabase.from).toHaveBeenCalledWith("profiles");
-      expect(supabase._chain.select).toHaveBeenCalledWith("display_name");
-    });
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Display name")).toHaveValue("Seeded Name")
+    );
   });
 
   it("populates the input with a saved display name", async () => {
-    profileData.value = { display_name: "Coach John" };
+    authState.profile = { ...authState.profile, display_name: "Coach John" };
     renderProfile();
     await waitFor(() =>
-      expect(screen.getByPlaceholderText("john")).toHaveValue("Coach John")
+      expect(screen.getByPlaceholderText("Display name")).toHaveValue("Coach John")
     );
   });
 
   it("saves display name via profiles.update on Save click", async () => {
     renderProfile();
-    await waitFor(() => screen.getByPlaceholderText("john"));
-    fireEvent.change(screen.getByPlaceholderText("john"), { target: { value: "Coach John" } });
+    await waitFor(() => screen.getByPlaceholderText("Display name"));
+    fireEvent.change(screen.getByPlaceholderText("Display name"), { target: { value: "Coach John" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(supabase._chain.update).toHaveBeenCalledWith({ display_name: "Coach John" })
@@ -136,8 +131,8 @@ describe("Profile — display name", () => {
 
   it("shows 'Display name saved.' after successful save", async () => {
     renderProfile();
-    await waitFor(() => screen.getByPlaceholderText("john"));
-    fireEvent.change(screen.getByPlaceholderText("john"), { target: { value: "Test" } });
+    await waitFor(() => screen.getByPlaceholderText("Display name"));
+    fireEvent.change(screen.getByPlaceholderText("Display name"), { target: { value: "Test" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.getByText("Display name saved.")).toBeTruthy());
   });
@@ -145,16 +140,16 @@ describe("Profile — display name", () => {
   it("shows error when save fails", async () => {
     supabase._chain.update.mockReturnValue(supabase._makeUpdateResult({ message: "DB error" }));
     renderProfile();
-    await waitFor(() => screen.getByPlaceholderText("john"));
-    fireEvent.change(screen.getByPlaceholderText("john"), { target: { value: "Test" } });
+    await waitFor(() => screen.getByPlaceholderText("Display name"));
+    fireEvent.change(screen.getByPlaceholderText("Display name"), { target: { value: "Test" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.getByText("Failed to save. Try again.")).toBeTruthy());
   });
 
   it("saves null for a blank (whitespace-only) display name", async () => {
     renderProfile();
-    await waitFor(() => screen.getByPlaceholderText("john"));
-    fireEvent.change(screen.getByPlaceholderText("john"), { target: { value: "   " } });
+    await waitFor(() => screen.getByPlaceholderText("Display name"));
+    fireEvent.change(screen.getByPlaceholderText("Display name"), { target: { value: "   " } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(supabase._chain.update).toHaveBeenCalledWith({ display_name: null })
@@ -186,7 +181,6 @@ describe("Profile — change email", () => {
     fireEvent.click(screen.getByRole("button", { name: "Update" }));
     await waitFor(() => expect(screen.getByText(/Confirmation sent/)).toBeTruthy());
   });
-
 
   it("shows Supabase error when update fails", async () => {
     supabase.auth.updateUser.mockResolvedValue({ error: { message: "Email already in use" } });
