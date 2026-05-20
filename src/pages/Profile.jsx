@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -38,11 +38,34 @@ const PERSONAL_PLAN_COLOR = {
 };
 
 export default function Profile() {
-  const { user, profile, orgMemberships, loading: authLoading } = useAuth();
+  const { user, profile, orgMemberships, loading: authLoading, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const checkoutSuccess = searchParams.get("checkout") === "success";
   useDocTitle("Profile");
+
+  // After a personal plan checkout, poll until the webhook updates personal_plan.
+  const pollRef = useRef(null);
+  useEffect(() => {
+    if (!checkoutSuccess || authLoading) return;
+    if (profile?.personal_plan && profile.personal_plan !== "free") return; // already updated
+
+    let elapsed = 0;
+    pollRef.current = setInterval(async () => {
+      elapsed += 2;
+      await refreshProfile();
+      if (elapsed >= 30) clearInterval(pollRef.current);
+    }, 2000);
+    return () => clearInterval(pollRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutSuccess, authLoading]);
+
+  useEffect(() => {
+    if (!checkoutSuccess || !pollRef.current) return;
+    if (profile?.personal_plan && profile.personal_plan !== "free") {
+      clearInterval(pollRef.current);
+    }
+  }, [profile?.personal_plan, checkoutSuccess]);
 
   const memberSince = user?.created_at
     ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })
