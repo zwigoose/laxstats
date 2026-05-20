@@ -42,16 +42,22 @@ async function createOrgFromSub(
     .slice(0, 48)
     + "-" + Math.random().toString(36).slice(2, 6);
 
+  const periodEnd = sub.current_period_end
+    ? new Date(sub.current_period_end * 1000).toISOString()
+    : null;
+
   const { data: newOrg, error: orgErr } = await admin
     .from("organizations")
     .insert({
-      name:               org_name,
+      name:                 org_name,
       slug,
-      plan:               plan_key,
-      plan_status:        "active",
-      stripe_sub_id:      sub.id,
-      stripe_customer_id: typeof sub.customer === "string" ? sub.customer : null,
-      color:              "#1a6bab",
+      plan:                 plan_key,
+      plan_status:          "active",
+      stripe_sub_id:        sub.id,
+      stripe_customer_id:   typeof sub.customer === "string" ? sub.customer : null,
+      color:                "#1a6bab",
+      cancel_at_period_end: false,
+      current_period_end:   periodEnd,
     })
     .select("id")
     .single();
@@ -107,6 +113,10 @@ serve(async (req) => {
         const { plan_key, user_id, org_id, org_name } = sub.metadata ?? {};
         if (!plan_key) break;
 
+        const periodEnd = sub.current_period_end
+          ? new Date(sub.current_period_end * 1000).toISOString()
+          : null;
+
         if (ORG_PLANS.has(plan_key)) {
           if (!org_id && org_name) {
             // New org purchase — create the org now
@@ -114,9 +124,11 @@ serve(async (req) => {
           } else if (org_id) {
             // Existing org upgrade through Checkout
             await admin.from("organizations").update({
-              plan:          plan_key,
-              plan_status:   normalizeStatus(sub.status),
-              stripe_sub_id: sub.id,
+              plan:                 plan_key,
+              plan_status:          normalizeStatus(sub.status),
+              stripe_sub_id:        sub.id,
+              cancel_at_period_end: false,
+              current_period_end:   periodEnd,
             }).eq("id", org_id);
           }
         } else if (user_id && PERSONAL_PLANS.has(plan_key)) {
@@ -124,50 +136,64 @@ serve(async (req) => {
             personal_plan:        plan_key,
             personal_plan_status: normalizeStatus(sub.status),
             stripe_sub_id:        sub.id,
+            cancel_at_period_end: false,
+            current_period_end:   periodEnd,
           }).eq("id", user_id);
         }
         break;
       }
 
-      // ── Subscription updated — renewals, plan changes, status changes ───────
+      // ── Subscription updated — renewals, plan changes, cancel scheduling ────
       case "customer.subscription.updated": {
         const sub = event.data.object as Stripe.Subscription;
         const { plan_key, user_id, org_id } = sub.metadata ?? {};
         if (!plan_key) break;
 
-        const dbStatus = normalizeStatus(sub.status);
+        const dbStatus          = normalizeStatus(sub.status);
+        const cancelAtPeriodEnd = sub.cancel_at_period_end ?? false;
+        const periodEnd         = sub.current_period_end
+          ? new Date(sub.current_period_end * 1000).toISOString()
+          : null;
 
         if (org_id && ORG_PLANS.has(plan_key)) {
           await admin.from("organizations").update({
-            plan:          plan_key,
-            plan_status:   dbStatus,
-            stripe_sub_id: sub.id,
+            plan:                 plan_key,
+            plan_status:          dbStatus,
+            stripe_sub_id:        sub.id,
+            cancel_at_period_end: cancelAtPeriodEnd,
+            current_period_end:   periodEnd,
           }).eq("id", org_id);
         } else if (user_id && PERSONAL_PLANS.has(plan_key)) {
           await admin.from("profiles").update({
             personal_plan:        plan_key,
             personal_plan_status: dbStatus,
             stripe_sub_id:        sub.id,
+            cancel_at_period_end: cancelAtPeriodEnd,
+            current_period_end:   periodEnd,
           }).eq("id", user_id);
         }
         break;
       }
 
-      // ── Subscription deleted — cancellation ─────────────────────────────────
+      // ── Subscription deleted — period ended after cancellation ──────────────
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
         const { plan_key, user_id, org_id } = sub.metadata ?? {};
 
         if (org_id && ORG_PLANS.has(plan_key)) {
           await admin.from("organizations").update({
-            plan_status:   "canceled",
-            stripe_sub_id: null,
+            plan_status:          "canceled",
+            stripe_sub_id:        null,
+            cancel_at_period_end: false,
+            current_period_end:   null,
           }).eq("id", org_id);
         } else if (user_id) {
           await admin.from("profiles").update({
             personal_plan:        "free",
             personal_plan_status: "active",
             stripe_sub_id:        null,
+            cancel_at_period_end: false,
+            current_period_end:   null,
           }).eq("id", user_id);
         }
         break;

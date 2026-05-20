@@ -85,18 +85,19 @@ export default function Pricing() {
   const checkoutSuccess = searchParams.get("checkout") === "success";
 
   // Orgs where the current user is an admin — eligible for org plan purchase
-  const adminOrgs = orgMemberships.filter(m => m.role === "org_admin");
+  const adminOrgs       = orgMemberships.filter(m => m.role === "org_admin");
+  const activeAdminOrgs = adminOrgs.filter(m => m.org?.plan_status !== "canceled");
 
   // Resolve which org to use for an org plan checkout:
-  // 1. ?org=<slug> query param (coming from OrgDashboard upgrade link)
+  // 1. ?org=<slug> query param (coming from OrgDashboard upgrade/renew link)
   // 2. selectedOrgId state (multi-org picker)
-  // 3. Only one admin org — use it automatically
+  // 3. Only one active admin org — use it automatically
   const orgSlug    = searchParams.get("org");
   const orgFromUrl = orgSlug ? adminOrgs.find(m => m.org?.slug === orgSlug) : null;
   const resolvedOrgId =
     orgFromUrl?.org_id ??
     selectedOrgId ??
-    (adminOrgs.length === 1 ? adminOrgs[0].org_id : null);
+    (activeAdminOrgs.length === 1 ? activeAdminOrgs[0].org_id : null);
 
   useEffect(() => {
     Promise.all([
@@ -123,7 +124,7 @@ export default function Pricing() {
     handleCheckout(autostartPlan, resolvedOrgId);
   }, [user, autostartPlan]);
 
-  const isNewOrgFlow = user && adminOrgs.length === 0;
+  const isNewOrgFlow = user && activeAdminOrgs.length === 0;
 
   async function handleCheckout(planKey, orgId) {
     if (!user) {
@@ -294,8 +295,8 @@ export default function Pricing() {
             </div>
           )}
 
-          {/* Org selector — shown only when the user is admin of 2+ orgs */}
-          {user && adminOrgs.length > 1 && (
+          {/* Org selector — shown only when the user is admin of 2+ active orgs */}
+          {user && activeAdminOrgs.length > 1 && (
             <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
               <label style={{ fontSize: 13, color: "#555", fontWeight: 600 }}>Purchasing for:</label>
               <select
@@ -304,7 +305,7 @@ export default function Pricing() {
                 style={{ fontSize: 13, padding: "5px 10px", borderRadius: 7, border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}
               >
                 <option value="">— select an org —</option>
-                {adminOrgs.map(m => (
+                {activeAdminOrgs.map(m => (
                   <option key={m.org_id} value={m.org_id}>{m.org?.name ?? m.org_id}</option>
                 ))}
               </select>
@@ -327,12 +328,12 @@ export default function Pricing() {
                 +{fmtLimit(orgProBonus)} personal games per member<br />
                 Press Box · Season stats
               </div>
-              {user && adminOrgs.length > 1 && !resolvedOrgId ? (
+              {user && activeAdminOrgs.length > 1 && !resolvedOrgId ? (
                 <p style={{ fontSize: 12, color: "#aaa", marginTop: 8, textAlign: "center" }}>Select an org above to continue</p>
               ) : (
                 <button
                   onClick={() => handleCheckout("pro", resolvedOrgId)}
-                  disabled={loadingPlan === "pro" || (user && adminOrgs.length > 0 && !resolvedOrgId) || (isNewOrgFlow && !newOrgName.trim())}
+                  disabled={loadingPlan === "pro" || (user && activeAdminOrgs.length > 0 && !resolvedOrgId) || (isNewOrgFlow && !newOrgName.trim())}
                   style={S.btn("#111")}
                 >
                   {loadingPlan === "pro" ? "Redirecting…" : "Get Pro"}
@@ -356,12 +357,12 @@ export default function Pricing() {
                 +{fmtLimit(orgMaxBonus)} personal games per member<br />
                 Press Box · Season stats · Multi-scorer
               </div>
-              {user && adminOrgs.length > 1 && !resolvedOrgId ? (
+              {user && activeAdminOrgs.length > 1 && !resolvedOrgId ? (
                 <p style={{ fontSize: 12, color: "#aaa", marginTop: 8, textAlign: "center" }}>Select an org above to continue</p>
               ) : (
                 <button
                   onClick={() => handleCheckout("max", resolvedOrgId)}
-                  disabled={loadingPlan === "max" || (user && adminOrgs.length > 0 && !resolvedOrgId) || (isNewOrgFlow && !newOrgName.trim())}
+                  disabled={loadingPlan === "max" || (user && activeAdminOrgs.length > 0 && !resolvedOrgId) || (isNewOrgFlow && !newOrgName.trim())}
                   style={S.btn("#2a7a3b")}
                 >
                   {loadingPlan === "max" ? "Redirecting…" : "Get Max"}

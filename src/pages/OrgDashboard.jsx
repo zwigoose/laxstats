@@ -1120,7 +1120,7 @@ export default function OrgDashboard() {
   useDocTitle(org?.name);
 
   useEffect(() => {
-    supabase.from("organizations").select("id, name, slug, plan, color")
+    supabase.from("organizations").select("id, name, slug, plan, plan_status, cancel_at_period_end, current_period_end, color")
       .eq("slug", slug).single()
       .then(({ data, error: err }) => {
         if (err) { setError("Organization not found."); setLoading(false); return; }
@@ -1191,6 +1191,26 @@ export default function OrgDashboard() {
               setColorOpen(false);
             }}
           />
+        </div>
+      )}
+
+      {/* Plan status banners — shown to org admins only */}
+      {isOrgAdmin && org.plan_status === "canceled" && !org.cancel_at_period_end && (
+        <div style={{ background: "#fff5f5", borderBottom: "1px solid #fcc", padding: "10px 16px", fontSize: 13, color: "#c00", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontFamily: "system-ui, sans-serif" }}>
+          <span>This organization's subscription has expired. New games, seasons, and members are locked.</span>
+          <a href={`/pricing?org=${slug}`} style={{ fontWeight: 700, color: "#c00", whiteSpace: "nowrap" }}>Renew →</a>
+        </div>
+      )}
+      {isOrgAdmin && org.cancel_at_period_end && org.current_period_end && (
+        <div style={{ background: "#fffbe6", borderBottom: "1px solid #ffe58f", padding: "10px 16px", fontSize: 13, color: "#7a5c00", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontFamily: "system-ui, sans-serif" }}>
+          <span>Subscription cancels on <strong>{new Date(org.current_period_end).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</strong>. Full access until then.</span>
+          <a href={`/pricing?org=${slug}`} style={{ fontWeight: 700, color: "#7a5c00", whiteSpace: "nowrap" }}>Renew →</a>
+        </div>
+      )}
+      {isOrgAdmin && org.plan_status === "past_due" && (
+        <div style={{ background: "#fff5f5", borderBottom: "1px solid #fcc", padding: "10px 16px", fontSize: 13, color: "#c00", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontFamily: "system-ui, sans-serif" }}>
+          <span>Payment past due — update your billing to avoid service interruption.</span>
+          <a href="/profile" style={{ fontWeight: 700, color: "#c00", whiteSpace: "nowrap" }}>Manage billing →</a>
         </div>
       )}
 
