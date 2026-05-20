@@ -138,7 +138,12 @@ export default function Pricing() {
       if (orgId)                  body.org_id   = orgId;
       else if (newOrgName.trim()) body.org_name  = newOrgName.trim();
       const { data, error } = await supabase.functions.invoke("create-checkout-session", { body });
-      if (error || !data?.url) throw new Error(error?.message ?? "Could not start checkout");
+      if (error) {
+        let msg = error.message;
+        try { const body = await error.context?.json(); msg = body?.error ?? msg; } catch {}
+        throw new Error(msg);
+      }
+      if (!data?.url) throw new Error(data?.error ?? "Could not start checkout");
       window.location.href = data.url;
     } catch (err) {
       setCheckoutError(err.message);
