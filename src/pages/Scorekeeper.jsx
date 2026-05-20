@@ -43,7 +43,8 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
   // Quarter transitions and game-over signals are stored here when the scorer
   // is offline so they can be applied to the DB once connectivity returns.
   // We persist to localStorage so they survive a tab reload during an outage.
-  const META_KEY = `laxstats:meta:${id}`;
+  const META_KEY          = `laxstats:meta:${id}`;
+  const PENDING_STATE_KEY = `laxstats:pending-state:${id}`;
   const offlineMetaQueue = useRef([]);
 
   // Load any queue left over from a previous offline session on mount.
@@ -130,8 +131,40 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline, broadcastMeta]);
 
-  // State change handler: persist team/meta changes (NOT the log — that's in game_events)
-  const handleStateChange = useCallback(async (newState) => {
+  // State change handler: persist team/meta changes (NOT the log — that's in game_events).
+  // State is written to localStorage immediately so that failed saves can be retried on
+  // reconnect or next page load — matching the resilience of the game_events offline queue.
+  const doStateSave = useCallback(async () => {
+    if (saveInFlight.current) return;
+    const stateToSave = pendingMeta.current;
+    if (!stateToSave) return;
+    saveInFlight.current = true;
+    setSaveStatus("saving");
+    pendingMeta.current = null;
+    const updatePayload = { state: stateToSave };
+    if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
+      updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
+    }
+    const { error: err } = await updateGame(id, updatePayload);
+    saveInFlight.current = false;
+    if (err) {
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus(""), 3000);
+      // State remains in localStorage — will be retried on reconnect or next mount.
+    } else {
+      try { localStorage.removeItem(PENDING_STATE_KEY); } catch { /* ignore */ }
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus(""), 2000);
+      // If a new change arrived while this save was in flight, flush it now.
+      if (pendingMeta.current) {
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(doStateSave, 800);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  const handleStateChange = useCallback((newState) => {
     if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
       setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
     }
@@ -144,28 +177,43 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
       meta.score1 = _log.filter(e => e.event === "goal" && e.teamIdx === 1).length;
     }
     pendingMeta.current = meta;
+    // Persist to localStorage immediately so network failures don't lose state.
+    try { localStorage.setItem(PENDING_STATE_KEY, JSON.stringify(meta)); } catch { /* ignore */ }
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      if (saveInFlight.current) return;
-      const stateToSave = pendingMeta.current;
-      if (!stateToSave) return;
-      saveInFlight.current = true;
-      setSaveStatus("saving");
-      pendingMeta.current = null;
-      const updatePayload = { state: stateToSave };
-      if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
-        updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
-      }
-      const { error: err } = await updateGame(id, updatePayload);
-      saveInFlight.current = false;
-      if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
-      else {
-        setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000);
-        // Retry if a new state change arrived while this save was in flight
-        if (pendingMeta.current) handleStateChange(pendingMeta.current);
-      }
-    }, 800);
-  }, [id]);
+    saveTimer.current = setTimeout(doStateSave, 800);
+  }, [id, doStateSave]);
+
+  // On mount: flush any pending state left from a previous session (e.g. the page
+  // crashed or closed while a save was in flight).
+  useEffect(() => {
+    let meta;
+    try {
+      const saved = localStorage.getItem(PENDING_STATE_KEY);
+      if (!saved) return;
+      meta = JSON.parse(saved);
+    } catch {
+      try { localStorage.removeItem(PENDING_STATE_KEY); } catch { /* ignore */ }
+      return;
+    }
+    if (!pendingMeta.current) pendingMeta.current = meta;
+    saveTimer.current = setTimeout(doStateSave, 1500);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Retry any pending state save when connectivity is restored.
+  useEffect(() => {
+    if (!isOnline) return;
+    let meta;
+    try {
+      const saved = localStorage.getItem(PENDING_STATE_KEY);
+      if (!saved) return;
+      meta = JSON.parse(saved);
+    } catch { return; }
+    if (!pendingMeta.current) pendingMeta.current = meta;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(doStateSave, 100);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   // Keep tokenRef current so the beforeunload flush can use it without async work.
   useEffect(() => {

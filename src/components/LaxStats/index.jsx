@@ -38,6 +38,9 @@ export default function LaxStats({
   const [teams, setTeams] = useState([{ name: "Home", roster: "", color: "#1a6bab" }, { name: "Away", roster: "", color: "#b84e1a" }]);
   const [parsedRosters, setParsedRosters] = useState([[], []]);
   const [log, setLog] = useState([]);
+  // Tracks groupIds that were added to `log` via the remoteEntries prop so we know
+  // which ones to remove if a co-scorer's delete broadcast causes them to disappear.
+  const remoteGroupIdsRef = useRef(new Set());
   const [currentQuarter, setCurrentQuarter] = useState(1);
   const [completedQuarters, setCompletedQuarters] = useState([]);
   const [gameOver, setGameOver] = useState(false);
@@ -129,21 +132,46 @@ export default function LaxStats({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remoteQuarterState]);
 
-  // v2: merge remote entries from other scorers into local log
+  // v2: sync remote entries from other scorers into local log — handles both additions
+  // (new events from a co-scorer) and removals (undo/delete by a co-scorer).
   useEffect(() => {
-    if (!remoteEntries?.length) return;
+    if (!remoteEntries) return;
+    const remoteGroupIds = new Set(remoteEntries.map(e => e.groupId));
+
     setLog(prev => {
+      // Find groups to add: in remoteEntries but not yet in log.
       const existingGroupIds = new Set(prev.map(e => e.groupId));
       const newGroupIds = new Set();
       const toAdd = [];
       for (const entry of remoteEntries) {
         if (!existingGroupIds.has(entry.groupId) && !newGroupIds.has(entry.groupId)) {
           newGroupIds.add(entry.groupId);
+          remoteGroupIdsRef.current.add(entry.groupId);
         }
         if (newGroupIds.has(entry.groupId)) toAdd.push(entry);
       }
-      if (!toAdd.length) return prev;
-      return [...prev, ...toAdd].sort((a, b) => (a.seq ?? a.id) - (b.seq ?? b.id));
+
+      // Find groups to remove: were added via remoteEntries before but are now gone
+      // (co-scorer deleted them). Never removes entries the local scorer committed.
+      const deletedRemoteGroupIds = [];
+      for (const gid of remoteGroupIdsRef.current) {
+        if (!remoteGroupIds.has(gid)) {
+          deletedRemoteGroupIds.push(gid);
+          remoteGroupIdsRef.current.delete(gid);
+        }
+      }
+
+      if (!toAdd.length && !deletedRemoteGroupIds.length) return prev;
+
+      let next = prev;
+      if (deletedRemoteGroupIds.length) {
+        const toRemove = new Set(deletedRemoteGroupIds);
+        next = next.filter(e => !toRemove.has(e.groupId));
+      }
+      if (toAdd.length) {
+        next = [...next, ...toAdd].sort((a, b) => (a.seq ?? a.id) - (b.seq ?? b.id));
+      }
+      return next;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remoteEntries]);

@@ -3,39 +3,31 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useDocTitle } from "../hooks/useDocTitle";
 
-const FAKE_DOMAIN = "@laxstats.app";
-
-function toEmail(username) {
-  const u = username.trim().toLowerCase();
-  return u.includes("@") ? u : u + FAKE_DOMAIN;
-}
-
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const nextUrl  = new URLSearchParams(location.search).get("next") || "/";
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
   useDocTitle(mode === "signup" ? "Create Account" : "Sign In");
-  const [username, setUsername] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
+  const [confirmed, setConfirmed] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const email = toEmail(username);
-
     if (mode === "signin") {
-      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-      if (err) setError("Invalid username or password.");
+      const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (err) setError("Invalid email or password.");
       else navigate(nextUrl, { replace: true });
     } else {
-      const { error: err } = await supabase.auth.signUp({ email, password });
+      const { error: err } = await supabase.auth.signUp({ email: email.trim(), password });
       if (err) setError(err.message);
-      else navigate(nextUrl, { replace: true });
+      else setConfirmed(true);
     }
 
     setLoading(false);
@@ -67,88 +59,100 @@ export default function Login() {
 
         {/* Card */}
         <div style={{ background: "#fff", borderRadius: 18, padding: 28, boxShadow: "0 4px 24px rgba(0,0,0,0.08)", border: "1px solid #ebebeb" }}>
-          <h2 style={{ margin: "0 0 22px", fontSize: 19, fontWeight: 700, color: "#111" }}>
-            {mode === "signin" ? "Sign in" : "Create account"}
-          </h2>
-
-          {error && (
-            <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 9, padding: "10px 13px", color: "#c0392b", fontSize: 13, marginBottom: 16 }}>
-              {error}
+          {confirmed ? (
+            <div style={{ textAlign: "center", padding: "8px 0" }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>📬</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: "#111", marginBottom: 8 }}>Check your email</div>
+              <div style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>
+                We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
+              </div>
             </div>
+          ) : (
+            <>
+              <h2 style={{ margin: "0 0 22px", fontSize: 19, fontWeight: 700, color: "#111" }}>
+                {mode === "signin" ? "Sign in" : "Create account"}
+              </h2>
+
+              {error && (
+                <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 9, padding: "10px 13px", color: "#c0392b", fontSize: 13, marginBottom: 16 }}>
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit}>
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    style={inputStyle}
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    autoComplete="email"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                  />
+                </div>
+
+                <div style={{ marginBottom: 22 }}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    style={inputStyle}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder={mode === "signup" ? "At least 6 characters" : ""}
+                    required
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    fontSize: 15,
+                    fontWeight: 700,
+                    background: loading ? "#ccc" : "#111",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 10,
+                    cursor: loading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {loading ? "…" : mode === "signin" ? "Sign in" : "Create account"}
+                </button>
+              </form>
+
+              {/* Toggle mode */}
+              <div style={{ marginTop: 18, textAlign: "center", fontSize: 13, color: "#888" }}>
+                {mode === "signin" ? (
+                  <>
+                    Need an account?{" "}
+                    <button onClick={() => { setMode("signup"); setError(null); }}
+                      style={{ background: "none", border: "none", color: "#1a6bab", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 13 }}>
+                      Sign up
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Already have an account?{" "}
+                    <button onClick={() => { setMode("signin"); setError(null); }}
+                      style={{ background: "none", border: "none", color: "#1a6bab", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 13 }}>
+                      Sign in
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
           )}
-
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-                Username
-              </label>
-              <input
-                type="text"
-                style={inputStyle}
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder="username"
-                required
-                autoComplete="username"
-                autoCapitalize="off"
-                autoCorrect="off"
-              />
-            </div>
-
-            <div style={{ marginBottom: 22 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
-                Password
-              </label>
-              <input
-                type="password"
-                style={inputStyle}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder={mode === "signup" ? "At least 6 characters" : ""}
-                required
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: "100%",
-                padding: "12px",
-                fontSize: 15,
-                fontWeight: 700,
-                background: loading ? "#ccc" : "#111",
-                color: "#fff",
-                border: "none",
-                borderRadius: 10,
-                cursor: loading ? "not-allowed" : "pointer",
-              }}
-            >
-              {loading ? "…" : mode === "signin" ? "Sign in" : "Create account"}
-            </button>
-          </form>
-
-          {/* Toggle mode */}
-          <div style={{ marginTop: 18, textAlign: "center", fontSize: 13, color: "#888" }}>
-            {mode === "signin" ? (
-              <>
-                Need an account?{" "}
-                <button onClick={() => { setMode("signup"); setError(null); }}
-                  style={{ background: "none", border: "none", color: "#1a6bab", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 13 }}>
-                  Sign up
-                </button>
-              </>
-            ) : (
-              <>
-                Already have an account?{" "}
-                <button onClick={() => { setMode("signin"); setError(null); }}
-                  style={{ background: "none", border: "none", color: "#1a6bab", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 13 }}>
-                  Sign in
-                </button>
-              </>
-            )}
-          </div>
         </div>
       </div>
     </div>

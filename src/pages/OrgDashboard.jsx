@@ -12,15 +12,16 @@ import { useOrgEntitlements } from "../hooks/useOrgEntitlements";
 import { entitlementMsg } from "../utils/entitlement";
 
 
-function UsageMeter({ entry, label }) {
+function UsageMeter({ entry, label, slug }) {
   if (!entry || entry.plan_limit === null) return null;
   const { plan_limit, current_usage, at_limit } = entry;
   const pct = plan_limit > 0 ? Math.min(1, current_usage / plan_limit) : 1;
   const color = at_limit ? "#c0392b" : pct >= 0.8 ? "#d4820a" : "#aaa";
+  const upgradeHref = slug ? `/pricing?org=${slug}` : "/pricing";
   return (
     <span style={{ fontSize: 12, color, fontVariantNumeric: "tabular-nums", display: "flex", alignItems: "center", gap: 6 }}>
       {current_usage} / {plan_limit} {label ?? ""}
-      {at_limit && <Link to="/pricing" style={{ fontSize: 11, fontWeight: 700, color: "#1a6bab", textDecoration: "none" }}>Upgrade →</Link>}
+      {at_limit && <Link to={upgradeHref} style={{ fontSize: 11, fontWeight: 700, color: "#1a6bab", textDecoration: "none" }}>Upgrade →</Link>}
     </span>
   );
 }
@@ -557,7 +558,7 @@ function SeasonsTab({ org, slug, isOrgAdmin, entitlements }) {
     <div>
       {isOrgAdmin && !showNew && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <UsageMeter entry={entitlements.org_active_seasons} label="active seasons" />
+          <UsageMeter entry={entitlements.org_active_seasons} label="active seasons" slug={slug} />
           <button style={{ ...S.btnPrimary, opacity: entitlements.org_active_seasons?.at_limit ? 0.4 : 1 }}
             disabled={!!entitlements.org_active_seasons?.at_limit}
             onClick={() => setShowNew(true)}>＋ New Season</button>
@@ -663,7 +664,7 @@ function TeamsTab({ org, slug, isOrgAdmin, entitlements, onOrgColorChange }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ fontSize: 13, color: "#aaa", display: "flex", flexDirection: "column", gap: 2 }}>
           <span>{teams?.length ?? 0} team{teams?.length !== 1 ? "s" : ""}</span>
-          <UsageMeter entry={entitlements.org_active_teams} label="active" />
+          <UsageMeter entry={entitlements.org_active_teams} label="active" slug={slug} />
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {canManage && !showNewTeam && (
@@ -1013,7 +1014,7 @@ function StatsTab({ org }) {
 }
 
 // ── Members tab ───────────────────────────────────────────────────────────────
-function MembersTab({ org, isOrgAdmin, entitlements }) {
+function MembersTab({ org, slug, isOrgAdmin, entitlements }) {
   const [members, setMembers]       = useState([]);
   const [loading, setLoading]       = useState(true);
   const [showInvite, setShowInvite] = useState(false);
@@ -1058,7 +1059,7 @@ function MembersTab({ org, isOrgAdmin, entitlements }) {
       {error && !showInvite && <div style={S.err}>{error}</div>}
       {isOrgAdmin && !showInvite && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <UsageMeter entry={entitlements.org_members} label="members" />
+          <UsageMeter entry={entitlements.org_members} label="members" slug={slug} />
           <button style={{ ...S.btnPrimary, opacity: entitlements.org_members?.at_limit ? 0.4 : 1 }}
             disabled={!!entitlements.org_members?.at_limit}
             onClick={() => setShowInvite(true)}>＋ Invite Member</button>
@@ -1119,7 +1120,7 @@ export default function OrgDashboard() {
   useDocTitle(org?.name);
 
   useEffect(() => {
-    supabase.from("organizations").select("id, name, slug, plan, color")
+    supabase.from("organizations").select("id, name, slug, plan, plan_status, cancel_at_period_end, current_period_end, color")
       .eq("slug", slug).single()
       .then(({ data, error: err }) => {
         if (err) { setError("Organization not found."); setLoading(false); return; }
@@ -1193,12 +1194,32 @@ export default function OrgDashboard() {
         </div>
       )}
 
+      {/* Plan status banners — shown to org admins only */}
+      {isOrgAdmin && org.plan_status === "canceled" && !org.cancel_at_period_end && (
+        <div style={{ background: "#fff5f5", borderBottom: "1px solid #fcc", padding: "10px 16px", fontSize: 13, color: "#c00", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontFamily: "system-ui, sans-serif" }}>
+          <span>This organization's subscription has expired. New games, seasons, and members are locked.</span>
+          <a href={`/pricing?org=${slug}`} style={{ fontWeight: 700, color: "#c00", whiteSpace: "nowrap" }}>Renew →</a>
+        </div>
+      )}
+      {isOrgAdmin && org.cancel_at_period_end && org.current_period_end && (
+        <div style={{ background: "#fffbe6", borderBottom: "1px solid #ffe58f", padding: "10px 16px", fontSize: 13, color: "#7a5c00", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontFamily: "system-ui, sans-serif" }}>
+          <span>Subscription cancels on <strong>{new Date(org.current_period_end).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</strong>. Full access until then.</span>
+          <a href={`/pricing?org=${slug}`} style={{ fontWeight: 700, color: "#7a5c00", whiteSpace: "nowrap" }}>Renew →</a>
+        </div>
+      )}
+      {isOrgAdmin && org.plan_status === "past_due" && (
+        <div style={{ background: "#fff5f5", borderBottom: "1px solid #fcc", padding: "10px 16px", fontSize: 13, color: "#c00", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontFamily: "system-ui, sans-serif" }}>
+          <span>Payment past due — update your billing to avoid service interruption.</span>
+          <a href="/profile" style={{ fontWeight: 700, color: "#c00", whiteSpace: "nowrap" }}>Manage billing →</a>
+        </div>
+      )}
+
       <div style={S.body}>
         {tab === "games"   && <GamesTab   org={org} canScore={canScore} orgMembership={orgMembership} />}
         {tab === "seasons" && <SeasonsTab org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
         {tab === "teams"   && <TeamsTab   org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} onOrgColorChange={color => setOrg(prev => ({ ...prev, color }))} />}
         {tab === "players" && <PlayersTab org={org} isOrgAdmin={isOrgAdmin} />}
-        {tab === "members" && <MembersTab org={org} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
+        {tab === "members" && <MembersTab org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
         {tab === "stats"   && <StatsTab   org={org} />}
       </div>
     </div>
