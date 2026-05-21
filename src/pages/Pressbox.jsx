@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
-  buildPlayerStats, buildTeamTotals, buildLogGroups, buildScoringTimeline,
+  buildPlayerStats, buildTeamTotals, buildScoringTimeline,
   qLabel, entryDisplayInfo,
 } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
@@ -95,7 +95,38 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadGame();
-    const channel = supabase.channel(`pressbox-${id}`)
+    const channel = supabase.channel(`game-events-${id}`)
+      // Broadcasts from the scorekeeper — primary live-update path
+      .on("broadcast", { event: "new_events" }, ({ payload }) => {
+        const incoming = (payload?.entries ?? []).map(dbRowToEntry);
+        if (!incoming.length) return;
+        setV2Log(prev => {
+          const base = prev ?? [];
+          const existingIds = new Set(base.map(e => e.dbId));
+          const toAdd = incoming.filter(e => !existingIds.has(e.dbId));
+          if (!toAdd.length) return prev;
+          return [...base, ...toAdd].sort((a, b) => a.seq - b.seq);
+        });
+      })
+      .on("broadcast", { event: "delete_group" }, ({ payload }) => {
+        setV2Log(prev => prev ? prev.filter(e => e.groupId !== payload?.groupId) : prev);
+      })
+      .on("broadcast", { event: "meta_update" }, ({ payload }) => {
+        if (!payload) return;
+        setDerivedQuarterState(prev => {
+          const prevQ = prev?.currentQuarter ?? 1;
+          const newQ  = payload.currentQuarter ?? prevQ;
+          const prevCompleted = prev?.completedQuarters ?? [];
+          let completed = prevCompleted;
+          if (payload.gameOver && !completed.includes(newQ)) {
+            completed = [...completed, newQ];
+          } else if (newQ > prevQ && !completed.includes(prevQ)) {
+            completed = [...completed, prevQ];
+          }
+          return { currentQuarter: newQ, completedQuarters: completed, gameOver: payload.gameOver ?? prev?.gameOver ?? false };
+        });
+      })
+      // postgres_changes as fallback — handles reconnect gaps and soft-deletes
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
         (payload) => setGame(prev => prev ? { ...prev, ...payload.new } : payload.new))
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_events", filter: `game_id=eq.${id}` },
@@ -200,7 +231,16 @@ export default function Dashboard() {
   const playerStats = useMemo(() => buildPlayerStats(filteredLog), [filteredLog]);
 
   const scoringTimeline = useMemo(() => buildScoringTimeline(filteredLog), [filteredLog]);
-  const logGroups = useMemo(() => buildLogGroups(filteredLog), [filteredLog]);
+  const logGroups = useMemo(() => {
+    const byGroup = {};
+    filteredLog.forEach(e => {
+      if (!byGroup[e.groupId]) byGroup[e.groupId] = [];
+      byGroup[e.groupId].push(e);
+    });
+    return Object.values(byGroup).sort((a, b) =>
+      Math.max(...b.map(e => e.seq ?? 0)) - Math.max(...a.map(e => e.seq ?? 0))
+    );
+  }, [filteredLog]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -409,7 +449,7 @@ export default function Dashboard() {
                     : (() => {
                         const items = [];
                         let lastQ = null;
-                        [...logGroups].reverse().forEach((group, gi) => {
+                        logGroups.forEach((group, gi) => {
                           const primary = groupPrimary(group);
                           const q = primary.quarter;
                           if (statsQtr === "all" && q !== lastQ) {
