@@ -57,3 +57,19 @@ export async function deleteAllGameEvents(gameId, userId, db = _supabase) {
     .eq("game_id", gameId)
     .is("deleted_at", null);
 }
+
+/**
+ * Write only the teams/roster fields of a game's state, independent of quarter
+ * or score data. Used by the Setup tab so a mid-game roster edit cannot race
+ * against event or quarter writes.
+ */
+export async function updateGameTeams(id, teams, db = _supabase) {
+  const existing = await db.from("games").select("state, name").eq("id", id).single();
+  if (existing.error) return existing;
+  const merged = { ...(existing.data?.state ?? {}), teams };
+  const payload = { state: merged };
+  if (teams?.[0]?.name && teams?.[1]?.name) {
+    payload.name = `${teams[0].name} vs ${teams[1].name}`;
+  }
+  return db.from("games").update(payload).eq("id", id);
+}

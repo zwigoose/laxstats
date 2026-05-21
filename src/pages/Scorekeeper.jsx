@@ -39,22 +39,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
   const [inviteError, setInviteError] = useState(null);
 
-  // ── Offline meta-event queue ─────────────────────────────────────
-  // Quarter transitions and game-over signals are stored here when the scorer
-  // is offline so they can be applied to the DB once connectivity returns.
-  // We persist to localStorage so they survive a tab reload during an outage.
-  const META_KEY          = `laxstats:meta:${id}`;
   const PENDING_STATE_KEY = `laxstats:pending-state:${id}`;
-  const offlineMetaQueue = useRef([]);
-
-  // Load any queue left over from a previous offline session on mount.
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(META_KEY);
-      if (saved) offlineMetaQueue.current = JSON.parse(saved);
-    } catch { /* corrupt storage — ignore */ }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function generateInviteLink() {
     setInviteState("generating");
@@ -78,58 +63,49 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
 
   const {
     entries,
-    loading:       eventsLoading,
+    loading:            eventsLoading,
     commitGroup,
     softDeleteGroup,
     dismissDuplicate,
-    broadcastMeta,
+    commitMetaEvent,
+    derivedQuarterState,
     isPrimary,
     presenceList,
     remoteQuarterState,
     isOnline,
     pendingCount,
     syncStatus,
-    error:         eventsError,
+    error:              eventsError,
     channelStatus,
   } = useGameEvents(id, userId);
 
-  // Build initialState: use game.state for meta (teams, quarter, etc.)
-  // but inject events from game_events as the log.
+  // Build initialState for v2 games: teams/config from games.state, quarter state from
+  // game_meta_events (via derivedQuarterState), log from game_events rows.
+  // For v1 games (no org_id / schema_ver < 2), fall back to games.state as before.
+  const isV2 = !!(game?.org_id);
   const initialState = eventsLoading
     ? undefined  // still loading — LaxStats waits
-    : (game?.state
-        ? { ...game.state, log: entries }
-        : (entries.length > 0 ? { log: entries } : null));
+    : (() => {
+        if (!game?.state && entries.length === 0) return null;
+        const base = game?.state ? { ...game.state } : {};
+        // For v2 games, override quarter fields from the authoritative meta-event log.
+        // This ensures remount always produces state consistent with game_meta_events,
+        // regardless of what games.state contains.
+        if (isV2 && derivedQuarterState) {
+          base.currentQuarter    = derivedQuarterState.currentQuarter;
+          base.completedQuarters = derivedQuarterState.completedQuarters;
+          base.gameOver          = derivedQuarterState.gameOver;
+        }
+        return { ...base, log: entries };
+      })();
 
-  // Meta-event handler: broadcast quarter/gameOver to secondary scorers.
-  // DB persistence is handled by handleStateChange (which fires on the same state
-  // transitions). When offline, the broadcast is queued and replayed on reconnect
-  // so secondary scorers see the correct quarter as soon as this scorer comes back.
-  const handleMetaEvent = useCallback((type, payload) => {
-    const newCurrentQuarter    = payload.newCurrentQuarter    ?? (type === "endQuarter" ? (payload.quarter + 1) : payload.quarter);
-    const newCompletedQuarters = payload.newCompletedQuarters ?? [payload.quarter];
-    const isGameOver           = type === "gameOver";
-    const broadcastPayload     = { currentQuarter: newCurrentQuarter, completedQuarters: newCompletedQuarters, gameOver: isGameOver };
-
-    if (!isOnline) {
-      offlineMetaQueue.current = [...offlineMetaQueue.current, broadcastPayload];
-      localStorage.setItem(META_KEY, JSON.stringify(offlineMetaQueue.current));
-      return;
-    }
-    broadcastMeta(broadcastPayload);
-  }, [broadcastMeta, isOnline]);
-
-  // Flush offline meta queue when we come back online.
-  useEffect(() => {
-    if (!isOnline || !offlineMetaQueue.current.length) return;
-    const queue = [...offlineMetaQueue.current];
-    offlineMetaQueue.current = [];
-    localStorage.removeItem(META_KEY);
-    for (const broadcastPayload of queue) {
-      broadcastMeta(broadcastPayload);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline, broadcastMeta]);
+  // Meta-event handler: write a game_meta_events row to the DB (the source of truth for
+  // quarter state), then broadcast to co-scorers. LaxStats awaits this promise before
+  // mutating local state, ensuring the DB is always ahead of the UI.
+  // Returns the inserted row (or a synthetic offline stub).
+  const handleMetaEvent = useCallback((type, fromQuarter, toQuarter) => {
+    return commitMetaEvent(type, fromQuarter, toQuarter);
+  }, [commitMetaEvent]);
 
   // State change handler: persist team/meta changes (NOT the log — that's in game_events).
   // State is written to localStorage immediately so that failed saves can be retried on
@@ -168,14 +144,13 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
       setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
     }
-    // Build meta payload (no log); compute score from log so game list can display it.
-    // When called as a retry (pendingMeta already processed), _log is undefined —
-    // preserve the already-correct score0/score1 rather than overwriting with 0.
-    const { log: _log, ...meta } = newState;
-    if (_log !== undefined) {
-      meta.score0 = _log.filter(e => e.event === "goal" && e.teamIdx === 0).length;
-      meta.score1 = _log.filter(e => e.event === "goal" && e.teamIdx === 1).length;
-    }
+    // For v2 games, roster/team-config changes go through a dedicated write path
+    // (updateGameTeams) that only touches the teams fields, so a roster edit cannot
+    // race against event or quarter writes. Non-team fields (trackingStarted, gameDate,
+    // _nextId) still go through the debounced games.state write below.
+    // scores are no longer stored in games.state — they are derived from game_events.
+    const { log: _log, currentQuarter: _cq, completedQuarters: _cqs, gameOver: _go,
+            score0: _s0, score1: _s1, ...meta } = newState;
     pendingMeta.current = meta;
     // Persist to localStorage immediately so network failures don't lose state.
     try { localStorage.setItem(PENDING_STATE_KEY, JSON.stringify(meta)); } catch { /* ignore */ }
@@ -334,6 +309,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
           onMetaEvent={handleMetaEvent}
           remoteEntries={entries}
           remoteQuarterState={remoteQuarterState}
+          derivedQuarterState={isV2 ? derivedQuarterState : null}
           scorekeeperRole={isPrimary ? "primary" : "secondary"}
           orgContext={orgContext}
           onOrgTeamSelected={async (teamIdx, teamId) => {

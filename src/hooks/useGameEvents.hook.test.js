@@ -57,13 +57,16 @@ const qm = vi.hoisted(() => {
 // ── Offline queue mock ─────────────────────────────────────────────────────────
 
 const oq = vi.hoisted(() => ({
-  enqueueEvents:    vi.fn().mockResolvedValue(undefined),
-  enqueueDelete:    vi.fn().mockResolvedValue(undefined),
-  getPendingEvents: vi.fn().mockResolvedValue([]),
-  getPendingDeletes: vi.fn().mockResolvedValue([]),
-  removeEvent:      vi.fn().mockResolvedValue(undefined),
-  removeDelete:     vi.fn().mockResolvedValue(undefined),
-  getPendingCount:  vi.fn().mockResolvedValue(0),
+  enqueueEvents:        vi.fn().mockResolvedValue(undefined),
+  enqueueDelete:        vi.fn().mockResolvedValue(undefined),
+  enqueueMetaEvent:     vi.fn().mockResolvedValue(undefined),
+  getPendingEvents:     vi.fn().mockResolvedValue([]),
+  getPendingDeletes:    vi.fn().mockResolvedValue([]),
+  getPendingMetaEvents: vi.fn().mockResolvedValue([]),
+  removeEvent:          vi.fn().mockResolvedValue(undefined),
+  removeDelete:         vi.fn().mockResolvedValue(undefined),
+  removeMetaEvent:      vi.fn().mockResolvedValue(undefined),
+  getPendingCount:      vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock("../services/offlineQueue", () => oq);
@@ -129,10 +132,13 @@ function resetMocks() {
   st.update = { error: null };
   oq.enqueueEvents.mockResolvedValue(undefined);
   oq.enqueueDelete.mockResolvedValue(undefined);
+  oq.enqueueMetaEvent.mockResolvedValue(undefined);
   oq.getPendingEvents.mockResolvedValue([]);
   oq.getPendingDeletes.mockResolvedValue([]);
+  oq.getPendingMetaEvents.mockResolvedValue([]);
   oq.removeEvent.mockResolvedValue(undefined);
   oq.removeDelete.mockResolvedValue(undefined);
+  oq.removeMetaEvent.mockResolvedValue(undefined);
   oq.getPendingCount.mockResolvedValue(0);
   onlineState.value = true;
   useOnlineStatus.mockImplementation(() => true);

@@ -10,6 +10,7 @@ import {
 } from "../components/LaxStats";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { dbRowToEntry } from "../hooks/useGameEvents";
+import { deriveQuarterState } from "../services/gameEvents";
 import GameTimeline from "../components/GameTimeline";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
 
@@ -70,6 +71,8 @@ export default function ViewGame() {
   const [qrOpen, setQrOpen] = useState(false);
   const qrCanvasRef = useRef(null);
   const [hasPressbox, setHasPressbox] = useState(false);
+  // v2: quarter state derived from game_meta_events (authoritative for v2 games)
+  const [derivedQuarterState, setDerivedQuarterState] = useState(null);
 
   // Away org "Add to my season" state
   const [awayOrgRole, setAwayOrgRole]       = useState(null); // role string if viewer is a member of away org
@@ -126,6 +129,27 @@ useEffect(() => {
           setV2Log(prev => prev ? prev.filter(e => e.dbId !== payload.new.id) : prev);
         }
       })
+      // v2: subscribe to quarter transitions (game_meta_events)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "game_meta_events", filter: `game_id=eq.${id}`,
+      }, (payload) => {
+        setDerivedQuarterState(prev => {
+          const row = payload.new;
+          if (!prev) return deriveQuarterState([row]);
+          let { currentQuarter, completedQuarters, gameOver } = prev;
+          if (row.event_type === "quarter_end") {
+            completedQuarters = [...completedQuarters, row.from_quarter];
+            currentQuarter    = row.to_quarter;
+          } else if (row.event_type === "game_over") {
+            completedQuarters = [...completedQuarters, row.from_quarter];
+            gameOver          = true;
+            currentQuarter    = row.from_quarter;
+          } else if (row.event_type === "quarter_override") {
+            currentQuarter = row.to_quarter;
+          }
+          return { currentQuarter, completedQuarters, gameOver };
+        });
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -170,25 +194,36 @@ useEffect(() => {
       setHasPressbox(limit !== 0);
     }
 
-    const { data: evData } = await supabase
-      .from("game_events")
-      .select("*")
-      .eq("game_id", id)
-      .is("deleted_at", null)
-      .order("seq");
-    setV2Log((evData || []).map(dbRowToEntry));
+    const [evRes, metaRes] = await Promise.all([
+      supabase
+        .from("game_events")
+        .select("*")
+        .eq("game_id", id)
+        .is("deleted_at", null)
+        .order("seq"),
+      supabase
+        .from("game_meta_events")
+        .select("*")
+        .eq("game_id", id)
+        .order("seq"),
+    ]);
+    setV2Log((evRes.data || []).map(dbRowToEntry));
+    const derived = deriveQuarterState(metaRes.data || []);
+    if (derived) setDerivedQuarterState(derived);
 
     setLoading(false);
   }
 
   // ── Derived from game state ──────────────────────────────────────
   const state = game?.state;
+  const isV2 = !!(game?.org_id);
   const teams = state?.teams || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
   const log = v2Log ?? [];
-  const currentQuarter = state?.currentQuarter || 1;
-  const completedQuarters = state?.completedQuarters || [];
-  const gameOver = state?.gameOver || false;
+  // For v2 games use game_meta_events-derived state; fall back to games.state for v1.
+  const currentQuarter    = (isV2 && derivedQuarterState) ? derivedQuarterState.currentQuarter    : (state?.currentQuarter    || 1);
+  const completedQuarters = (isV2 && derivedQuarterState) ? derivedQuarterState.completedQuarters : (state?.completedQuarters || []);
+  const gameOver          = (isV2 && derivedQuarterState) ? derivedQuarterState.gameOver          : (state?.gameOver          || false);
   const teamColors = [teams[0]?.color || "#1a6bab", teams[1]?.color || "#b84e1a"];
 
   const totalScores = useMemo(() => [

@@ -6,6 +6,7 @@ import {
   qLabel, entryDisplayInfo,
 } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
+import { deriveQuarterState } from "../services/gameEvents";
 import { useDocTitle } from "../hooks/useDocTitle";
 import GameTimeline from "../components/GameTimeline";
 import PlayerStatsTable, { PRESSBOX_STAT_KEYS } from "../components/PlayerStatsTable";
@@ -90,6 +91,7 @@ export default function Dashboard() {
   }
 
   const [v2Log, setV2Log] = useState(null);
+  const [derivedQuarterState, setDerivedQuarterState] = useState(null);
 
   useEffect(() => {
     loadGame();
@@ -112,6 +114,25 @@ export default function Dashboard() {
             setV2Log(prev => prev ? prev.filter(e => e.dbId !== payload.new.id) : prev);
           }
         })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_meta_events", filter: `game_id=eq.${id}` },
+        (payload) => {
+          setDerivedQuarterState(prev => {
+            const row = payload.new;
+            if (!prev) return deriveQuarterState([row]);
+            let { currentQuarter, completedQuarters, gameOver } = prev;
+            if (row.event_type === "quarter_end") {
+              completedQuarters = [...completedQuarters, row.from_quarter];
+              currentQuarter    = row.to_quarter;
+            } else if (row.event_type === "game_over") {
+              completedQuarters = [...completedQuarters, row.from_quarter];
+              gameOver          = true;
+              currentQuarter    = row.from_quarter;
+            } else if (row.event_type === "quarter_override") {
+              currentQuarter = row.to_quarter;
+            }
+            return { currentQuarter, completedQuarters, gameOver };
+          });
+        })
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [id]);
@@ -119,28 +140,39 @@ export default function Dashboard() {
   async function loadGame() {
     setLoading(true); setError(null);
     const { data, error: err } = await supabase
-      .from("games").select("id, created_at, name, state, schema_ver").eq("id", id).single();
+      .from("games").select("id, created_at, name, state, schema_ver, org_id").eq("id", id).single();
     if (err) { setError(err.message); setLoading(false); return; }
     setGame(data);
-    const { data: evData } = await supabase
-      .from("game_events")
-      .select("*")
-      .eq("game_id", data.id)
-      .is("deleted_at", null)
-      .order("seq");
-    setV2Log((evData || []).map(dbRowToEntry));
+    const [evRes, metaRes] = await Promise.all([
+      supabase
+        .from("game_events")
+        .select("*")
+        .eq("game_id", data.id)
+        .is("deleted_at", null)
+        .order("seq"),
+      supabase
+        .from("game_meta_events")
+        .select("*")
+        .eq("game_id", data.id)
+        .order("seq"),
+    ]);
+    setV2Log((evRes.data || []).map(dbRowToEntry));
+    const derived = deriveQuarterState(metaRes.data || []);
+    if (derived) setDerivedQuarterState(derived);
     setLoading(false);
   }
 
   // ── Derived state ─────────────────────────────────────────────────────────
 
-  const state             = game?.state;
-  const teams             = state?.teams             || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
+  const state    = game?.state;
+  const isV2     = !!(game?.org_id);
+  const teams    = state?.teams || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
-  const log               = v2Log ?? [];
-  const currentQuarter    = state?.currentQuarter    || 1;
-  const completedQuarters = state?.completedQuarters || [];
-  const gameOver          = state?.gameOver          || false;
+  const log = v2Log ?? [];
+  // For v2 games use game_meta_events-derived state; fall back to games.state for v1.
+  const currentQuarter    = (isV2 && derivedQuarterState) ? derivedQuarterState.currentQuarter    : (state?.currentQuarter    || 1);
+  const completedQuarters = (isV2 && derivedQuarterState) ? derivedQuarterState.completedQuarters : (state?.completedQuarters || []);
+  const gameOver          = (isV2 && derivedQuarterState) ? derivedQuarterState.gameOver          : (state?.gameOver          || false);
   const teamColors        = [teams[0]?.color || "#1a6bab", teams[1]?.color || "#b84e1a"];
 
   const totalScores = useMemo(() => [

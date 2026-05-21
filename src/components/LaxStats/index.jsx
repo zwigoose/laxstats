@@ -25,9 +25,10 @@ export default function LaxStats({
   onEventCommit = null,             // async (stampedEntries) => void — write group to game_events
   onEventSoftDelete = null,         // async (groupId) => void — soft-delete group in game_events
   onEventDismissDuplicate = null,   // async (groupId) => void — clear duplicate flag on a group
-  onMetaEvent = null,               // async (type, payload) => void — quarter/game state changes
+  onMetaEvent = null,               // async (type, fromQuarter, toQuarter) => row — DB-confirmed quarter transition
   remoteEntries = null,      // [{...entry}] from other scorers; merged into local log
-  remoteQuarterState = null, // { currentQuarter, completedQuarters, gameOver } from primary scorer
+  remoteQuarterState = null, // { currentQuarter, completedQuarters, gameOver } broadcast hint from primary scorer
+  derivedQuarterState = null, // { currentQuarter, completedQuarters, gameOver } authoritative from game_meta_events
   scorekeeperRole = "primary", // "primary" | "secondary"
   // org game props — optional; omit for personal games
   orgContext = null,          // { orgId, orgName, seasonName } — shows org banner + loads org teams
@@ -75,6 +76,14 @@ export default function LaxStats({
   const [statsTab, setStatsTab] = useState("summary");
   const [statsQtr, setStatsQtr] = useState("all");
 
+  // Quarter write error (shown when a DB-gated handleEndQuarter fails)
+  const [quarterError, setQuarterError] = useState(null);
+  // Desync banner: shown when derivedQuarterState disagrees with hydrated state
+  const [desyncBanner, setDesyncBanner] = useState(null); // null | { dbQuarter }
+  // Quarter override panel
+  const [quarterOverrideOpen, setQuarterOverrideOpen] = useState(false);
+  const [quarterOverridePending, setQuarterOverridePending] = useState(null);
+
   // ── Supabase integration hooks ───────────────────────────────────
   const hydratedRef = useRef(false);
   // Ensure we only hydrate from initialState once per mount, even if the prop
@@ -111,8 +120,19 @@ export default function LaxStats({
     setScreen(initialState.gameOver ? "stats" : initialState.trackingStarted ? "track" : "setup");
     resetEntry();
     // Mark as hydrated after this render cycle so the onStateChange effect
-    // doesn't fire for the state-sets above
-    setTimeout(() => { hydratedRef.current = true; }, 0);
+    // doesn't fire for the state-sets above.
+    // Also check for desync: if derivedQuarterState (from game_meta_events) disagrees
+    // with what games.state reported, show the reconciliation banner before allowing new events.
+    setTimeout(() => {
+      hydratedRef.current = true;
+      if (derivedQuarterState?.currentQuarter != null &&
+          derivedQuarterState.currentQuarter !== (initialState.currentQuarter ?? 1)) {
+        setDesyncBanner({ dbQuarter: derivedQuarterState.currentQuarter });
+        setCurrentQuarter(derivedQuarterState.currentQuarter);
+        setCompletedQuarters(derivedQuarterState.completedQuarters ?? []);
+        if (derivedQuarterState.gameOver) { setGameOver(true); setScreen("stats"); }
+      }
+    }, 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialState]);
 
@@ -123,9 +143,28 @@ export default function LaxStats({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate]);
 
-  // v2: sync quarter/game-over state broadcast by the primary scorer
+  // v2: authoritative quarter state from game_meta_events — takes priority over broadcast hint.
+  // Only applied after hydration so we don't overwrite the initial DB-derived state that was
+  // already baked into initialState.
+  useEffect(() => {
+    if (!derivedQuarterState || !hydratedRef.current) return;
+    if (derivedQuarterState.currentQuarter != null) setCurrentQuarter(derivedQuarterState.currentQuarter);
+    if (derivedQuarterState.completedQuarters != null) setCompletedQuarters(derivedQuarterState.completedQuarters);
+    if (derivedQuarterState.gameOver) { setGameOver(true); setScreen("stats"); }
+    setDesyncBanner(null); // resolved — dismiss any lingering banner
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [derivedQuarterState]);
+
+  // v2: sync quarter/game-over state broadcast by the primary scorer (fast hint only).
+  // derivedQuarterState from game_meta_events takes precedence on conflicts.
   useEffect(() => {
     if (!remoteQuarterState) return;
+    // Only apply if derivedQuarterState hasn't already provided a value, or if the
+    // broadcast is more advanced than what we have (catches cases where DB row hasn't
+    // arrived via postgres_changes yet but the broadcast already came through).
+    const dbQ = derivedQuarterState?.currentQuarter ?? null;
+    const broadcastQ = remoteQuarterState.currentQuarter;
+    if (dbQ != null && broadcastQ != null && broadcastQ < dbQ) return; // DB is ahead, ignore
     if (remoteQuarterState.currentQuarter != null) setCurrentQuarter(remoteQuarterState.currentQuarter);
     if (remoteQuarterState.completedQuarters != null) setCompletedQuarters(remoteQuarterState.completedQuarters);
     if (remoteQuarterState.gameOver) { setGameOver(true); setScreen("stats"); }
@@ -385,12 +424,15 @@ export default function LaxStats({
 
     // Only trigger OT game-ending for new goal entries
     if (!isEdit && isOT(currentQuarter) && entries.some(e => e.event === "goal")) {
-      setCompletedQuarters(prev => [...prev, currentQuarter]);
+      const otQuarter = currentQuarter;
+      if (onMetaEvent) {
+        onMetaEvent("game_over", otQuarter, otQuarter).catch(console.error);
+      }
+      setCompletedQuarters(prev => [...prev, otQuarter]);
       setGameOver(true);
       setScreen("stats");
       setStatsTab("summary");
       setStatsQtr("all");
-      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter, newCompletedQuarters: [...completedQuarters, currentQuarter] }).catch(console.error);
       resetEntry();
       return;
     }
@@ -698,22 +740,34 @@ export default function LaxStats({
     commitEntries(entries, `${e0.foulName || "Personal foul"} (${e0.penaltyMin}min${nrTag}) — #${selectedPlayer.num} ${selectedPlayer.name}`);
   }
 
-  function handleEndQuarter() {
+  async function handleEndQuarter() {
+    setQuarterError(null);
     const tied = totalScores[0] === totalScores[1];
-    const newCompletedQuarters = [...completedQuarters, currentQuarter];
-    setCompletedQuarters(newCompletedQuarters);
-    if (currentQuarter === 4 && !tied) {
-      setGameOver(true); setScreen("stats"); setStatsTab("summary"); setStatsQtr("all");
-      resetEntry();
-      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter, newCompletedQuarters })?.catch(console.error);
-    } else {
-      const ended = currentQuarter;
-      const newCurrentQuarter = ended + 1;
-      setCurrentQuarter(newCurrentQuarter);
-      setScreen("track");
-      resetEntry();
-      if (onMetaEvent) onMetaEvent("endQuarter", { quarter: ended, newCurrentQuarter, newCompletedQuarters })?.catch(console.error);
+    const ended = currentQuarter;
+    const isGameOver = ended === 4 && !tied;
+    const metaType = isGameOver ? "game_over" : "quarter_end";
+    const nextQuarter = isGameOver ? ended : ended + 1;
+
+    // Gate local state mutation on DB write so a navigation-away-and-back
+    // always remounts with the correct quarter from game_meta_events.
+    if (onMetaEvent) {
+      try {
+        await onMetaEvent(metaType, ended, nextQuarter);
+      } catch (err) {
+        setQuarterError(err?.message || "Failed to save quarter transition. Please try again.");
+        return; // do not advance local state if the DB write failed
+      }
     }
+
+    const newCompletedQuarters = [...completedQuarters, ended];
+    setCompletedQuarters(newCompletedQuarters);
+    if (isGameOver) {
+      setGameOver(true); setScreen("stats"); setStatsTab("summary"); setStatsQtr("all");
+    } else {
+      setCurrentQuarter(nextQuarter);
+      setScreen("track");
+    }
+    resetEntry();
   }
 
   function handleDeleteGroup(gid) {
@@ -1126,6 +1180,33 @@ export default function LaxStats({
       {/* ══ TRACK ══ */}
       {screen === "track" && (
         <div>
+          {/* Desync reconciliation banner — blocks new entries until scorer acknowledges */}
+          {desyncBanner && (
+            <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#856404", marginBottom: 4 }}>Quarter state corrected</div>
+              <div style={{ fontSize: 12, color: "#664d03", lineHeight: 1.5, marginBottom: 10 }}>
+                The saved game data shows this game is in <strong>Quarter {desyncBanner.dbQuarter}</strong>.
+                The scorekeeper has been updated to match the database.
+                No entries were lost — please verify the current quarter before continuing.
+              </div>
+              <button
+                style={{ fontSize: 12, fontWeight: 600, color: "#664d03", background: "#ffe69c", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 14px", cursor: "pointer" }}
+                onClick={() => setDesyncBanner(null)}
+              >
+                I understand — continue scoring
+              </button>
+            </div>
+          )}
+
+          {/* Quarter write error */}
+          {quarterError && (
+            <div style={{ background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#c0392b", marginBottom: 4 }}>Quarter not saved</div>
+              <div style={{ fontSize: 12, color: "#c0392b" }}>{quarterError}</div>
+              <button style={{ fontSize: 11, color: "#c0392b", background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", textDecoration: "underline" }} onClick={() => setQuarterError(null)}>Dismiss</button>
+            </div>
+          )}
+
           {/* Persistent last-entry banner */}
           {lastEntry && step === "team" && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f0f0f0", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 13 }}>
@@ -1235,6 +1316,59 @@ export default function LaxStats({
                 onClick={() => { if (!gameOver && scorekeeperRole !== "secondary") setStep("endqtr"); }}>
                 {scorekeeperRole === "secondary" ? `${curQLabel} — Primary controls quarter` : `End ${curQLabel} →`}
               </button>
+
+              {/* Quarter override (escape hatch — not prominent) */}
+              {scorekeeperRole !== "secondary" && onMetaEvent && !gameOver && (
+                <div style={{ textAlign: "center", marginTop: 6 }}>
+                  <button
+                    style={{ fontSize: 11, color: "#aaa", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: "2px 0" }}
+                    onClick={() => { setQuarterOverridePending(currentQuarter); setQuarterOverrideOpen(true); }}
+                  >
+                    Wrong quarter?
+                  </button>
+                </div>
+              )}
+
+              {/* Quarter override panel */}
+              {quarterOverrideOpen && (
+                <div style={{ marginTop: 10, background: "#f5f5f5", border: "1px solid #ddd", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111", marginBottom: 8 }}>Set current quarter</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                    {[1, 2, 3, 4, 5, 6].filter(q => q <= Math.max(currentQuarter + 1, 4)).map(q => (
+                      <button
+                        key={q}
+                        style={{ padding: "8px 14px", fontSize: 13, fontWeight: q === quarterOverridePending ? 700 : 400, background: q === quarterOverridePending ? "#111" : "#fff", color: q === quarterOverridePending ? "#fff" : "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}
+                        onClick={() => setQuarterOverridePending(q)}
+                      >
+                        {q <= 4 ? `Q${q}` : `OT${q - 4}`}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={S.btnSecondary} onClick={() => { setQuarterOverrideOpen(false); setQuarterOverridePending(null); }}>Cancel</button>
+                    <button
+                      style={{ ...S.btnWarning, opacity: quarterOverridePending === currentQuarter ? 0.5 : 1 }}
+                      disabled={quarterOverridePending === currentQuarter}
+                      onClick={async () => {
+                        if (quarterOverridePending == null || quarterOverridePending === currentQuarter) return;
+                        setQuarterError(null);
+                        try {
+                          await onMetaEvent("quarter_override", currentQuarter, quarterOverridePending);
+                          setCurrentQuarter(quarterOverridePending);
+                          setQuarterOverrideOpen(false);
+                          setQuarterOverridePending(null);
+                        } catch (err) {
+                          setQuarterError(err?.message || "Failed to save quarter override.");
+                          setQuarterOverrideOpen(false);
+                        }
+                      }}
+                    >
+                      Set to {quarterOverridePending != null ? (quarterOverridePending <= 4 ? `Q${quarterOverridePending}` : `OT${quarterOverridePending - 4}`) : "—"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div style={{ textAlign: "center", marginTop: 10 }}>
                 <button style={S.tabBtn(false)} onClick={() => setScreen("stats")}>View stats →</button>
               </div>

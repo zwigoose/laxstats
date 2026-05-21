@@ -3,8 +3,9 @@
  *
  * Schema
  * ──────
- * pending_events  { queueId (PK), gameId, entries[], createdAt }
- * pending_deletes { queueId (PK), gameId, groupId,   createdAt }
+ * pending_events      { queueId (PK), gameId, entries[], createdAt }
+ * pending_deletes     { queueId (PK), gameId, groupId,   createdAt }
+ * pending_meta_events { queueId (PK), gameId, row{},     createdAt }
  *
  * Items in each store are indexed by gameId so we can efficiently query
  * everything belonging to a single game.  createdAt is a Date.now() integer
@@ -12,7 +13,7 @@
  */
 
 const DB_NAME    = "laxstats-offline";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let _db = null;
 
@@ -21,14 +22,18 @@ function openDb() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
-    req.onupgradeneeded = ({ target: { result: db } }) => {
-      if (!db.objectStoreNames.contains("pending_events")) {
+    req.onupgradeneeded = ({ target: { result: db, transaction: tx }, oldVersion }) => {
+      if (oldVersion < 1) {
         db.createObjectStore("pending_events",  { keyPath: "queueId" })
           .createIndex("gameId", "gameId");
-      }
-      if (!db.objectStoreNames.contains("pending_deletes")) {
         db.createObjectStore("pending_deletes", { keyPath: "queueId" })
           .createIndex("gameId", "gameId");
+      }
+      if (oldVersion < 2) {
+        if (!db.objectStoreNames.contains("pending_meta_events")) {
+          db.createObjectStore("pending_meta_events", { keyPath: "queueId" })
+            .createIndex("gameId", "gameId");
+        }
       }
     };
 
@@ -87,16 +92,24 @@ export async function enqueueDelete(gameId, groupId) {
   await idbAdd("pending_deletes", item);
 }
 
-export const getPendingEvents  = (gameId) => idbGet("pending_events",  gameId);
-export const getPendingDeletes = (gameId) => idbGet("pending_deletes", gameId);
+export async function enqueueMetaEvent(gameId, row) {
+  const item = { queueId: crypto.randomUUID(), gameId, row, createdAt: Date.now() };
+  await idbAdd("pending_meta_events", item);
+}
 
-export const removeEvent  = (queueId) => idbDelete("pending_events",  queueId);
-export const removeDelete = (queueId) => idbDelete("pending_deletes", queueId);
+export const getPendingEvents     = (gameId) => idbGet("pending_events",      gameId);
+export const getPendingDeletes    = (gameId) => idbGet("pending_deletes",     gameId);
+export const getPendingMetaEvents = (gameId) => idbGet("pending_meta_events", gameId);
+
+export const removeEvent     = (queueId) => idbDelete("pending_events",      queueId);
+export const removeDelete    = (queueId) => idbDelete("pending_deletes",     queueId);
+export const removeMetaEvent = (queueId) => idbDelete("pending_meta_events", queueId);
 
 export async function getPendingCount(gameId) {
-  const [evs, dels] = await Promise.all([
+  const [evs, dels, metas] = await Promise.all([
     getPendingEvents(gameId),
     getPendingDeletes(gameId),
+    getPendingMetaEvents(gameId),
   ]);
-  return evs.length + dels.length;
+  return evs.length + dels.length + metas.length;
 }

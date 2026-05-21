@@ -25,3 +25,44 @@ export async function softDeleteGameEvents(gameId, groupId, userId, db = _supaba
 export async function dismissDuplicateFlag(gameId, groupId, db = _supabase) {
   return db.rpc("dismiss_duplicate_flag", { p_game_id: gameId, p_group_id: groupId });
 }
+
+// ── game_meta_events ──────────────────────────────────────────────────────────
+
+export async function fetchMetaEvents(gameId, db = _supabase) {
+  return db
+    .from("game_meta_events")
+    .select("*")
+    .eq("game_id", gameId)
+    .order("seq");
+}
+
+export async function insertMetaEvent(row, db = _supabase) {
+  return db.from("game_meta_events").insert(row).select().single();
+}
+
+/**
+ * Pure function: replay game_meta_events rows to derive quarter state.
+ * Returns { currentQuarter, completedQuarters, gameOver }.
+ */
+export function deriveQuarterState(metaRows) {
+  if (!metaRows?.length) return null;
+
+  let currentQuarter    = 1;
+  let completedQuarters = [];
+  let gameOver          = false;
+
+  for (const row of metaRows) {
+    if (row.event_type === "quarter_end") {
+      completedQuarters = [...completedQuarters, row.from_quarter];
+      currentQuarter    = row.to_quarter;
+    } else if (row.event_type === "game_over") {
+      completedQuarters = [...completedQuarters, row.from_quarter];
+      gameOver          = true;
+      currentQuarter    = row.from_quarter;
+    } else if (row.event_type === "quarter_override") {
+      currentQuarter = row.to_quarter;
+    }
+  }
+
+  return { currentQuarter, completedQuarters, gameOver };
+}

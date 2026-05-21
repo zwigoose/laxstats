@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase as _supabase } from "../lib/supabase";
-import { fetchGameEvents, insertGameEvents, softDeleteGameEvents, dismissDuplicateFlag } from "../services/gameEvents";
 import {
-  enqueueEvents, enqueueDelete,
-  getPendingEvents, getPendingDeletes,
-  removeEvent, removeDelete,
+  fetchGameEvents, insertGameEvents, softDeleteGameEvents, dismissDuplicateFlag,
+  fetchMetaEvents, insertMetaEvent, deriveQuarterState,
+} from "../services/gameEvents";
+import {
+  enqueueEvents, enqueueDelete, enqueueMetaEvent,
+  getPendingEvents, getPendingDeletes, getPendingMetaEvents,
+  removeEvent, removeDelete, removeMetaEvent,
   getPendingCount,
 } from "../services/offlineQueue";
 import { useOnlineStatus } from "./useOnlineStatus";
@@ -43,25 +46,28 @@ export function dbRowToEntry(row) {
 /**
  * Translate a LaxStats log entry into a game_events insert payload.
  * groupId on the entry must already be a UUID (set by commitEntries in v2 mode).
+ * client_created_at is set here — the scorer's local wall clock at the moment
+ * of commit, not at DB insert time.
  */
 export function entryToDbRow(entry, gameId, userId) {
   return {
-    game_id:           gameId,
-    group_id:          entry.groupId,
-    quarter:           entry.quarter,
-    event_type:        entry.event,
-    team_idx:          entry.teamIdx,
-    is_team_stat:      entry.teamStat       ?? false,
-    player_num:        entry.player?.num    ?? null,
-    player_name:       entry.player?.name   ?? null,
-    goal_time:         entry.goalTime       ?? null,
-    penalty_time:      entry.penaltyTime    ?? null,
-    timeout_time:      entry.timeoutTime    ?? null,
-    is_non_releasable: entry.nonReleasable  ?? false,
-    penalty_minutes:   entry.penaltyMin     ?? null,
-    shot_outcome:      entry.shotOutcome    ?? null,
-    foul_name:         entry.foulName       ?? null,
-    created_by:        userId,
+    game_id:            gameId,
+    group_id:           entry.groupId,
+    quarter:            entry.quarter,
+    event_type:         entry.event,
+    team_idx:           entry.teamIdx,
+    is_team_stat:       entry.teamStat       ?? false,
+    player_num:         entry.player?.num    ?? null,
+    player_name:        entry.player?.name   ?? null,
+    goal_time:          entry.goalTime       ?? null,
+    penalty_time:       entry.penaltyTime    ?? null,
+    timeout_time:       entry.timeoutTime    ?? null,
+    is_non_releasable:  entry.nonReleasable  ?? false,
+    penalty_minutes:    entry.penaltyMin     ?? null,
+    shot_outcome:       entry.shotOutcome    ?? null,
+    foul_name:          entry.foulName       ?? null,
+    created_by:         userId,
+    client_created_at:  new Date().toISOString(),
   };
 }
 
@@ -84,29 +90,33 @@ function isNetworkError(err) {
  * Manages the v2 (game_events) event log for a game.
  *
  * Returns:
- *   entries          — log entries in LaxStats format, sorted by seq
- *   loading          — initial load state
- *   commitGroup      — async (stampedEntries) → writes to game_events; queues locally
- *                      when offline so no events are lost
- *   softDeleteGroup  — async (groupIdUuid) → soft-deletes group; queues when offline
- *   isPrimary        — true if this session is the designated primary scorer
- *   presenceList     — [{userId, joinedAt}, ...] sorted by join order
- *   isOnline         — current network status
- *   pendingCount     — number of operations waiting to sync
- *   syncStatus       — "idle" | "syncing" | "synced" | "error"
- *   error            — last error string or null
+ *   entries            — log entries in LaxStats format, sorted by seq
+ *   loading            — initial load state
+ *   commitGroup        — async (stampedEntries) → writes to game_events; queues locally
+ *                        when offline so no events are lost
+ *   softDeleteGroup    — async (groupIdUuid) → soft-deletes group; queues when offline
+ *   commitMetaEvent    — async (type, fromQuarter, toQuarter) → writes to game_meta_events;
+ *                        queues when offline; resolves after DB confirmation
+ *   derivedQuarterState — { currentQuarter, completedQuarters, gameOver } from DB rows
+ *   isPrimary          — true if this session is the designated primary scorer
+ *   presenceList       — [{userId, joinedAt}, ...] sorted by join order
+ *   isOnline           — current network status
+ *   pendingCount       — number of operations waiting to sync
+ *   syncStatus         — "idle" | "syncing" | "synced" | "error"
+ *   error              — last error string or null
  *
  * Pass gameId=null to disable (v1 games).
  */
 export function useGameEvents(gameId, userId, db = _supabase) {
-  const [entries, setEntries]           = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [presenceList, setPresenceList] = useState([]);
+  const [entries, setEntries]                       = useState([]);
+  const [loading, setLoading]                       = useState(true);
+  const [presenceList, setPresenceList]             = useState([]);
   const [remoteQuarterState, setRemoteQuarterState] = useState(null);
-  const [error, setError]               = useState(null);
+  const [derivedQuarterState, setDerivedQuarterState] = useState(null);
+  const [error, setError]                           = useState(null);
 
-  const channelRef   = useRef(null);
-  const isSyncingRef = useRef(false);
+  const channelRef    = useRef(null);
+  const isSyncingRef  = useRef(false);
   const [channelStatus, setChannelStatus] = useState("idle");
 
   // ── Offline / sync state ──────────────────────────────────────────
@@ -124,15 +134,18 @@ export function useGameEvents(gameId, userId, db = _supabase) {
   async function load() {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await fetchGameEvents(gameId, db);
-    if (err) { setError(err.message); setLoading(false); return; }
-    setEntries((data || []).map(dbRowToEntry));
+    const [evRes, metaRes] = await Promise.all([
+      fetchGameEvents(gameId, db),
+      fetchMetaEvents(gameId, db),
+    ]);
+    if (evRes.error) { setError(evRes.error.message); setLoading(false); return; }
+    setEntries((evRes.data || []).map(dbRowToEntry));
+    const derived = deriveQuarterState(metaRes.data || []);
+    if (derived) setDerivedQuarterState(derived);
     setLoading(false);
   }
 
   // ── Pending-count bootstrap ──────────────────────────────────────
-  // On mount, read the IDB queue so we can show the right badge even
-  // before any new offline activity happens.
   useEffect(() => {
     if (!gameId) return;
     getPendingCount(gameId).then(setPendingCount).catch(() => {});
@@ -188,7 +201,7 @@ export function useGameEvents(gameId, userId, db = _supabase) {
       }
     );
 
-    // Quarter/game-over state broadcast by the primary scorer
+    // Quarter/game-over state broadcast by the primary scorer (fast hint)
     channel.on("broadcast", { event: "meta_update" }, ({ payload }) => {
       if (payload?.scorerId === userId) return;
       setRemoteQuarterState({
@@ -197,6 +210,19 @@ export function useGameEvents(gameId, userId, db = _supabase) {
         gameOver:          payload?.gameOver          ?? false,
       });
     });
+
+    // postgres_changes INSERT on game_meta_events — authoritative source for non-scorer views
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "game_meta_events", filter: `game_id=eq.${gameId}` },
+      (payload) => {
+        const row = payload.new;
+        setDerivedQuarterState(prev => {
+          const currentRows = prev ? _metaRowsToDerived(prev, row) : deriveQuarterState([row]);
+          return currentRows;
+        });
+      }
+    );
 
     // Deletion broadcast by another scorer
     channel.on("broadcast", { event: "delete_group" }, ({ payload }) => {
@@ -234,9 +260,12 @@ export function useGameEvents(gameId, userId, db = _supabase) {
 
     channel.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
+        const wasConnected = channelStatus !== "idle";
         setChannelStatus("subscribed");
         setError(prev => (prev?.startsWith("Realtime") ? null : prev));
         await channel.track({ online_at: new Date().toISOString() });
+        // Reconnect: reload to close any gap from the disconnected window.
+        if (wasConnected) load();
       } else if (status === "CHANNEL_ERROR") {
         setChannelStatus("error");
         setError("Realtime channel error — live sync unavailable");
@@ -254,6 +283,7 @@ export function useGameEvents(gameId, userId, db = _supabase) {
       db.removeChannel(channel);
       channelRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId, userId]);
 
   // ── Sync pending queue → server ──────────────────────────────────
@@ -261,12 +291,13 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     if (!gameId || !userId) return;
     if (isSyncingRef.current) return;
 
-    const [pendingEvs, pendingDels] = await Promise.all([
+    const [pendingEvs, pendingDels, pendingMetas] = await Promise.all([
       getPendingEvents(gameId),
       getPendingDeletes(gameId),
+      getPendingMetaEvents(gameId),
     ]);
 
-    if (!pendingEvs.length && !pendingDels.length) return;
+    if (!pendingEvs.length && !pendingDels.length && !pendingMetas.length) return;
 
     isSyncingRef.current = true;
     setSyncStatus("syncing");
@@ -278,7 +309,6 @@ export function useGameEvents(gameId, userId, db = _supabase) {
         const rows = item.entries.map(e => entryToDbRow(e, gameId, userId));
         const { data: inserted, error: err } = await insertGameEvents(rows, db);
         if (err) throw err;
-        // Broadcast so online co-scorers see the newly-synced events immediately.
         channelRef.current?.send({
           type:    "broadcast",
           event:   "new_events",
@@ -288,11 +318,31 @@ export function useGameEvents(gameId, userId, db = _supabase) {
         setPendingCount(prev => Math.max(0, prev - 1));
       }
 
+      // Flush meta events in creation order (they may have been queued between event inserts)
+      for (const item of pendingMetas) {
+        const { data, error: err } = await insertMetaEvent(item.row, db);
+        if (err) throw err;
+        // Update derived state with the newly persisted row
+        if (data) {
+          setDerivedQuarterState(prev => {
+            if (!prev) return deriveQuarterState([data]);
+            return _metaRowsToDerived(prev, data);
+          });
+        }
+        // Broadcast so online co-scorers see the quarter advance immediately.
+        const broadcastPayload = _metaRowToBroadcastPayload(item.row);
+        channelRef.current?.send({
+          type:    "broadcast",
+          event:   "meta_update",
+          payload: { scorerId: userId, ...broadcastPayload },
+        });
+        await removeMetaEvent(item.queueId);
+        setPendingCount(prev => Math.max(0, prev - 1));
+      }
+
       // Flush soft-deletes after inserts so any "delete an offline-created
       // event" pair is applied in the correct order: create then delete.
       for (const item of pendingDels) {
-        // Soft-delete is idempotent — safe to retry even if another scorer
-        // already deleted the same group while we were offline.
         await softDeleteGameEvents(gameId, item.groupId, userId, db);
         channelRef.current?.send({
           type:    "broadcast",
@@ -313,8 +363,7 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     } finally {
       isSyncingRef.current = false;
     }
-  // load is a stable closure over gameId/db; it's intentionally excluded from
-  // the deps array to avoid a dependency cycle.
+  // load is a stable closure over gameId/db; intentionally excluded from deps.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId, userId]);
 
@@ -329,8 +378,6 @@ export function useGameEvents(gameId, userId, db = _supabase) {
   const commitGroup = useCallback(async (stampedEntries) => {
     if (!gameId || !userId || !stampedEntries?.length) return;
 
-    // Offline path — queue locally; the optimistic update in LaxStats already
-    // updated the local log so the scorer can keep working seamlessly.
     if (!isOnline) {
       await enqueueEvents(gameId, stampedEntries);
       setPendingCount(prev => prev + 1);
@@ -341,8 +388,6 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     const { data: inserted, error: err } = await insertGameEvents(rows, db);
 
     if (err) {
-      // Network failure while nominally online → fall back to the local queue
-      // so the event is not lost.
       if (isNetworkError(err)) {
         await enqueueEvents(gameId, stampedEntries);
         setPendingCount(prev => prev + 1);
@@ -359,11 +404,62 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     });
   }, [gameId, userId, isOnline]);
 
+  // ── Commit a quarter-transition or game-over meta event ──────────
+  // Returns a promise that resolves (with the inserted row) only after the
+  // DB write confirms. The caller (handleEndQuarter) gates local state
+  // mutation on this promise so the DB is always ahead of the UI.
+  const commitMetaEvent = useCallback(async (type, fromQuarter, toQuarter) => {
+    if (!gameId || !userId) return null;
+
+    const row = {
+      game_id:           gameId,
+      event_type:        type,
+      from_quarter:      fromQuarter,
+      to_quarter:        toQuarter,
+      created_by:        userId,
+      client_created_at: new Date().toISOString(),
+    };
+
+    if (!isOnline) {
+      await enqueueMetaEvent(gameId, row);
+      setPendingCount(prev => prev + 1);
+      // Return a synthetic result so callers can proceed optimistically offline.
+      return { ...row, id: crypto.randomUUID(), seq: null };
+    }
+
+    const { data, error: err } = await insertMetaEvent(row, db);
+    if (err) {
+      if (isNetworkError(err)) {
+        await enqueueMetaEvent(gameId, row);
+        setPendingCount(prev => prev + 1);
+        return { ...row, id: crypto.randomUUID(), seq: null };
+      }
+      throw err;
+    }
+
+    // Update local derived state immediately (don't wait for postgres_changes)
+    if (data) {
+      setDerivedQuarterState(prev => {
+        if (!prev) return deriveQuarterState([data]);
+        return _metaRowsToDerived(prev, data);
+      });
+    }
+
+    // Broadcast the new quarter state so co-scorers update instantly.
+    const broadcastPayload = _metaRowToBroadcastPayload(data ?? row);
+    channelRef.current?.send({
+      type:    "broadcast",
+      event:   "meta_update",
+      payload: { scorerId: userId, ...broadcastPayload },
+    });
+
+    return data;
+  }, [gameId, userId, isOnline]);
+
   // ── Soft-delete all rows in a group ─────────────────────────────
   const softDeleteGroup = useCallback(async (groupIdUuid) => {
     if (!gameId || !userId) return;
 
-    // Always remove from local state immediately (optimistic).
     setEntries(prev => prev.filter(e => e.groupId !== groupIdUuid));
 
     if (!isOnline) {
@@ -406,7 +502,8 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     });
   }, [gameId, userId]);
 
-  // Broadcast quarter/game-over state to other scorers (called by primary after DB write)
+  // Broadcast quarter/game-over state to other scorers (legacy fast path —
+  // demoted to hint only; commitMetaEvent is now the source of truth)
   const broadcastMeta = useCallback((meta) => {
     channelRef.current?.send({
       type:    "broadcast",
@@ -425,6 +522,8 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     softDeleteGroup,
     dismissDuplicate,
     broadcastMeta,
+    commitMetaEvent,
+    derivedQuarterState,
     isPrimary,
     presenceList,
     remoteQuarterState,
@@ -435,4 +534,35 @@ export function useGameEvents(gameId, userId, db = _supabase) {
     channelStatus,
     reload: load,
   };
+}
+
+// ── Private helpers ───────────────────────────────────────────────────────────
+
+// Incrementally apply a single new meta row to an existing derived state object.
+// Avoids replaying the full history on every realtime INSERT.
+function _metaRowsToDerived(prev, row) {
+  let { currentQuarter, completedQuarters, gameOver } = prev;
+  if (row.event_type === "quarter_end") {
+    completedQuarters = [...completedQuarters, row.from_quarter];
+    currentQuarter    = row.to_quarter;
+  } else if (row.event_type === "game_over") {
+    completedQuarters = [...completedQuarters, row.from_quarter];
+    gameOver          = true;
+    currentQuarter    = row.from_quarter;
+  } else if (row.event_type === "quarter_override") {
+    currentQuarter = row.to_quarter;
+  }
+  return { currentQuarter, completedQuarters, gameOver };
+}
+
+// Build the broadcast payload that matches the remoteQuarterState shape expected by LaxStats.
+function _metaRowToBroadcastPayload(row) {
+  if (row.event_type === "quarter_end") {
+    return { currentQuarter: row.to_quarter, gameOver: false };
+  }
+  if (row.event_type === "game_over") {
+    return { currentQuarter: row.from_quarter, gameOver: true };
+  }
+  // quarter_override
+  return { currentQuarter: row.to_quarter, gameOver: false };
 }
