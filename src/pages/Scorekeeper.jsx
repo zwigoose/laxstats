@@ -151,12 +151,18 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     // scores are no longer stored in games.state — they are derived from game_events.
     const { log: _log, currentQuarter: _cq, completedQuarters: _cqs, gameOver: _go,
             score0: _s0, score1: _s1, ...meta } = newState;
+    // v1 games derive quarter state from games.state (no game_meta_events); keep these fields.
+    if (!isV2) {
+      meta.currentQuarter    = _cq;
+      meta.completedQuarters = _cqs;
+      meta.gameOver          = _go;
+    }
     pendingMeta.current = meta;
     // Persist to localStorage immediately so network failures don't lose state.
     try { localStorage.setItem(PENDING_STATE_KEY, JSON.stringify(meta)); } catch { /* ignore */ }
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(doStateSave, 800);
-  }, [id, doStateSave]);
+  }, [id, isV2, doStateSave]);
 
   // On mount: flush any pending state left from a previous session (e.g. the page
   // crashed or closed while a save was in flight).

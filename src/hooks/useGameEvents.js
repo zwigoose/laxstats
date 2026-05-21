@@ -139,8 +139,10 @@ export function useGameEvents(gameId, userId, db = _supabase) {
       fetchMetaEvents(gameId, db),
     ]);
     if (evRes.error) { setError(evRes.error.message); setLoading(false); return; }
+    console.log("[useGameEvents] load metaRes:", metaRes.data, metaRes.error);
     setEntries((evRes.data || []).map(dbRowToEntry));
     const derived = deriveQuarterState(metaRes.data || []);
+    console.log("[useGameEvents] derived quarter state:", derived);
     if (derived) setDerivedQuarterState(derived);
     setLoading(false);
   }
