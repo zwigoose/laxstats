@@ -79,19 +79,16 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     channelStatus,
   } = useGameEvents(id, userId);
 
-  // Build initialState for v2 games: teams/config from games.state, quarter state from
+  // Build initialState: teams/config from games.state, quarter state from
   // game_meta_events (via derivedQuarterState), log from game_events rows.
-  // For v1 games (no org_id / schema_ver < 2), fall back to games.state as before.
-  const isV2 = !!(game?.org_id);
   const initialState = (eventsLoading || !game)
     ? undefined  // still loading — LaxStats waits
     : (() => {
         if (!game?.state && entries.length === 0) return null;
         const base = game?.state ? { ...game.state } : {};
-        // For v2 games, override quarter fields from the authoritative meta-event log.
-        // This ensures remount always produces state consistent with game_meta_events,
-        // regardless of what games.state contains.
-        if (isV2 && derivedQuarterState) {
+        // Override quarter fields from the authoritative meta-event log.
+        // This ensures remount always produces state consistent with game_meta_events.
+        if (derivedQuarterState) {
           base.currentQuarter    = derivedQuarterState.currentQuarter;
           base.completedQuarters = derivedQuarterState.completedQuarters;
           base.gameOver          = derivedQuarterState.gameOver;
@@ -144,25 +141,17 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
       setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
     }
-    // For v2 games, roster/team-config changes go through a dedicated write path
-    // (updateGameTeams) that only touches the teams fields, so a roster edit cannot
-    // race against event or quarter writes. Non-team fields (trackingStarted, gameDate,
-    // _nextId) still go through the debounced games.state write below.
-    // scores are no longer stored in games.state — they are derived from game_events.
+    // Strip log, scores, and quarter fields — these live in game_events / game_meta_events,
+    // not in games.state. Non-team fields (trackingStarted, gameDate, _nextId) still go
+    // through the debounced games.state write below.
     const { log: _log, currentQuarter: _cq, completedQuarters: _cqs, gameOver: _go,
             score0: _s0, score1: _s1, ...meta } = newState;
-    // v1 games derive quarter state from games.state (no game_meta_events); keep these fields.
-    if (!isV2) {
-      meta.currentQuarter    = _cq;
-      meta.completedQuarters = _cqs;
-      meta.gameOver          = _go;
-    }
     pendingMeta.current = meta;
     // Persist to localStorage immediately so network failures don't lose state.
     try { localStorage.setItem(PENDING_STATE_KEY, JSON.stringify(meta)); } catch { /* ignore */ }
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(doStateSave, 800);
-  }, [id, isV2, doStateSave]);
+  }, [id, doStateSave]);
 
   // On mount: flush any pending state left from a previous session (e.g. the page
   // crashed or closed while a save was in flight).
@@ -315,7 +304,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
           onMetaEvent={handleMetaEvent}
           remoteEntries={entries}
           remoteQuarterState={remoteQuarterState}
-          derivedQuarterState={isV2 ? derivedQuarterState : null}
+          derivedQuarterState={derivedQuarterState}
           scorekeeperRole={isPrimary ? "primary" : "secondary"}
           orgContext={orgContext}
           onOrgTeamSelected={async (teamIdx, teamId) => {

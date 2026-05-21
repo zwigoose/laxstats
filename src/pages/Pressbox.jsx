@@ -165,14 +165,12 @@ export default function Dashboard() {
   // ── Derived state ─────────────────────────────────────────────────────────
 
   const state    = game?.state;
-  const isV2     = !!(game?.org_id);
   const teams    = state?.teams || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
   const log = v2Log ?? [];
-  // For v2 games use game_meta_events-derived state; fall back to games.state for v1.
-  const currentQuarter    = (isV2 && derivedQuarterState) ? derivedQuarterState.currentQuarter    : (state?.currentQuarter    || 1);
-  const completedQuarters = (isV2 && derivedQuarterState) ? derivedQuarterState.completedQuarters : (state?.completedQuarters || []);
-  const gameOver          = (isV2 && derivedQuarterState) ? derivedQuarterState.gameOver          : (state?.gameOver          || false);
+  const currentQuarter    = derivedQuarterState?.currentQuarter    ?? state?.currentQuarter    ?? 1;
+  const completedQuarters = derivedQuarterState?.completedQuarters ?? state?.completedQuarters ?? [];
+  const gameOver          = derivedQuarterState?.gameOver          ?? state?.gameOver          ?? false;
   const teamColors        = [teams[0]?.color || "#1a6bab", teams[1]?.color || "#b84e1a"];
 
   const totalScores = useMemo(() => [

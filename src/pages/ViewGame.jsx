@@ -71,7 +71,6 @@ export default function ViewGame() {
   const [qrOpen, setQrOpen] = useState(false);
   const qrCanvasRef = useRef(null);
   const [hasPressbox, setHasPressbox] = useState(false);
-  // v2: quarter state derived from game_meta_events (authoritative for v2 games)
   const [derivedQuarterState, setDerivedQuarterState] = useState(null);
 
   // Away org "Add to my season" state
@@ -102,14 +101,12 @@ export default function ViewGame() {
 useEffect(() => {
     loadGame();
 
-    // Subscribe to changes on the games row (works for both v1 and v2)
     const channel = supabase.channel(`viewgame-${id}`)
       .on("postgres_changes", {
         event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}`,
       }, (payload) => {
         setGame(prev => prev ? { ...prev, ...payload.new } : payload.new);
       })
-      // v2: subscribe to new game_events
       .on("postgres_changes", {
         event: "INSERT", schema: "public", table: "game_events", filter: `game_id=eq.${id}`,
       }, (payload) => {
@@ -121,7 +118,6 @@ useEffect(() => {
           return [...prev, entry].sort((a, b) => a.seq - b.seq);
         });
       })
-      // v2: subscribe to soft-deletes
       .on("postgres_changes", {
         event: "UPDATE", schema: "public", table: "game_events", filter: `game_id=eq.${id}`,
       }, (payload) => {
@@ -129,7 +125,6 @@ useEffect(() => {
           setV2Log(prev => prev ? prev.filter(e => e.dbId !== payload.new.id) : prev);
         }
       })
-      // v2: subscribe to quarter transitions (game_meta_events)
       .on("postgres_changes", {
         event: "INSERT", schema: "public", table: "game_meta_events", filter: `game_id=eq.${id}`,
       }, (payload) => {
@@ -155,7 +150,6 @@ useEffect(() => {
     return () => { supabase.removeChannel(channel); };
   }, [id]);
 
-  // v2: separate event log state
   const [v2Log, setV2Log] = useState(null);
 
   async function loadGame() {
@@ -216,14 +210,12 @@ useEffect(() => {
 
   // ── Derived from game state ──────────────────────────────────────
   const state = game?.state;
-  const isV2 = !!(game?.org_id);
   const teams = state?.teams || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
   const log = v2Log ?? [];
-  // For v2 games use game_meta_events-derived state; fall back to games.state for v1.
-  const currentQuarter    = (isV2 && derivedQuarterState) ? derivedQuarterState.currentQuarter    : (state?.currentQuarter    || 1);
-  const completedQuarters = (isV2 && derivedQuarterState) ? derivedQuarterState.completedQuarters : (state?.completedQuarters || []);
-  const gameOver          = (isV2 && derivedQuarterState) ? derivedQuarterState.gameOver          : (state?.gameOver          || false);
+  const currentQuarter    = derivedQuarterState?.currentQuarter    ?? state?.currentQuarter    ?? 1;
+  const completedQuarters = derivedQuarterState?.completedQuarters ?? state?.completedQuarters ?? [];
+  const gameOver          = derivedQuarterState?.gameOver          ?? state?.gameOver          ?? false;
   const teamColors = [teams[0]?.color || "#1a6bab", teams[1]?.color || "#b84e1a"];
 
   const totalScores = useMemo(() => [

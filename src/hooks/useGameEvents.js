@@ -87,7 +87,7 @@ function isNetworkError(err) {
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 /**
- * Manages the v2 (game_events) event log for a game.
+ * Manages the game_events event log for a game.
  *
  * Returns:
  *   entries            — log entries in LaxStats format, sorted by seq
@@ -104,8 +104,6 @@ function isNetworkError(err) {
  *   pendingCount       — number of operations waiting to sync
  *   syncStatus         — "idle" | "syncing" | "synced" | "error"
  *   error              — last error string or null
- *
- * Pass gameId=null to disable (v1 games).
  */
 export function useGameEvents(gameId, userId, db = _supabase) {
   const [entries, setEntries]                       = useState([]);
@@ -139,10 +137,8 @@ export function useGameEvents(gameId, userId, db = _supabase) {
       fetchMetaEvents(gameId, db),
     ]);
     if (evRes.error) { setError(evRes.error.message); setLoading(false); return; }
-    console.log("[useGameEvents] load metaRes:", metaRes.data, metaRes.error);
     setEntries((evRes.data || []).map(dbRowToEntry));
     const derived = deriveQuarterState(metaRes.data || []);
-    console.log("[useGameEvents] derived quarter state:", derived);
     if (derived) setDerivedQuarterState(derived);
     setLoading(false);
   }
