@@ -5,6 +5,27 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.12.0] — 2026-05-21
+
+### Added
+- **Mid-game per-player roster editor** — after tracking starts, the Setup tab replaces the raw roster textarea with a structured per-player list; each player can be edited inline (number change, name correction) and walk-on players can be added at any time via **+ Add player**; duplicate-number validation runs on save; org-linked rosters show a "game-day edits only" badge and changes never modify the permanent Org → Teams roster
+- **`game_meta_events` for authoritative quarter state** — quarter-start, quarter-end, and game-over transitions are now written as immutable rows in `game_meta_events`; `deriveQuarterState()` replays these rows on every load so quarter and game-over state is never lost across page refreshes, scorer hand-offs, or reconnects; broadcast hints are used as a fast-path with DB rows as ground truth
+
+### Changed
+- **Unified data model** — all games (personal and org-linked) now use `game_events` + `game_meta_events` for event storage; the v1/v2 architecture split based on `org_id` has been removed; `games.state` is retained only as a denormalized display cache (`gameOver`, `currentQuarter`, `score0`, `score1`) for the game list
+- **Live view and Pressbox update without refresh** — `/view` and `/pressbox` subscribe to the same `game-events-{id}` broadcast channel as the scorekeeper, receiving new events, deletions, and quarter changes instantly; postgres_changes are kept as a fallback for late-joiners
+- **Pressbox event log sorted newest-first** — events now appear sorted by insertion sequence (most recently scored at top) rather than by game clock time
+- **gameOver and score reflected on homepage immediately** — finalizing a game now correctly persists `gameOver`, `currentQuarter`, `score0`, and `score1` to `games.state`, so the game list shows "Final" status and the correct score without a refresh
+
+### Fixed
+- **Roster cleared on scorekeeper reconnect** — the scorekeeper roster was silently wiped when the realtime channel reconnected mid-game: `useGameEvents` called `load()` again which set `eventsLoading = true`, unmounting LaxStats and rehydrating from the stale initial `game.state` (captured before team setup was saved); LaxStats is now kept mounted after the first successful load
+- **`parsedRosters` frozen at game start** — mid-game roster edits via the old free-form textarea were ignored by the player picker because `parsedRosters` was only populated at `handleStart()` time; the new roster editor atomically updates both the persisted roster string and the live player-picker array
+
+### Database
+- `game_meta_events`: new table for quarter/game-over transition events with `REPLICA IDENTITY FULL` and added to the `supabase_realtime` publication
+
+---
+
 ## [2.11.0] — 2026-05-19
 
 ### Added
