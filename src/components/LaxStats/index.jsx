@@ -83,6 +83,8 @@ export default function LaxStats({
   // Quarter override panel
   const [quarterOverrideOpen, setQuarterOverrideOpen] = useState(false);
   const [quarterOverridePending, setQuarterOverridePending] = useState(null);
+  // Mid-game roster editor: null | { teamIdx, mode: "edit"|"add", playerIdx?: number, num: string, name: string }
+  const [rosterEdit, setRosterEdit] = useState(null);
 
   // ── Supabase integration hooks ───────────────────────────────────
   const hydratedRef = useRef(false);
@@ -605,6 +607,33 @@ export default function LaxStats({
     reader.readAsText(file);
   }
 
+  // ── Mid-game roster editing ─────────────────────────────────────
+  function commitRosterEdit() {
+    if (!rosterEdit) return;
+    const { teamIdx, mode, playerIdx, num, name } = rosterEdit;
+    const trimNum = num.trim().replace(/^#/, "");
+    const trimName = name.trim();
+    if (!trimNum || !trimName) return;
+
+    const current = [...parsedRosters[teamIdx]];
+    const conflict = current.findIndex((p, i) => p.num === trimNum && i !== playerIdx);
+    if (conflict !== -1) {
+      setRosterEdit(prev => ({ ...prev, error: `#${trimNum} is already on the roster` }));
+      return;
+    }
+
+    if (mode === "edit") {
+      current[playerIdx] = { num: trimNum, name: trimName };
+    } else {
+      current.push({ num: trimNum, name: trimName });
+    }
+
+    const newRosterText = current.map(p => `#${p.num} ${p.name}`).join("\n");
+    setTeams(t => t.map((x, i) => i === teamIdx ? { ...x, roster: newRosterText } : x));
+    setParsedRosters(prev => prev.map((r, i) => i === teamIdx ? current : r));
+    setRosterEdit(null);
+  }
+
   // ── Event flow ──────────────────────────────────────────────────
   function handleStart() {
     if (gameOver) return;
@@ -1017,8 +1046,91 @@ export default function LaxStats({
                     </select>
                   )}
                 </div>
-                {teams[ti].orgTeamId ? (
-                  /* ── Locked org team ── */
+                {trackingStarted ? (
+                  /* ── Mid-game structured editor (both org and free-form) ── */
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <div style={{ width: 12, height: 12, borderRadius: "50%", background: teams[ti].color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" }}>{teams[ti].name}</span>
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#9a4800", background: "#fff3e0", border: "1px solid #ffd08a", borderRadius: 6, padding: "3px 9px", marginBottom: 10, display: "inline-block" }}>
+                      {teams[ti].orgTeamId ? "Org roster · game-day edits" : "Roster · game in progress"}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {parsedRosters[ti].map((p, pi) => {
+                        const isEditing = rosterEdit?.teamIdx === ti && rosterEdit?.mode === "edit" && rosterEdit?.playerIdx === pi;
+                        if (isEditing) {
+                          return (
+                            <div key={pi} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", background: "#f0f7ff", border: "1px solid #b3d4f0", borderRadius: 6 }}>
+                              <span style={{ fontSize: 11, color: "#888", flexShrink: 0 }}>#</span>
+                              <input
+                                autoFocus
+                                style={{ width: 48, fontSize: 13, fontWeight: 600, border: "1px solid #b3d4f0", borderRadius: 4, padding: "2px 4px" }}
+                                value={rosterEdit.num}
+                                onChange={e => setRosterEdit(prev => ({ ...prev, num: e.target.value, error: null }))}
+                                onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
+                              />
+                              <input
+                                style={{ flex: 1, fontSize: 13, border: "1px solid #b3d4f0", borderRadius: 4, padding: "2px 4px" }}
+                                value={rosterEdit.name}
+                                onChange={e => setRosterEdit(prev => ({ ...prev, name: e.target.value, error: null }))}
+                                onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
+                              />
+                              <button onClick={commitRosterEdit} style={{ fontSize: 11, fontWeight: 600, color: "#fff", background: "#1a6bab", border: "none", borderRadius: 5, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>Save</button>
+                              <button onClick={() => setRosterEdit(null)} style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #ddd", borderRadius: 5, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Cancel</button>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={pi} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", borderRadius: 6 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: teams[ti].color, minWidth: 38, flexShrink: 0 }}>#{p.num}</span>
+                            <span style={{ fontSize: 13, flex: 1 }}>{p.name}</span>
+                            <button
+                              onClick={() => setRosterEdit({ teamIdx: ti, mode: "edit", playerIdx: pi, num: p.num, name: p.name, error: null })}
+                              style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #e5e5e5", borderRadius: 5, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
+                            >Edit</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {rosterEdit?.teamIdx === ti && rosterEdit?.mode === "add" ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", marginTop: 6, background: "#f0fff4", border: "1px solid #b5e0c0", borderRadius: 6 }}>
+                        <span style={{ fontSize: 11, color: "#888", flexShrink: 0 }}>#</span>
+                        <input
+                          autoFocus
+                          style={{ width: 48, fontSize: 13, fontWeight: 600, border: "1px solid #b5e0c0", borderRadius: 4, padding: "2px 4px" }}
+                          value={rosterEdit.num}
+                          placeholder="00"
+                          onChange={e => setRosterEdit(prev => ({ ...prev, num: e.target.value, error: null }))}
+                          onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
+                        />
+                        <input
+                          style={{ flex: 1, fontSize: 13, border: "1px solid #b5e0c0", borderRadius: 4, padding: "2px 4px" }}
+                          value={rosterEdit.name}
+                          placeholder="Player name"
+                          onChange={e => setRosterEdit(prev => ({ ...prev, name: e.target.value, error: null }))}
+                          onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
+                        />
+                        <button onClick={commitRosterEdit} style={{ fontSize: 11, fontWeight: 600, color: "#fff", background: "#2a7a3b", border: "none", borderRadius: 5, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>Add</button>
+                        <button onClick={() => setRosterEdit(null)} style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #ddd", borderRadius: 5, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setRosterEdit({ teamIdx: ti, mode: "add", num: "", name: "", error: null })}
+                        style={{ marginTop: 8, fontSize: 12, color: "#2a7a3b", background: "none", border: "1px dashed #b5e0c0", borderRadius: 6, padding: "5px 12px", cursor: "pointer", width: "100%", textAlign: "left" }}
+                      >+ Add player</button>
+                    )}
+                    {rosterEdit?.teamIdx === ti && rosterEdit?.error && (
+                      <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4 }}>{rosterEdit.error}</div>
+                    )}
+                    {teams[ti].orgTeamId && (
+                      <div style={{ fontSize: 11, color: "#bbb", marginTop: 8 }}>
+                        Changes apply to this game only · Org → Teams roster is unchanged
+                      </div>
+                    )}
+                  </>
+                ) : teams[ti].orgTeamId ? (
+                  /* ── Locked org team (pre-game) ── */
                   <>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       <div style={{ width: 12, height: 12, borderRadius: "50%", background: teams[ti].color, flexShrink: 0 }} />
@@ -1052,7 +1164,7 @@ export default function LaxStats({
                     })()}
                   </>
                 ) : (
-                  /* ── Free-form entry ── */
+                  /* ── Free-form entry (pre-game) ── */
                   <>
                     <input style={S.textInput} placeholder={ti === 0 ? "Home team name" : "Away team name"}
                       value={teams[ti].name} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, name: e.target.value } : x))} />

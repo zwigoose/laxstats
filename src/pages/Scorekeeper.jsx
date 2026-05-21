@@ -29,6 +29,7 @@ const S = {
 
 function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }) {
   const [saveStatus, setSaveStatus] = useState("");
+  const [eventsEverLoaded, setEventsEverLoaded] = useState(false);
   const saveTimer    = useRef(null);
   const pendingMeta  = useRef(null);
   const saveInFlight = useRef(false);
@@ -186,6 +187,12 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
 
+  // Once events have loaded for the first time, keep LaxStats mounted even during
+  // reconnect reloads — prevents roster/state loss when useGameEvents re-runs load().
+  useEffect(() => {
+    if (!eventsLoading) setEventsEverLoaded(true);
+  }, [eventsLoading]);
+
   // Keep tokenRef current so the beforeunload flush can use it without async work.
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -292,7 +299,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
         </div>
       )}
 
-      {eventsLoading ? (
+      {!eventsEverLoaded ? (
         <div style={S.loading}>Loading events…</div>
       ) : (
         <LaxStats
