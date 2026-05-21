@@ -83,7 +83,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
   // game_meta_events (via derivedQuarterState), log from game_events rows.
   // For v1 games (no org_id / schema_ver < 2), fall back to games.state as before.
   const isV2 = !!(game?.org_id);
-  const initialState = eventsLoading
+  const initialState = (eventsLoading || !game)
     ? undefined  // still loading — LaxStats waits
     : (() => {
         if (!game?.state && entries.length === 0) return null;
