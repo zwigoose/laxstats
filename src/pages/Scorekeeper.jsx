@@ -141,11 +141,12 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
       setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
     }
-    // Strip log, scores, and quarter fields — these live in game_events / game_meta_events,
-    // not in games.state. Non-team fields (trackingStarted, gameDate, _nextId) still go
-    // through the debounced games.state write below.
-    const { log: _log, currentQuarter: _cq, completedQuarters: _cqs, gameOver: _go,
-            score0: _s0, score1: _s1, ...meta } = newState;
+    // Strip log and completedQuarters — authoritative in game_events / game_meta_events.
+    // Keep gameOver, currentQuarter, and derived scores in games.state so GameList can
+    // display Live/Final status and the score without querying game_events.
+    const { log: _log, completedQuarters: _cqs, score0: _s0, score1: _s1, ...meta } = newState;
+    meta.score0 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
+    meta.score1 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
     pendingMeta.current = meta;
     // Persist to localStorage immediately so network failures don't lose state.
     try { localStorage.setItem(PENDING_STATE_KEY, JSON.stringify(meta)); } catch { /* ignore */ }
