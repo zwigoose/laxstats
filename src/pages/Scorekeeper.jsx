@@ -416,7 +416,10 @@ export default function Scorekeeper() {
   }
 
   if (inviteError) return <div style={S.error}>{inviteError}</div>;
-  if (loading || authLoading || (inviteToken && !user)) return <div style={S.loading}>Loading game…</div>;
+  // Only block on auth/game loading before the game record is first fetched.
+  // After that, never re-gate — a JWT token refresh sets authLoading=true briefly
+  // and would otherwise unmount ScorekeeperGame, wiping all unsaved setup state.
+  if (!game && (loading || authLoading || (inviteToken && !user))) return <div style={S.loading}>Loading game…</div>;
   if (error)   return <div style={S.error}>{error}</div>;
 
   return <ScorekeeperGame game={game} id={id} navigate={navigate} userId={user?.id} isAnonymous={user?.is_anonymous ?? false} orgContext={orgContext} />;
