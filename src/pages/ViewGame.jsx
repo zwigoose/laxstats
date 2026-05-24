@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { QRCodeCanvas } from "qrcode.react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { linkGameToAwaySeason } from "../services/games";
@@ -9,6 +10,7 @@ import {
 } from "../components/LaxStats";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { dbRowToEntry } from "../hooks/useGameEvents";
+import { deriveQuarterState } from "../services/gameEvents";
 import GameTimeline from "../components/GameTimeline";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
 
@@ -66,10 +68,10 @@ export default function ViewGame() {
   const [statsTab, setStatsTab] = useState("summary");
   const [statsQtr, setStatsQtr] = useState("all");
   const [copied, setCopied] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const qrCanvasRef = useRef(null);
   const [hasPressbox, setHasPressbox] = useState(false);
-  const [inviteLink,  setInviteLink]  = useState(null);
-  const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
-  const [inviteError, setInviteError] = useState(null);
+  const [derivedQuarterState, setDerivedQuarterState] = useState(null);
 
   // Away org "Add to my season" state
   const [awayOrgRole, setAwayOrgRole]       = useState(null); // role string if viewer is a member of away org
@@ -86,37 +88,56 @@ export default function ViewGame() {
     });
   }
 
-  async function generateInviteLink() {
-    setInviteState("generating");
-    setInviteError(null);
-    const { data: token, error: err } = await supabase.rpc("create_scorekeeper_invite", { p_game_id: id });
-    if (err || !token) {
-      setInviteError(err?.message || "Failed to generate link");
-      setInviteState("error");
-      return;
-    }
-    setInviteLink(`${window.location.origin}/games/${id}/score?token=${token}`);
-    setInviteState("ready");
+  function saveQrImage() {
+    const canvas = qrCanvasRef.current?.querySelector("canvas");
+    if (!canvas) return;
+    const link = document.createElement("a");
+    link.download = `laxstats-game-${id}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
   }
 
-  function copyInviteLink() {
-    navigator.clipboard.writeText(inviteLink).then(() => {
-      setInviteState("copied");
-      setTimeout(() => setInviteState("ready"), 2000);
-    });
-  }
 
-  useEffect(() => {
+useEffect(() => {
     loadGame();
 
-    // Subscribe to changes on the games row (works for both v1 and v2)
-    const channel = supabase.channel(`viewgame-${id}`)
+    const channel = supabase.channel(`game-events-${id}`)
+      // Broadcasts from the scorekeeper — primary live-update path
+      .on("broadcast", { event: "new_events" }, ({ payload }) => {
+        const incoming = (payload?.entries ?? []).map(dbRowToEntry);
+        if (!incoming.length) return;
+        setV2Log(prev => {
+          const base = prev ?? [];
+          const existingIds = new Set(base.map(e => e.dbId));
+          const toAdd = incoming.filter(e => !existingIds.has(e.dbId));
+          if (!toAdd.length) return prev;
+          return [...base, ...toAdd].sort((a, b) => a.seq - b.seq);
+        });
+      })
+      .on("broadcast", { event: "delete_group" }, ({ payload }) => {
+        setV2Log(prev => prev ? prev.filter(e => e.groupId !== payload?.groupId) : prev);
+      })
+      .on("broadcast", { event: "meta_update" }, ({ payload }) => {
+        if (!payload) return;
+        setDerivedQuarterState(prev => {
+          const prevQ = prev?.currentQuarter ?? 1;
+          const newQ  = payload.currentQuarter ?? prevQ;
+          const prevCompleted = prev?.completedQuarters ?? [];
+          let completed = prevCompleted;
+          if (payload.gameOver && !completed.includes(newQ)) {
+            completed = [...completed, newQ];
+          } else if (newQ > prevQ && !completed.includes(prevQ)) {
+            completed = [...completed, prevQ];
+          }
+          return { currentQuarter: newQ, completedQuarters: completed, gameOver: payload.gameOver ?? prev?.gameOver ?? false };
+        });
+      })
+      // postgres_changes as fallback — handles reconnect gaps and soft-deletes
       .on("postgres_changes", {
         event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}`,
       }, (payload) => {
         setGame(prev => prev ? { ...prev, ...payload.new } : payload.new);
       })
-      // v2: subscribe to new game_events
       .on("postgres_changes", {
         event: "INSERT", schema: "public", table: "game_events", filter: `game_id=eq.${id}`,
       }, (payload) => {
@@ -128,7 +149,6 @@ export default function ViewGame() {
           return [...prev, entry].sort((a, b) => a.seq - b.seq);
         });
       })
-      // v2: subscribe to soft-deletes
       .on("postgres_changes", {
         event: "UPDATE", schema: "public", table: "game_events", filter: `game_id=eq.${id}`,
       }, (payload) => {
@@ -136,12 +156,31 @@ export default function ViewGame() {
           setV2Log(prev => prev ? prev.filter(e => e.dbId !== payload.new.id) : prev);
         }
       })
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "game_meta_events", filter: `game_id=eq.${id}`,
+      }, (payload) => {
+        setDerivedQuarterState(prev => {
+          const row = payload.new;
+          if (!prev) return deriveQuarterState([row]);
+          let { currentQuarter, completedQuarters, gameOver } = prev;
+          if (row.event_type === "quarter_end") {
+            completedQuarters = [...completedQuarters, row.from_quarter];
+            currentQuarter    = row.to_quarter;
+          } else if (row.event_type === "game_over") {
+            completedQuarters = [...completedQuarters, row.from_quarter];
+            gameOver          = true;
+            currentQuarter    = row.from_quarter;
+          } else if (row.event_type === "quarter_override") {
+            currentQuarter = row.to_quarter;
+          }
+          return { currentQuarter, completedQuarters, gameOver };
+        });
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [id]);
 
-  // v2: separate event log state
   const [v2Log, setV2Log] = useState(null);
 
   async function loadGame() {
@@ -180,13 +219,22 @@ export default function ViewGame() {
       setHasPressbox(limit !== 0);
     }
 
-    const { data: evData } = await supabase
-      .from("game_events")
-      .select("*")
-      .eq("game_id", id)
-      .is("deleted_at", null)
-      .order("seq");
-    setV2Log((evData || []).map(dbRowToEntry));
+    const [evRes, metaRes] = await Promise.all([
+      supabase
+        .from("game_events")
+        .select("*")
+        .eq("game_id", id)
+        .is("deleted_at", null)
+        .order("seq"),
+      supabase
+        .from("game_meta_events")
+        .select("*")
+        .eq("game_id", id)
+        .order("seq"),
+    ]);
+    setV2Log((evRes.data || []).map(dbRowToEntry));
+    const derived = deriveQuarterState(metaRes.data || []);
+    if (derived) setDerivedQuarterState(derived);
 
     setLoading(false);
   }
@@ -196,9 +244,9 @@ export default function ViewGame() {
   const teams = state?.teams || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
   const log = v2Log ?? [];
-  const currentQuarter = state?.currentQuarter || 1;
-  const completedQuarters = state?.completedQuarters || [];
-  const gameOver = state?.gameOver || false;
+  const currentQuarter    = derivedQuarterState?.currentQuarter    ?? state?.currentQuarter    ?? 1;
+  const completedQuarters = derivedQuarterState?.completedQuarters ?? state?.completedQuarters ?? [];
+  const gameOver          = derivedQuarterState?.gameOver          ?? state?.gameOver          ?? false;
   const teamColors = [teams[0]?.color || "#1a6bab", teams[1]?.color || "#b84e1a"];
 
   const totalScores = useMemo(() => [
@@ -269,42 +317,52 @@ export default function ViewGame() {
         {hasPressbox && (
           <button style={S.copyBtn} onClick={() => window.open(`/games/${id}/pressbox`, "_blank")}>Press Box ↗</button>
         )}
-        {(user?.id === game?.user_id || isAdmin) && !gameOver && (
-          <button style={(inviteLink || inviteState === "error") ? { ...S.copyBtnDone, cursor: "pointer" } : S.copyBtn}
-            onClick={() => {
-              if (inviteLink || inviteState === "error") { setInviteLink(null); setInviteState("idle"); setInviteError(null); }
-              else generateInviteLink();
-            }}
-            disabled={inviteState === "generating"}>
-            {inviteState === "generating" ? "…" : (inviteLink || inviteState === "error") ? "Hide invite" : "Invite scorer"}
-          </button>
-        )}
-        <button style={copied ? S.copyBtnDone : S.copyBtn} onClick={copyUrl}>
+<button style={copied ? S.copyBtnDone : S.copyBtn} onClick={copyUrl}>
           {copied ? "✓ Copied" : "Copy link"}
+        </button>
+        <button style={S.copyBtn} onClick={() => setQrOpen(true)} title="Show QR code">
+          QR
         </button>
       </div>
 
-      {inviteState === "error" && (
-        <div style={{ padding: "8px 16px", background: "#fff5f5", borderBottom: "1px solid #fdd", fontFamily: "system-ui, sans-serif", fontSize: 12, color: "#c0392b", maxWidth: 600, margin: "0 auto" }}>
-          Could not generate invite link: {inviteError}
+      {qrOpen && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setQrOpen(false); }}
+        >
+          <div style={{ background: "#fff", borderRadius: 16, padding: "28px 28px 24px", maxWidth: 320, width: "calc(100% - 40px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#111", textAlign: "center" }}>{game?.name || "Game"}</div>
+            <div ref={qrCanvasRef} style={{ lineHeight: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #e5e5e5" }}>
+              <QRCodeCanvas
+                value={`${window.location.origin}/games/${id}/view`}
+                size={220}
+                level="M"
+                includeMargin
+              />
+            </div>
+            <div style={{ fontSize: 11, color: "#999", textAlign: "center", wordBreak: "break-all", maxWidth: 240 }}>
+              {window.location.origin}/games/{id}/view
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                style={{ fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, padding: "8px 20px", cursor: "pointer" }}
+                onClick={saveQrImage}
+              >
+                Save image
+              </button>
+              <button
+                style={{ fontSize: 13, color: "#888", background: "none", border: "1px solid #e0e0e0", borderRadius: 8, padding: "8px 16px", cursor: "pointer" }}
+                onClick={() => setQrOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {inviteLink && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", background: "#f0f7ff", borderBottom: "1px solid #c8dff5", fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto" }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#1a6bab", whiteSpace: "nowrap" }}>Scorer invite</span>
-          <span style={{ flex: 1, fontSize: 11, color: "#444", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "monospace" }}>{inviteLink}</span>
-          <button onClick={copyInviteLink} style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, background: inviteState === "copied" ? "#2a7a3b" : "#1a6bab", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
-            {inviteState === "copied" ? "Copied ✓" : "Copy"}
-          </button>
-          <button onClick={generateInviteLink} style={{ padding: "4px 10px", fontSize: 11, color: "#1a6bab", background: "transparent", border: "1px solid #b3d4f0", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
-            New link
-          </button>
-          <span style={{ fontSize: 10, color: "#999", whiteSpace: "nowrap" }}>Expires 24h</span>
-        </div>
-      )}
 
-      {/* Away org "Add to my season" banner */}
+{/* Away org "Add to my season" banner */}
       {awayOrgRole && addSeasonState !== "done" && (
         <div style={{ padding: "12px 16px", background: "#fffbe6", borderBottom: "1px solid #ffe58f", fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto" }}>
           {addSeasonState === "idle" && (

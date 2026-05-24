@@ -60,10 +60,10 @@ function AppNav() {
   const location  = useLocation();
   const path      = location.pathname;
 
-  if (!user || path === "/login" || NO_NAV.test(path)) return null;
+  if (path === "/login" || NO_NAV.test(path)) return null;
 
   const hasOrgs = orgMemberships?.length > 0;
-  const initials = user.email ? user.email[0].toUpperCase() : "?";
+  const initials = user?.email ? user.email[0].toUpperCase() : null;
 
   return (
     <div style={{
@@ -96,23 +96,37 @@ function AppNav() {
         <NavItem label="Admin" active={path === "/admin"}         onClick={() => navigate("/admin")} />
       )}
 
-      {/* Profile avatar — pinned to right */}
+      {/* Profile / sign in — pinned to right */}
       <div style={{ flex: 1 }} />
-      <button
-        onClick={() => navigate("/profile")}
-        title="Profile"
-        style={{
-          width: 30, height: 30, borderRadius: "50%",
-          background: path === "/profile" ? "#111" : "#e8e8e8",
-          color: path === "/profile" ? "#fff" : "#555",
-          border: "none", cursor: "pointer",
-          fontSize: 12, fontWeight: 700, fontFamily: "system-ui, sans-serif",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        {initials}
-      </button>
+      {user ? (
+        <button
+          onClick={() => navigate("/profile")}
+          title="Profile"
+          style={{
+            width: 30, height: 30, borderRadius: "50%",
+            background: path === "/profile" ? "#111" : "#e8e8e8",
+            color: path === "/profile" ? "#fff" : "#555",
+            border: "none", cursor: "pointer",
+            fontSize: 12, fontWeight: 700, fontFamily: "system-ui, sans-serif",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          {initials}
+        </button>
+      ) : (
+        <button
+          onClick={() => navigate("/login")}
+          style={{
+            fontSize: 13, fontWeight: 600, color: "#111",
+            background: "none", border: "1px solid #e0e0e0",
+            borderRadius: 8, padding: "5px 12px", cursor: "pointer",
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          Sign in
+        </button>
+      )}
     </div>
   );
 }

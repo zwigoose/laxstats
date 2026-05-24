@@ -16,7 +16,7 @@ When the game is over, the full box score, player stats, and event timeline are 
 
 ## Who needs an account
 
-**Scoring a personal game requires an account.** Accounts are created by an admin — contact whoever manages your LaxStats setup to get access.
+**Scoring a personal game requires an account.** Sign up at the login screen with your email address and a password, or ask a platform admin to create an account for you.
 
 **Scoring via an invite link does not.** If the game owner sends you a scorer invite link, you can open the scorekeeper directly in any browser. No login, no account, no app download.
 
@@ -24,13 +24,25 @@ When the game is over, the full box score, player stats, and event timeline are 
 
 ---
 
+## Plans
+
+LaxStats offers personal and org plans:
+
+- **Personal** (Free / Basic / Plus) — controls how many personal games you can keep active
+- **Org** (Pro / Max) — unlocks org features: registered teams, season stats, multi-scorer, Press Box, and member bonuses on personal game limits
+
+Manage your plan from `/pricing` or your Profile page.
+
+---
+
 ## Your profile
 
 Tap the initials avatar in the top-right corner of the nav bar to open your profile. From there you can:
 
-- Set a **display name** shown in place of your username
+- Set a **display name** shown throughout the app
 - **Change your email** address (sends a confirmation to the new address)
 - **Change your password**
+- **Manage billing** — upgrade, downgrade, or cancel your personal plan
 - **Sign out**
 
 ---

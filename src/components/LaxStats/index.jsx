@@ -25,9 +25,10 @@ export default function LaxStats({
   onEventCommit = null,             // async (stampedEntries) => void — write group to game_events
   onEventSoftDelete = null,         // async (groupId) => void — soft-delete group in game_events
   onEventDismissDuplicate = null,   // async (groupId) => void — clear duplicate flag on a group
-  onMetaEvent = null,               // async (type, payload) => void — quarter/game state changes
+  onMetaEvent = null,               // async (type, fromQuarter, toQuarter) => row — DB-confirmed quarter transition
   remoteEntries = null,      // [{...entry}] from other scorers; merged into local log
-  remoteQuarterState = null, // { currentQuarter, completedQuarters, gameOver } from primary scorer
+  remoteQuarterState = null, // { currentQuarter, completedQuarters, gameOver } broadcast hint from primary scorer
+  derivedQuarterState = null, // { currentQuarter, completedQuarters, gameOver } authoritative from game_meta_events
   scorekeeperRole = "primary", // "primary" | "secondary"
   // org game props — optional; omit for personal games
   orgContext = null,          // { orgId, orgName, seasonName } — shows org banner + loads org teams
@@ -38,6 +39,9 @@ export default function LaxStats({
   const [teams, setTeams] = useState([{ name: "Home", roster: "", color: "#1a6bab" }, { name: "Away", roster: "", color: "#b84e1a" }]);
   const [parsedRosters, setParsedRosters] = useState([[], []]);
   const [log, setLog] = useState([]);
+  // Tracks groupIds that were added to `log` via the remoteEntries prop so we know
+  // which ones to remove if a co-scorer's delete broadcast causes them to disappear.
+  const remoteGroupIdsRef = useRef(new Set());
   const [currentQuarter, setCurrentQuarter] = useState(1);
   const [completedQuarters, setCompletedQuarters] = useState([]);
   const [gameOver, setGameOver] = useState(false);
@@ -71,6 +75,16 @@ export default function LaxStats({
 
   const [statsTab, setStatsTab] = useState("summary");
   const [statsQtr, setStatsQtr] = useState("all");
+
+  // Quarter write error (shown when a DB-gated handleEndQuarter fails)
+  const [quarterError, setQuarterError] = useState(null);
+  // Desync banner: shown when derivedQuarterState disagrees with hydrated state
+  const [desyncBanner, setDesyncBanner] = useState(null); // null | { dbQuarter }
+  // Quarter override panel
+  const [quarterOverrideOpen, setQuarterOverrideOpen] = useState(false);
+  const [quarterOverridePending, setQuarterOverridePending] = useState(null);
+  // Mid-game roster editor: null | { teamIdx, mode: "edit"|"add", playerIdx?: number, num: string, name: string }
+  const [rosterEdit, setRosterEdit] = useState(null);
 
   // ── Supabase integration hooks ───────────────────────────────────
   const hydratedRef = useRef(false);
@@ -108,8 +122,19 @@ export default function LaxStats({
     setScreen(initialState.gameOver ? "stats" : initialState.trackingStarted ? "track" : "setup");
     resetEntry();
     // Mark as hydrated after this render cycle so the onStateChange effect
-    // doesn't fire for the state-sets above
-    setTimeout(() => { hydratedRef.current = true; }, 0);
+    // doesn't fire for the state-sets above.
+    // Also check for desync: if derivedQuarterState (from game_meta_events) disagrees
+    // with what games.state reported, show the reconciliation banner before allowing new events.
+    setTimeout(() => {
+      hydratedRef.current = true;
+      if (derivedQuarterState?.currentQuarter != null &&
+          derivedQuarterState.currentQuarter !== (initialState.currentQuarter ?? 1)) {
+        setDesyncBanner({ dbQuarter: derivedQuarterState.currentQuarter });
+        setCurrentQuarter(derivedQuarterState.currentQuarter);
+        setCompletedQuarters(derivedQuarterState.completedQuarters ?? []);
+        if (derivedQuarterState.gameOver) { setGameOver(true); setScreen("stats"); }
+      }
+    }, 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialState]);
 
@@ -120,30 +145,74 @@ export default function LaxStats({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate]);
 
-  // v2: sync quarter/game-over state broadcast by the primary scorer
+  // v2: authoritative quarter state from game_meta_events — takes priority over broadcast hint.
+  // Only applied after hydration so we don't overwrite the initial DB-derived state that was
+  // already baked into initialState.
+  useEffect(() => {
+    if (!derivedQuarterState || !hydratedRef.current) return;
+    if (derivedQuarterState.currentQuarter != null) setCurrentQuarter(derivedQuarterState.currentQuarter);
+    if (derivedQuarterState.completedQuarters != null) setCompletedQuarters(derivedQuarterState.completedQuarters);
+    if (derivedQuarterState.gameOver) { setGameOver(true); setScreen("stats"); }
+    setDesyncBanner(null); // resolved — dismiss any lingering banner
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [derivedQuarterState]);
+
+  // v2: sync quarter/game-over state broadcast by the primary scorer (fast hint only).
+  // derivedQuarterState from game_meta_events takes precedence on conflicts.
   useEffect(() => {
     if (!remoteQuarterState) return;
+    // Only apply if derivedQuarterState hasn't already provided a value, or if the
+    // broadcast is more advanced than what we have (catches cases where DB row hasn't
+    // arrived via postgres_changes yet but the broadcast already came through).
+    const dbQ = derivedQuarterState?.currentQuarter ?? null;
+    const broadcastQ = remoteQuarterState.currentQuarter;
+    if (dbQ != null && broadcastQ != null && broadcastQ < dbQ) return; // DB is ahead, ignore
     if (remoteQuarterState.currentQuarter != null) setCurrentQuarter(remoteQuarterState.currentQuarter);
     if (remoteQuarterState.completedQuarters != null) setCompletedQuarters(remoteQuarterState.completedQuarters);
     if (remoteQuarterState.gameOver) { setGameOver(true); setScreen("stats"); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remoteQuarterState]);
 
-  // v2: merge remote entries from other scorers into local log
+  // v2: sync remote entries from other scorers into local log — handles both additions
+  // (new events from a co-scorer) and removals (undo/delete by a co-scorer).
   useEffect(() => {
-    if (!remoteEntries?.length) return;
+    if (!remoteEntries) return;
+    const remoteGroupIds = new Set(remoteEntries.map(e => e.groupId));
+
     setLog(prev => {
+      // Find groups to add: in remoteEntries but not yet in log.
       const existingGroupIds = new Set(prev.map(e => e.groupId));
       const newGroupIds = new Set();
       const toAdd = [];
       for (const entry of remoteEntries) {
         if (!existingGroupIds.has(entry.groupId) && !newGroupIds.has(entry.groupId)) {
           newGroupIds.add(entry.groupId);
+          remoteGroupIdsRef.current.add(entry.groupId);
         }
         if (newGroupIds.has(entry.groupId)) toAdd.push(entry);
       }
-      if (!toAdd.length) return prev;
-      return [...prev, ...toAdd].sort((a, b) => (a.seq ?? a.id) - (b.seq ?? b.id));
+
+      // Find groups to remove: were added via remoteEntries before but are now gone
+      // (co-scorer deleted them). Never removes entries the local scorer committed.
+      const deletedRemoteGroupIds = [];
+      for (const gid of remoteGroupIdsRef.current) {
+        if (!remoteGroupIds.has(gid)) {
+          deletedRemoteGroupIds.push(gid);
+          remoteGroupIdsRef.current.delete(gid);
+        }
+      }
+
+      if (!toAdd.length && !deletedRemoteGroupIds.length) return prev;
+
+      let next = prev;
+      if (deletedRemoteGroupIds.length) {
+        const toRemove = new Set(deletedRemoteGroupIds);
+        next = next.filter(e => !toRemove.has(e.groupId));
+      }
+      if (toAdd.length) {
+        next = [...next, ...toAdd].sort((a, b) => (a.seq ?? a.id) - (b.seq ?? b.id));
+      }
+      return next;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remoteEntries]);
@@ -357,12 +426,15 @@ export default function LaxStats({
 
     // Only trigger OT game-ending for new goal entries
     if (!isEdit && isOT(currentQuarter) && entries.some(e => e.event === "goal")) {
-      setCompletedQuarters(prev => [...prev, currentQuarter]);
+      const otQuarter = currentQuarter;
+      if (onMetaEvent) {
+        onMetaEvent("game_over", otQuarter, otQuarter).catch(console.error);
+      }
+      setCompletedQuarters(prev => [...prev, otQuarter]);
       setGameOver(true);
       setScreen("stats");
       setStatsTab("summary");
       setStatsQtr("all");
-      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter, newCompletedQuarters: [...completedQuarters, currentQuarter] }).catch(console.error);
       resetEntry();
       return;
     }
@@ -535,6 +607,33 @@ export default function LaxStats({
     reader.readAsText(file);
   }
 
+  // ── Mid-game roster editing ─────────────────────────────────────
+  function commitRosterEdit() {
+    if (!rosterEdit) return;
+    const { teamIdx, mode, playerIdx, num, name } = rosterEdit;
+    const trimNum = num.trim().replace(/^#/, "");
+    const trimName = name.trim();
+    if (!trimNum || !trimName) return;
+
+    const current = [...parsedRosters[teamIdx]];
+    const conflict = current.findIndex((p, i) => p.num === trimNum && i !== playerIdx);
+    if (conflict !== -1) {
+      setRosterEdit(prev => ({ ...prev, error: `#${trimNum} is already on the roster` }));
+      return;
+    }
+
+    if (mode === "edit") {
+      current[playerIdx] = { num: trimNum, name: trimName };
+    } else {
+      current.push({ num: trimNum, name: trimName });
+    }
+
+    const newRosterText = current.map(p => `#${p.num} ${p.name}`).join("\n");
+    setTeams(t => t.map((x, i) => i === teamIdx ? { ...x, roster: newRosterText } : x));
+    setParsedRosters(prev => prev.map((r, i) => i === teamIdx ? current : r));
+    setRosterEdit(null);
+  }
+
   // ── Event flow ──────────────────────────────────────────────────
   function handleStart() {
     if (gameOver) return;
@@ -684,22 +783,34 @@ export default function LaxStats({
     commitEntries(entries, `${e0.foulName || "Personal foul"} (${e0.penaltyMin}min${nrTag}) — #${selectedPlayer.num} ${selectedPlayer.name}`);
   }
 
-  function handleEndQuarter() {
+  async function handleEndQuarter() {
+    setQuarterError(null);
     const tied = totalScores[0] === totalScores[1];
-    const newCompletedQuarters = [...completedQuarters, currentQuarter];
-    setCompletedQuarters(newCompletedQuarters);
-    if (currentQuarter === 4 && !tied) {
-      setGameOver(true); setScreen("stats"); setStatsTab("summary"); setStatsQtr("all");
-      resetEntry();
-      if (onMetaEvent) onMetaEvent("gameOver", { quarter: currentQuarter, newCompletedQuarters })?.catch(console.error);
-    } else {
-      const ended = currentQuarter;
-      const newCurrentQuarter = ended + 1;
-      setCurrentQuarter(newCurrentQuarter);
-      setScreen("track");
-      resetEntry();
-      if (onMetaEvent) onMetaEvent("endQuarter", { quarter: ended, newCurrentQuarter, newCompletedQuarters })?.catch(console.error);
+    const ended = currentQuarter;
+    const isGameOver = ended === 4 && !tied;
+    const metaType = isGameOver ? "game_over" : "quarter_end";
+    const nextQuarter = isGameOver ? ended : ended + 1;
+
+    // Gate local state mutation on DB write so a navigation-away-and-back
+    // always remounts with the correct quarter from game_meta_events.
+    if (onMetaEvent) {
+      try {
+        await onMetaEvent(metaType, ended, nextQuarter);
+      } catch (err) {
+        setQuarterError(err?.message || "Failed to save quarter transition. Please try again.");
+        return; // do not advance local state if the DB write failed
+      }
     }
+
+    const newCompletedQuarters = [...completedQuarters, ended];
+    setCompletedQuarters(newCompletedQuarters);
+    if (isGameOver) {
+      setGameOver(true); setScreen("stats"); setStatsTab("summary"); setStatsQtr("all");
+    } else {
+      setCurrentQuarter(nextQuarter);
+      setScreen("track");
+    }
+    resetEntry();
   }
 
   function handleDeleteGroup(gid) {
@@ -949,8 +1060,91 @@ export default function LaxStats({
                     </select>
                   )}
                 </div>
-                {teams[ti].orgTeamId ? (
-                  /* ── Locked org team ── */
+                {trackingStarted ? (
+                  /* ── Mid-game structured editor (both org and free-form) ── */
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <div style={{ width: 12, height: 12, borderRadius: "50%", background: teams[ti].color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" }}>{teams[ti].name}</span>
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#9a4800", background: "#fff3e0", border: "1px solid #ffd08a", borderRadius: 6, padding: "3px 9px", marginBottom: 10, display: "inline-block" }}>
+                      {teams[ti].orgTeamId ? "Org roster · game-day edits" : "Roster · game in progress"}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {parsedRosters[ti].map((p, pi) => {
+                        const isEditing = rosterEdit?.teamIdx === ti && rosterEdit?.mode === "edit" && rosterEdit?.playerIdx === pi;
+                        if (isEditing) {
+                          return (
+                            <div key={pi} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", background: "#f0f7ff", border: "1px solid #b3d4f0", borderRadius: 6 }}>
+                              <span style={{ fontSize: 11, color: "#888", flexShrink: 0 }}>#</span>
+                              <input
+                                autoFocus
+                                style={{ width: 48, fontSize: 13, fontWeight: 600, border: "1px solid #b3d4f0", borderRadius: 4, padding: "2px 4px" }}
+                                value={rosterEdit.num}
+                                onChange={e => setRosterEdit(prev => ({ ...prev, num: e.target.value, error: null }))}
+                                onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
+                              />
+                              <input
+                                style={{ flex: 1, fontSize: 13, border: "1px solid #b3d4f0", borderRadius: 4, padding: "2px 4px" }}
+                                value={rosterEdit.name}
+                                onChange={e => setRosterEdit(prev => ({ ...prev, name: e.target.value, error: null }))}
+                                onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
+                              />
+                              <button onClick={commitRosterEdit} style={{ fontSize: 11, fontWeight: 600, color: "#fff", background: "#1a6bab", border: "none", borderRadius: 5, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>Save</button>
+                              <button onClick={() => setRosterEdit(null)} style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #ddd", borderRadius: 5, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Cancel</button>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={pi} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", borderRadius: 6 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: teams[ti].color, minWidth: 38, flexShrink: 0 }}>#{p.num}</span>
+                            <span style={{ fontSize: 13, flex: 1 }}>{p.name}</span>
+                            <button
+                              onClick={() => setRosterEdit({ teamIdx: ti, mode: "edit", playerIdx: pi, num: p.num, name: p.name, error: null })}
+                              style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #e5e5e5", borderRadius: 5, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
+                            >Edit</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {rosterEdit?.teamIdx === ti && rosterEdit?.mode === "add" ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", marginTop: 6, background: "#f0fff4", border: "1px solid #b5e0c0", borderRadius: 6 }}>
+                        <span style={{ fontSize: 11, color: "#888", flexShrink: 0 }}>#</span>
+                        <input
+                          autoFocus
+                          style={{ width: 48, fontSize: 13, fontWeight: 600, border: "1px solid #b5e0c0", borderRadius: 4, padding: "2px 4px" }}
+                          value={rosterEdit.num}
+                          placeholder="00"
+                          onChange={e => setRosterEdit(prev => ({ ...prev, num: e.target.value, error: null }))}
+                          onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
+                        />
+                        <input
+                          style={{ flex: 1, fontSize: 13, border: "1px solid #b5e0c0", borderRadius: 4, padding: "2px 4px" }}
+                          value={rosterEdit.name}
+                          placeholder="Player name"
+                          onChange={e => setRosterEdit(prev => ({ ...prev, name: e.target.value, error: null }))}
+                          onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
+                        />
+                        <button onClick={commitRosterEdit} style={{ fontSize: 11, fontWeight: 600, color: "#fff", background: "#2a7a3b", border: "none", borderRadius: 5, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>Add</button>
+                        <button onClick={() => setRosterEdit(null)} style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #ddd", borderRadius: 5, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setRosterEdit({ teamIdx: ti, mode: "add", num: "", name: "", error: null })}
+                        style={{ marginTop: 8, fontSize: 12, color: "#2a7a3b", background: "none", border: "1px dashed #b5e0c0", borderRadius: 6, padding: "5px 12px", cursor: "pointer", width: "100%", textAlign: "left" }}
+                      >+ Add player</button>
+                    )}
+                    {rosterEdit?.teamIdx === ti && rosterEdit?.error && (
+                      <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4 }}>{rosterEdit.error}</div>
+                    )}
+                    {teams[ti].orgTeamId && (
+                      <div style={{ fontSize: 11, color: "#bbb", marginTop: 8 }}>
+                        Changes apply to this game only · Org → Teams roster is unchanged
+                      </div>
+                    )}
+                  </>
+                ) : teams[ti].orgTeamId ? (
+                  /* ── Locked org team (pre-game) ── */
                   <>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       <div style={{ width: 12, height: 12, borderRadius: "50%", background: teams[ti].color, flexShrink: 0 }} />
@@ -984,7 +1178,7 @@ export default function LaxStats({
                     })()}
                   </>
                 ) : (
-                  /* ── Free-form entry ── */
+                  /* ── Free-form entry (pre-game) ── */
                   <>
                     <input style={S.textInput} placeholder={ti === 0 ? "Home team name" : "Away team name"}
                       value={teams[ti].name} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, name: e.target.value } : x))} />
@@ -1112,6 +1306,33 @@ export default function LaxStats({
       {/* ══ TRACK ══ */}
       {screen === "track" && (
         <div>
+          {/* Desync reconciliation banner — blocks new entries until scorer acknowledges */}
+          {desyncBanner && (
+            <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#856404", marginBottom: 4 }}>Quarter state corrected</div>
+              <div style={{ fontSize: 12, color: "#664d03", lineHeight: 1.5, marginBottom: 10 }}>
+                The saved game data shows this game is in <strong>Quarter {desyncBanner.dbQuarter}</strong>.
+                The scorekeeper has been updated to match the database.
+                No entries were lost — please verify the current quarter before continuing.
+              </div>
+              <button
+                style={{ fontSize: 12, fontWeight: 600, color: "#664d03", background: "#ffe69c", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 14px", cursor: "pointer" }}
+                onClick={() => setDesyncBanner(null)}
+              >
+                I understand — continue scoring
+              </button>
+            </div>
+          )}
+
+          {/* Quarter write error */}
+          {quarterError && (
+            <div style={{ background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#c0392b", marginBottom: 4 }}>Quarter not saved</div>
+              <div style={{ fontSize: 12, color: "#c0392b" }}>{quarterError}</div>
+              <button style={{ fontSize: 11, color: "#c0392b", background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", textDecoration: "underline" }} onClick={() => setQuarterError(null)}>Dismiss</button>
+            </div>
+          )}
+
           {/* Persistent last-entry banner */}
           {lastEntry && step === "team" && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f0f0f0", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 13 }}>
@@ -1221,6 +1442,59 @@ export default function LaxStats({
                 onClick={() => { if (!gameOver && scorekeeperRole !== "secondary") setStep("endqtr"); }}>
                 {scorekeeperRole === "secondary" ? `${curQLabel} — Primary controls quarter` : `End ${curQLabel} →`}
               </button>
+
+              {/* Quarter override (escape hatch — not prominent) */}
+              {scorekeeperRole !== "secondary" && onMetaEvent && !gameOver && (
+                <div style={{ textAlign: "center", marginTop: 6 }}>
+                  <button
+                    style={{ fontSize: 11, color: "#aaa", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: "2px 0" }}
+                    onClick={() => { setQuarterOverridePending(currentQuarter); setQuarterOverrideOpen(true); }}
+                  >
+                    Wrong quarter?
+                  </button>
+                </div>
+              )}
+
+              {/* Quarter override panel */}
+              {quarterOverrideOpen && (
+                <div style={{ marginTop: 10, background: "#f5f5f5", border: "1px solid #ddd", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111", marginBottom: 8 }}>Set current quarter</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                    {[1, 2, 3, 4, 5, 6].filter(q => q <= Math.max(currentQuarter + 1, 4)).map(q => (
+                      <button
+                        key={q}
+                        style={{ padding: "8px 14px", fontSize: 13, fontWeight: q === quarterOverridePending ? 700 : 400, background: q === quarterOverridePending ? "#111" : "#fff", color: q === quarterOverridePending ? "#fff" : "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}
+                        onClick={() => setQuarterOverridePending(q)}
+                      >
+                        {q <= 4 ? `Q${q}` : `OT${q - 4}`}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button style={S.btnSecondary} onClick={() => { setQuarterOverrideOpen(false); setQuarterOverridePending(null); }}>Cancel</button>
+                    <button
+                      style={{ ...S.btnWarning, opacity: quarterOverridePending === currentQuarter ? 0.5 : 1 }}
+                      disabled={quarterOverridePending === currentQuarter}
+                      onClick={async () => {
+                        if (quarterOverridePending == null || quarterOverridePending === currentQuarter) return;
+                        setQuarterError(null);
+                        try {
+                          await onMetaEvent("quarter_override", currentQuarter, quarterOverridePending);
+                          setCurrentQuarter(quarterOverridePending);
+                          setQuarterOverrideOpen(false);
+                          setQuarterOverridePending(null);
+                        } catch (err) {
+                          setQuarterError(err?.message || "Failed to save quarter override.");
+                          setQuarterOverrideOpen(false);
+                        }
+                      }}
+                    >
+                      Set to {quarterOverridePending != null ? (quarterOverridePending <= 4 ? `Q${quarterOverridePending}` : `OT${quarterOverridePending - 4}`) : "—"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div style={{ textAlign: "center", marginTop: 10 }}>
                 <button style={S.tabBtn(false)} onClick={() => setScreen("stats")}>View stats →</button>
               </div>

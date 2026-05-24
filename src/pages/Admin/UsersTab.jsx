@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { qLabel } from "../../utils/stats";
 import { formatDate, getGameInfo } from "../../utils/game";
-import { displayName, toEmail, makeTempClient } from "./helpers";
+import { displayName, makeTempClient } from "./helpers";
 import { PERSONAL_PLANS, PLAN_STATUS } from "../../constants/lacrosse";
 
 const PERSONAL_PLAN_COLOR = {
@@ -25,7 +25,7 @@ export default function UsersTab() {
   const [deleteStages, setDeleteStages] = useState({});
 
   const [showCreate, setShowCreate]   = useState(false);
-  const [newUsername, setNewUsername] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [creating, setCreating]       = useState(false);
   const [createError, setCreateError] = useState(null);
@@ -72,13 +72,12 @@ export default function UsersTab() {
   async function handleCreateUser(e) {
     e.preventDefault();
     setCreateError(null); setCreating(true);
-    const email = toEmail(newUsername);
     const tempClient = makeTempClient();
-    const { data, error: err } = await tempClient.auth.signUp({ email, password: newPassword });
+    const { data, error: err } = await tempClient.auth.signUp({ email: newEmail.trim(), password: newPassword });
     if (err) {
       setCreateError(err.message);
     } else if (data?.user) {
-      setShowCreate(false); setNewUsername(""); setNewPassword("");
+      setShowCreate(false); setNewEmail(""); setNewPassword("");
       const { data: usersData } = await supabase.rpc("admin_get_users");
       if (usersData) setUsers(usersData);
     }
@@ -130,9 +129,9 @@ export default function UsersTab() {
             <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>New User</div>
             <form onSubmit={handleCreateUser}>
               <div style={{ marginBottom: 10 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Username</label>
-                <input style={inputStyle} type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)}
-                  placeholder="username" required autoCapitalize="off" autoCorrect="off" />
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Email</label>
+                <input style={inputStyle} type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)}
+                  placeholder="user@example.com" required autoCapitalize="off" autoCorrect="off" />
               </div>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Password</label>
@@ -143,7 +142,7 @@ export default function UsersTab() {
                 <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 8, padding: "8px 12px", color: "#c0392b", fontSize: 12, marginBottom: 10 }}>{createError}</div>
               )}
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" onClick={() => { setShowCreate(false); setCreateError(null); setNewUsername(""); setNewPassword(""); }}
+                <button type="button" onClick={() => { setShowCreate(false); setCreateError(null); setNewEmail(""); setNewPassword(""); }}
                   style={{ padding: "8px 14px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555" }}>Cancel</button>
                 <button type="submit" disabled={creating}
                   style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, background: creating ? "#ccc" : "#111", color: "#fff", border: "none", borderRadius: 8, cursor: creating ? "not-allowed" : "pointer" }}>
