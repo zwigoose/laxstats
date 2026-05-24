@@ -662,8 +662,11 @@ export default function LaxStats({
     } else {
       if (ev.id === "faceoff_win") {
         setLastFaceoffWinner(prev => prev.map((v, i) => i === selectedTeam ? player : v));
+        setPendingEntries([mkEntry(selectedTeam, "faceoff_win", player)]);
+        setStep("ask_faceoff_gb");
+      } else {
+        commitEntries([mkEntry(selectedTeam, ev.id, player)], `${ev.label} — #${player.num} ${player.name}`);
       }
-      commitEntries([mkEntry(selectedTeam, ev.id, player)], `${ev.label} — #${player.num} ${player.name}`);
     }
   }
 
@@ -728,6 +731,17 @@ export default function LaxStats({
   function handleBlockerSelected(blockingPlayer) {
     commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_blocked", blockingPlayer)], `Shot blocked — #${selectedPlayer.num} ${selectedPlayer.name} · blocked by #${blockingPlayer.num} ${blockingPlayer.name}`);
   }
+  function handleFaceoffGBNo() {
+    const f = pendingEntries.find(e => e.event === 'faceoff_win');
+    commitEntries(pendingEntries, `Faceoff W — #${f.player.num} ${f.player.name}`);
+  }
+  function handleFaceoffGBYes() { setStep("faceoff_gb_player"); }
+  function handleFaceoffGBPlayerSelected(player) {
+    const f = pendingEntries.find(e => e.event === 'faceoff_win');
+    const entries = [...pendingEntries, mkEntry(selectedTeam, "ground_ball", player)];
+    commitEntries(entries, `FO Win + GB — #${f.player.num} / #${player.num}`);
+  }
+
 
   // Forced TO flow: pick the opposing player who turned it over
   function handleForcedToPlayerSelected(victim) {
@@ -1562,6 +1576,43 @@ export default function LaxStats({
                       const sel = editPrev ? (editPrev.num === p.num && editPrev.name === p.name) : false;
                       return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handlePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
                     })}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+          {/* Faceoff Cleanup: ask if there was a GB */}
+          {step === "ask_faceoff_gb" && (
+            <div>
+              <button style={S.backBtn} onClick={() => setStep("player")}>← Back</button>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>
+                🔄 Faceoff Win — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
+              </div>
+              <div style={S.questionCard}><div style={S.questionText}>Who came up with the GB?</div></div>
+              <div style={S.yesNoRow}>
+                <button style={S.btnNo} onClick={handleFaceoffGBNo}>Nobody (Straight win)</button>
+                <button style={S.btnYes} onClick={() => handleFaceoffGBPlayerSelected(selectedPlayer)}>FOGO did (#{selectedPlayer?.num})</button>
+                <button style={S.btnYes} onClick={handleFaceoffGBYes}>Someone else...</button>
+              </div>
+            </div>
+          )}
+
+          {/* Faceoff Cleanup: pick the GB player */}
+          {step === "faceoff_gb_player" && (
+            <div>
+              <button style={S.backBtn} onClick={() => setStep("ask_faceoff_gb")}>← Back</button>
+              <div style={{ ...S.stepLabel }}>Ground Ball — Which player?</div>
+              {(() => {
+                const isHome = selectedTeam === 0;
+                const roster = parsedRosters[selectedTeam] || [];
+                return (
+                  <div style={S.playerGrid}>
+                    {roster.map((p, i) => (
+                      <button key={i} style={S.playerBtn(false, teamColors[selectedTeam], isHome)} onClick={() => handleFaceoffGBPlayerSelected(p)}>
+                        <span style={S.playerNum(false, isHome, teamColors[selectedTeam])}>#{p.num}</span>
+                        <span style={S.playerName(false, isHome, teamColors[selectedTeam])}>{p.name}</span>
+                      </button>
+                    ))}
                   </div>
                 );
               })()}
