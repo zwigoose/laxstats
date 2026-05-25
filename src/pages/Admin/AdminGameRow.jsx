@@ -156,21 +156,19 @@ export default function AdminGameRow({ game, userMap, users, onReassigned, onDel
             )}
             {pressboxError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{pressboxError}</div>}
           </div>
-          {game.schema_ver === 2 && (
-            <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Multi-Scorekeeper</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <button onClick={handleToggleMultiScorer} disabled={togglingMultiScorer}
-                  style={{ position: "relative", width: 40, height: 22, borderRadius: 11, border: "none", background: multiScorerEnabled ? "#111" : "#ddd", cursor: togglingMultiScorer ? "default" : "pointer", transition: "background 0.2s", flexShrink: 0, padding: 0 }}>
-                  <span style={{ position: "absolute", top: 3, left: multiScorerEnabled ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-                </button>
-                <span style={{ fontSize: 13, color: "#555" }}>
-                  {multiScorerEnabled ? "Enabled — scorer invite links can be generated" : "Disabled — only the game owner can score"}
-                </span>
-              </div>
-              {multiScorerError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{multiScorerError}</div>}
+          <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Multi-Scorekeeper</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button onClick={handleToggleMultiScorer} disabled={togglingMultiScorer}
+                style={{ position: "relative", width: 40, height: 22, borderRadius: 11, border: "none", background: multiScorerEnabled ? "#111" : "#ddd", cursor: togglingMultiScorer ? "default" : "pointer", transition: "background 0.2s", flexShrink: 0, padding: 0 }}>
+                <span style={{ position: "absolute", top: 3, left: multiScorerEnabled ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+              </button>
+              <span style={{ fontSize: 13, color: "#555" }}>
+                {multiScorerEnabled ? "Enabled — scorer invite links can be generated" : "Disabled — only the game owner can score"}
+              </span>
             </div>
-          )}
+            {multiScorerError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{multiScorerError}</div>}
+          </div>
           <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Danger zone</div>
             {!deleteConfirm ? (

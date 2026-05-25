@@ -20,24 +20,25 @@ npm run test:coverage  # Coverage report
 
 ## Architecture Overview
 
-### Two Scoring Modes
+### Data Model
 
-There are two parallel data architectures in this codebase:
+All games — personal and org-linked — use the same event-sourced data model:
 
-- **v1** — personal games, score stored as a JSONB blob in `games.log_json`
-- **v2** — org-linked games, score stored as normalized rows in `game_events` with Supabase Realtime subscriptions and multi-scorer support
+- **`game_events`** — normalized rows for every scored action (goal, shot, penalty, etc.) with soft deletes (`deleted_at`, `deleted_by`) and duplicate detection (`is_possible_duplicate`)
+- **`game_meta_events`** — immutable rows for quarter-start, quarter-end, and game-over transitions; `deriveQuarterState()` replays these to reconstruct authoritative quarter/game-over state
+- **`games.state`** — a denormalized JSONB display cache written by the scorekeeper; holds `teams` (roster), `trackingStarted`, `gameOver`, `currentQuarter`, `score0`, `score1`, and `gameDate` so the game list can render Live/Final status and scores without querying `game_events`
 
-A game's version is determined by whether it has an `org_id`. Many components branch on this. The `game_events` table uses soft deletes (`deleted_at`, `deleted_by`) rather than hard deletes. Duplicate detection (`is_possible_duplicate`) alerts scorers to potential double-entries.
+The only distinction between game types is whether a game has an `org_id` (org-linked) or not (personal). There is no separate v1/v2 data model split — that architecture was removed in v2.12.0.
 
 ### Key Layers
 
 | Layer | Location | Role |
 |---|---|---|
 | Pages | `src/pages/` | Route-level components; mostly thin wrappers that compose hooks |
-| Components | `src/components/` | Reusable UI; `LaxStats.jsx` is the monolithic ~114KB scorekeeper input UI |
-| Hooks | `src/hooks/` | `useGameEvents` is the core—handles Realtime subscription, offline queue, and event reconciliation |
+| Components | `src/components/` | Reusable UI; `LaxStats/index.jsx` is the monolithic scorekeeper input UI |
+| Hooks | `src/hooks/` | `useGameEvents` is the core — handles Realtime subscription, offline queue, event reconciliation, and `game_meta_events` commits |
 | Services | `src/services/` | Supabase query functions (`games.js`, `gameEvents.js`, `teams.js`, `offlineQueue.js`) |
-| Utils | `src/utils/` | `stats.js` computes all derived stats in JS (no DB aggregation); `game.js` for roster/time helpers |
+| Utils | `src/utils/` | `stats.js` computes all derived stats in JS (no DB aggregation); `game.js` has date formatting and `getGameInfo()` for reading the `games.state` display cache |
 | Contexts | `src/contexts/` | `AuthContext` loads session + profile + org memberships on mount |
 | Lib | `src/lib/supabase.js` | Supabase client with Realtime keepalive channel to prevent WebSocket drop |
 
@@ -59,11 +60,11 @@ React Router v7. Scorekeeper (`/games/:id/score`) and Pressbox (`/games/:id/pres
 
 ## Database
 
-Supabase PostgreSQL with 45+ migrations in `supabase/migrations/`. Local dev uses:
+Supabase PostgreSQL with 69+ migrations in `supabase/migrations/`. Local dev uses:
 - API: port 54321
 - DB: port 54322
 
-Key v2 schema tables: `organizations`, `seasons`, `teams`, `org_members`, `game_events`, `game_scorers`, `scorekeeper_invites`. RLS policies enforce org role checks on all sensitive tables. Admin/org management goes through RPCs rather than direct table writes.
+Key schema tables: `organizations`, `seasons`, `teams`, `org_members`, `games`, `game_events`, `game_meta_events`, `game_scorers`, `scorekeeper_invites`. RLS policies enforce org role checks on all sensitive tables. Admin/org management goes through RPCs rather than direct table writes.
 
 ## Environments
 

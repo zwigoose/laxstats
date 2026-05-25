@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
         .select("is_admin, personal_plan, personal_plan_status, display_name")
         .eq("id", userId).single(),
       supabase.from("org_members")
-        .select("org_id, role, organizations(id, name, slug, plan)")
+        .select("org_id, role, created_at, organizations(id, name, slug, plan, plan_status)")
         .eq("user_id", userId),
     ]);
 
@@ -49,11 +49,22 @@ export function AuthProvider({ children }) {
       (membershipsRes.data ?? []).map(m => ({
         org_id: m.org_id,
         role: m.role,
+        created_at: m.created_at,
         org: m.organizations,
       }))
     );
     setProfileLoading(false);
   }
+
+  // Allows any page to force a re-read of profile + org memberships from the DB.
+  // Used by Orgs.jsx after a Stripe checkout redirect to detect the webhook-created org.
+  const refreshProfile = useCallback(() => {
+    const uid = session?.user?.id;
+    if (!uid) return Promise.resolve();
+    return loadProfile(uid);
+  // loadProfile is a stable closure — the session dep captures the user id
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
 
   // Returns the caller's role in a given org, or null if not a member
   const getOrgRole = useCallback((orgId) => {
@@ -69,6 +80,7 @@ export function AuthProvider({ children }) {
     isPlatformAdmin: profile?.is_admin ?? false,
     orgMemberships,
     getOrgRole,
+    refreshProfile,
     loading: session === undefined || profileLoading,
   };
 

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   fetchGame, fetchGameMeta, updateGame, deleteGame,
   fetchOrgContext, createScorekeeperInvite, claimScorekeeperInvite,
-  deleteAllGameEvents,
+  deleteAllGameEvents, updateGameTeams,
 } from "./games";
 
 // ── Fake DB builder ────────────────────────────────────────────────────────────
@@ -171,5 +171,62 @@ describe("deleteAllGameEvents", () => {
       deleted_at: expect.any(String),
     }));
     expect(db._chain.eq).toHaveBeenCalledWith("game_id", "g1");
+  });
+});
+
+// ── updateGameTeams ────────────────────────────────────────────────────────────
+
+describe("updateGameTeams", () => {
+  function makeUpdateGameTeamsDb(existingState = {}, updateError = null) {
+    let callCount = 0;
+    const updateResult = { then: (fn) => Promise.resolve({ error: updateError }).then(fn) };
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      eq:     vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: { state: existingState, name: "Old Name" }, error: null }),
+      update: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue(updateResult) }),
+    };
+    return { from: vi.fn().mockReturnValue(chain), _chain: chain };
+  }
+
+  it("merges teams into the existing state and writes back", async () => {
+    const db = makeUpdateGameTeamsDb({ someOtherKey: true });
+    const teams = [{ name: "Home", roster: [] }, { name: "Away", roster: [] }];
+    await updateGameTeams("g1", teams, db);
+    expect(db._chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: expect.objectContaining({ someOtherKey: true, teams }),
+      })
+    );
+  });
+
+  it("sets the game name to 'Team0 vs Team1' when both names present", async () => {
+    const db = makeUpdateGameTeamsDb({});
+    const teams = [{ name: "Eagles" }, { name: "Lions" }];
+    await updateGameTeams("g1", teams, db);
+    expect(db._chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Eagles vs Lions" })
+    );
+  });
+
+  it("does not set name when team names are missing", async () => {
+    const db = makeUpdateGameTeamsDb({});
+    const teams = [{ roster: [] }, { roster: [] }];
+    await updateGameTeams("g1", teams, db);
+    const payload = db._chain.update.mock.calls[0][0];
+    expect(payload).not.toHaveProperty("name");
+  });
+
+  it("returns early if the initial select fails", async () => {
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      eq:     vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: { message: "not found" } }),
+      update: vi.fn(),
+    };
+    const db = { from: vi.fn().mockReturnValue(chain) };
+    const result = await updateGameTeams("g1", [], db);
+    expect(chain.update).not.toHaveBeenCalled();
+    expect(result.error.message).toBe("not found");
   });
 });

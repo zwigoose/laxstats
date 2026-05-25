@@ -6,19 +6,21 @@ import Scorekeeper from "./Scorekeeper";
 // ── useGameEvents mock state ───────────────────────────────────────────────────
 
 const evState = vi.hoisted(() => ({
-  entries:           [],
-  loading:           false,
-  error:             null,
-  channelStatus:     "idle",
-  isPrimary:         true,
-  presenceList:      [],
-  remoteQuarterState: null,
-  isOnline:          true,
-  pendingCount:      0,
-  syncStatus:        "idle",
-  commitGroup:       vi.fn().mockResolvedValue(undefined),
-  softDeleteGroup:   vi.fn().mockResolvedValue(undefined),
-  broadcastMeta:     vi.fn(),
+  entries:             [],
+  loading:             false,
+  error:               null,
+  channelStatus:       "idle",
+  isPrimary:           true,
+  presenceList:        [],
+  remoteQuarterState:  null,
+  derivedQuarterState: null,
+  isOnline:            true,
+  pendingCount:        0,
+  syncStatus:          "idle",
+  commitGroup:         vi.fn().mockResolvedValue(undefined),
+  softDeleteGroup:     vi.fn().mockResolvedValue(undefined),
+  broadcastMeta:       vi.fn(),
+  commitMetaEvent:     vi.fn().mockResolvedValue({ id: "meta-1", seq: 1 }),
 }));
 
 vi.mock("../hooks/useGameEvents", () => ({
@@ -92,16 +94,17 @@ function renderScorekeeper(gameId = "game-1") {
 }
 
 function resetState() {
-  evState.entries            = [];
-  evState.loading            = false;
-  evState.error              = null;
-  evState.channelStatus      = "idle";
-  evState.isPrimary          = true;
-  evState.presenceList       = [];
-  evState.remoteQuarterState = null;
-  evState.isOnline           = true;
-  evState.pendingCount       = 0;
-  evState.syncStatus         = "idle";
+  evState.entries             = [];
+  evState.loading             = false;
+  evState.error               = null;
+  evState.channelStatus       = "idle";
+  evState.isPrimary           = true;
+  evState.presenceList        = [];
+  evState.remoteQuarterState  = null;
+  evState.derivedQuarterState = null;
+  evState.isOnline            = true;
+  evState.pendingCount        = 0;
+  evState.syncStatus          = "idle";
 
   authState.user    = { id: "user-1", is_anonymous: false };
   authState.loading = false;

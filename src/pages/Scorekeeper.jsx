@@ -29,6 +29,7 @@ const S = {
 
 function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }) {
   const [saveStatus, setSaveStatus] = useState("");
+  const [eventsEverLoaded, setEventsEverLoaded] = useState(false);
   const saveTimer    = useRef(null);
   const pendingMeta  = useRef(null);
   const saveInFlight = useRef(false);
@@ -39,21 +40,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
   const [inviteError, setInviteError] = useState(null);
 
-  // ── Offline meta-event queue ─────────────────────────────────────
-  // Quarter transitions and game-over signals are stored here when the scorer
-  // is offline so they can be applied to the DB once connectivity returns.
-  // We persist to localStorage so they survive a tab reload during an outage.
-  const META_KEY = `laxstats:meta:${id}`;
-  const offlineMetaQueue = useRef([]);
-
-  // Load any queue left over from a previous offline session on mount.
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(META_KEY);
-      if (saved) offlineMetaQueue.current = JSON.parse(saved);
-    } catch { /* corrupt storage — ignore */ }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const PENDING_STATE_KEY = `laxstats:pending-state:${id}`;
 
   async function generateInviteLink() {
     setInviteState("generating");
@@ -77,95 +64,134 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
 
   const {
     entries,
-    loading:       eventsLoading,
+    loading:            eventsLoading,
     commitGroup,
     softDeleteGroup,
     dismissDuplicate,
-    broadcastMeta,
+    commitMetaEvent,
+    derivedQuarterState,
     isPrimary,
     presenceList,
     remoteQuarterState,
     isOnline,
     pendingCount,
     syncStatus,
-    error:         eventsError,
+    error:              eventsError,
     channelStatus,
   } = useGameEvents(id, userId);
 
-  // Build initialState: use game.state for meta (teams, quarter, etc.)
-  // but inject events from game_events as the log.
-  const initialState = eventsLoading
+  // Build initialState: teams/config from games.state, quarter state from
+  // game_meta_events (via derivedQuarterState), log from game_events rows.
+  const initialState = (eventsLoading || !game)
     ? undefined  // still loading — LaxStats waits
-    : (game?.state
-        ? { ...game.state, log: entries }
-        : (entries.length > 0 ? { log: entries } : null));
+    : (() => {
+        if (!game?.state && entries.length === 0) return null;
+        const base = game?.state ? { ...game.state } : {};
+        // Override quarter fields from the authoritative meta-event log.
+        // This ensures remount always produces state consistent with game_meta_events.
+        if (derivedQuarterState) {
+          base.currentQuarter    = derivedQuarterState.currentQuarter;
+          base.completedQuarters = derivedQuarterState.completedQuarters;
+          base.gameOver          = derivedQuarterState.gameOver;
+        }
+        return { ...base, log: entries };
+      })();
 
-  // Meta-event handler: broadcast quarter/gameOver to secondary scorers.
-  // DB persistence is handled by handleStateChange (which fires on the same state
-  // transitions). When offline, the broadcast is queued and replayed on reconnect
-  // so secondary scorers see the correct quarter as soon as this scorer comes back.
-  const handleMetaEvent = useCallback((type, payload) => {
-    const newCurrentQuarter    = payload.newCurrentQuarter    ?? (type === "endQuarter" ? (payload.quarter + 1) : payload.quarter);
-    const newCompletedQuarters = payload.newCompletedQuarters ?? [payload.quarter];
-    const isGameOver           = type === "gameOver";
-    const broadcastPayload     = { currentQuarter: newCurrentQuarter, completedQuarters: newCompletedQuarters, gameOver: isGameOver };
+  // Meta-event handler: write a game_meta_events row to the DB (the source of truth for
+  // quarter state), then broadcast to co-scorers. LaxStats awaits this promise before
+  // mutating local state, ensuring the DB is always ahead of the UI.
+  // Returns the inserted row (or a synthetic offline stub).
+  const handleMetaEvent = useCallback((type, fromQuarter, toQuarter) => {
+    return commitMetaEvent(type, fromQuarter, toQuarter);
+  }, [commitMetaEvent]);
 
-    if (!isOnline) {
-      offlineMetaQueue.current = [...offlineMetaQueue.current, broadcastPayload];
-      localStorage.setItem(META_KEY, JSON.stringify(offlineMetaQueue.current));
-      return;
+  // State change handler: persist team/meta changes (NOT the log — that's in game_events).
+  // State is written to localStorage immediately so that failed saves can be retried on
+  // reconnect or next page load — matching the resilience of the game_events offline queue.
+  const doStateSave = useCallback(async () => {
+    if (saveInFlight.current) return;
+    const stateToSave = pendingMeta.current;
+    if (!stateToSave) return;
+    saveInFlight.current = true;
+    setSaveStatus("saving");
+    pendingMeta.current = null;
+    const updatePayload = { state: stateToSave };
+    if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
+      updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
     }
-    broadcastMeta(broadcastPayload);
-  }, [broadcastMeta, isOnline]);
-
-  // Flush offline meta queue when we come back online.
-  useEffect(() => {
-    if (!isOnline || !offlineMetaQueue.current.length) return;
-    const queue = [...offlineMetaQueue.current];
-    offlineMetaQueue.current = [];
-    localStorage.removeItem(META_KEY);
-    for (const broadcastPayload of queue) {
-      broadcastMeta(broadcastPayload);
+    const { error: err } = await updateGame(id, updatePayload);
+    saveInFlight.current = false;
+    if (err) {
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus(""), 3000);
+      // State remains in localStorage — will be retried on reconnect or next mount.
+    } else {
+      try { localStorage.removeItem(PENDING_STATE_KEY); } catch { /* ignore */ }
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus(""), 2000);
+      // If a new change arrived while this save was in flight, flush it now.
+      if (pendingMeta.current) {
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(doStateSave, 800);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline, broadcastMeta]);
+  }, [id]);
 
-  // State change handler: persist team/meta changes (NOT the log — that's in game_events)
-  const handleStateChange = useCallback(async (newState) => {
+  const handleStateChange = useCallback((newState) => {
     if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
       setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
     }
-    // Build meta payload (no log); compute score from log so game list can display it.
-    // When called as a retry (pendingMeta already processed), _log is undefined —
-    // preserve the already-correct score0/score1 rather than overwriting with 0.
-    const { log: _log, ...meta } = newState;
-    if (_log !== undefined) {
-      meta.score0 = _log.filter(e => e.event === "goal" && e.teamIdx === 0).length;
-      meta.score1 = _log.filter(e => e.event === "goal" && e.teamIdx === 1).length;
-    }
+    // Strip log and completedQuarters — authoritative in game_events / game_meta_events.
+    // Keep gameOver, currentQuarter, and derived scores in games.state so GameList can
+    // display Live/Final status and the score without querying game_events.
+    const { log: _log, completedQuarters: _cqs, score0: _s0, score1: _s1, ...meta } = newState;
+    meta.score0 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
+    meta.score1 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
     pendingMeta.current = meta;
+    // Persist to localStorage immediately so network failures don't lose state.
+    try { localStorage.setItem(PENDING_STATE_KEY, JSON.stringify(meta)); } catch { /* ignore */ }
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      if (saveInFlight.current) return;
-      const stateToSave = pendingMeta.current;
-      if (!stateToSave) return;
-      saveInFlight.current = true;
-      setSaveStatus("saving");
-      pendingMeta.current = null;
-      const updatePayload = { state: stateToSave };
-      if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
-        updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
-      }
-      const { error: err } = await updateGame(id, updatePayload);
-      saveInFlight.current = false;
-      if (err) { setSaveStatus("error"); setTimeout(() => setSaveStatus(""), 3000); }
-      else {
-        setSaveStatus("saved"); setTimeout(() => setSaveStatus(""), 2000);
-        // Retry if a new state change arrived while this save was in flight
-        if (pendingMeta.current) handleStateChange(pendingMeta.current);
-      }
-    }, 800);
-  }, [id]);
+    saveTimer.current = setTimeout(doStateSave, 800);
+  }, [id, doStateSave]);
+
+  // On mount: flush any pending state left from a previous session (e.g. the page
+  // crashed or closed while a save was in flight).
+  useEffect(() => {
+    let meta;
+    try {
+      const saved = localStorage.getItem(PENDING_STATE_KEY);
+      if (!saved) return;
+      meta = JSON.parse(saved);
+    } catch {
+      try { localStorage.removeItem(PENDING_STATE_KEY); } catch { /* ignore */ }
+      return;
+    }
+    if (!pendingMeta.current) pendingMeta.current = meta;
+    saveTimer.current = setTimeout(doStateSave, 1500);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Retry any pending state save when connectivity is restored.
+  useEffect(() => {
+    if (!isOnline) return;
+    let meta;
+    try {
+      const saved = localStorage.getItem(PENDING_STATE_KEY);
+      if (!saved) return;
+      meta = JSON.parse(saved);
+    } catch { return; }
+    if (!pendingMeta.current) pendingMeta.current = meta;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(doStateSave, 100);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
+
+  // Once events have loaded for the first time, keep LaxStats mounted even during
+  // reconnect reloads — prevents roster/state loss when useGameEvents re-runs load().
+  useEffect(() => {
+    if (!eventsLoading) setEventsEverLoaded(true);
+  }, [eventsLoading]);
 
   // Keep tokenRef current so the beforeunload flush can use it without async work.
   useEffect(() => {
@@ -273,7 +299,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
         </div>
       )}
 
-      {eventsLoading ? (
+      {!eventsEverLoaded ? (
         <div style={S.loading}>Loading events…</div>
       ) : (
         <LaxStats
@@ -286,6 +312,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
           onMetaEvent={handleMetaEvent}
           remoteEntries={entries}
           remoteQuarterState={remoteQuarterState}
+          derivedQuarterState={derivedQuarterState}
           scorekeeperRole={isPrimary ? "primary" : "secondary"}
           orgContext={orgContext}
           onOrgTeamSelected={async (teamIdx, teamId) => {
@@ -389,7 +416,10 @@ export default function Scorekeeper() {
   }
 
   if (inviteError) return <div style={S.error}>{inviteError}</div>;
-  if (loading || authLoading || (inviteToken && !user)) return <div style={S.loading}>Loading game…</div>;
+  // Only block on auth/game loading before the game record is first fetched.
+  // After that, never re-gate — a JWT token refresh sets authLoading=true briefly
+  // and would otherwise unmount ScorekeeperGame, wiping all unsaved setup state.
+  if (!game && (loading || authLoading || (inviteToken && !user))) return <div style={S.loading}>Loading game…</div>;
   if (error)   return <div style={S.error}>{error}</div>;
 
   return <ScorekeeperGame game={game} id={id} navigate={navigate} userId={user?.id} isAnonymous={user?.is_anonymous ?? false} orgContext={orgContext} />;

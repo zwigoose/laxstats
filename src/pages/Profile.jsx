@@ -1,12 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDocTitle } from "../hooks/useDocTitle";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
-import { displayName, FAKE_DOMAIN } from "./Admin/helpers";
 import { PLAN_COLOR } from "../constants/lacrosse";
-
-const FAKE = FAKE_DOMAIN; // "@laxstats.app"
 
 const S = {
   page:       { maxWidth: 480, margin: "0 auto", padding: "28px 16px 40px", fontFamily: "system-ui, sans-serif" },
@@ -41,12 +38,35 @@ const PERSONAL_PLAN_COLOR = {
 };
 
 export default function Profile() {
-  const { user, profile, orgMemberships, loading: authLoading } = useAuth();
+  const { user, profile, orgMemberships, loading: authLoading, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const checkoutSuccess = searchParams.get("checkout") === "success";
   useDocTitle("Profile");
 
-  const isLaxstatsAccount = user?.email?.endsWith(FAKE);
-  const username  = user ? displayName(user.email) : "";
+  // After a personal plan checkout, poll until the webhook updates personal_plan.
+  const pollRef = useRef(null);
+  useEffect(() => {
+    if (!checkoutSuccess || authLoading) return;
+    if (profile?.personal_plan && profile.personal_plan !== "free") return; // already updated
+
+    let elapsed = 0;
+    pollRef.current = setInterval(async () => {
+      elapsed += 2;
+      await refreshProfile();
+      if (elapsed >= 30) clearInterval(pollRef.current);
+    }, 2000);
+    return () => clearInterval(pollRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutSuccess, authLoading]);
+
+  useEffect(() => {
+    if (!checkoutSuccess || !pollRef.current) return;
+    if (profile?.personal_plan && profile.personal_plan !== "free") {
+      clearInterval(pollRef.current);
+    }
+  }, [profile?.personal_plan, checkoutSuccess]);
+
   const memberSince = user?.created_at
     ? new Date(user.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })
     : "—";
@@ -72,10 +92,6 @@ export default function Profile() {
 
   async function changeEmail() {
     const trimmed = newEmail.trim();
-    if (trimmed.toLowerCase().endsWith(FAKE)) {
-      setEmailStatus({ error: "Enter a real email address, not a LaxStats username." });
-      return;
-    }
     setEmailStatus("saving");
     const { error } = await supabase.auth.updateUser({ email: trimmed });
     if (error) { setEmailStatus({ error: error.message }); return; }
@@ -111,13 +127,16 @@ export default function Profile() {
     <div style={S.page}>
       <div style={S.heading}>Profile</div>
 
+      {checkoutSuccess && (
+        <div style={{ background: "#eaf6ec", border: "1px solid #b7dfc1", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#2a7a3b", fontWeight: 600 }}>
+          Payment successful — your plan has been updated. It may take a moment to reflect.
+        </div>
+      )}
+
       {/* ── Account info ── */}
       <div style={S.card}>
         <div style={S.cardTitle}>Account</div>
-        {isLaxstatsAccount
-          ? <Field label="Username" value={username} />
-          : <Field label="Email" value={user.email} />
-        }
+        <Field label="Email" value={user.email} />
         <Field label="Member since" value={memberSince} />
       </div>
 
@@ -126,9 +145,20 @@ export default function Profile() {
         <div style={S.cardTitle}>Plan</div>
         {(() => {
           const orgMembership = orgMemberships[0] ?? null;
-          const personalPlan = profile?.personal_plan ?? "free";
+          const personalPlan   = profile?.personal_plan ?? "free";
           const personalStatus = profile?.personal_plan_status ?? "active";
           const pc = PERSONAL_PLAN_COLOR[personalPlan] || PERSONAL_PLAN_COLOR.free;
+          const hasPersonalSub = personalPlan !== "free";
+          const isOrgAdmin = orgMembership?.role === "org_admin";
+
+          async function openPortal(orgId) {
+            const { data, error } = await supabase.functions.invoke("create-portal-session", {
+              body: orgId ? { org_id: orgId } : {},
+            });
+            if (error || !data?.url) { alert("Could not open billing portal. Please contact hello@laxstats.app."); return; }
+            window.location.href = data.url;
+          }
+
           return (
             <>
               <div style={{ ...S.row, marginBottom: 10 }}>
@@ -138,10 +168,16 @@ export default function Profile() {
                   {personalStatus !== "active" && (
                     <span style={{ fontSize: 12, color: personalStatus === "past_due" ? "#d4820a" : "#c0392b" }}>{personalStatus.replace("_", " ")}</span>
                   )}
+                  {hasPersonalSub && (
+                    <button onClick={() => openPortal(null)} style={{ fontSize: 11, color: "#1a6bab", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                      Manage →
+                    </button>
+                  )}
                 </div>
               </div>
               {orgMembership && (() => {
-                const orgPlan = orgMembership.org?.plan ?? "pro";
+                const orgPlan   = orgMembership.org?.plan ?? "pro";
+                const orgStatus = orgMembership.org?.plan_status ?? "active";
                 const opc = PLAN_COLOR[orgPlan] || PLAN_COLOR.pro;
                 return (
                   <div style={S.row}>
@@ -149,6 +185,14 @@ export default function Profile() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "2px 9px", background: opc.bg, color: opc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{orgPlan}</span>
                       <span style={{ fontSize: 12, color: "#aaa" }}>{orgMembership.role?.replace("org_", "")}</span>
+                      {orgStatus !== "active" && (
+                        <span style={{ fontSize: 12, color: orgStatus === "past_due" ? "#d4820a" : "#c0392b" }}>{orgStatus.replace("_", " ")}</span>
+                      )}
+                      {isOrgAdmin && (
+                        <button onClick={() => openPortal(orgMembership.org_id)} style={{ fontSize: 11, color: "#1a6bab", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                          Manage →
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -170,7 +214,7 @@ export default function Profile() {
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
             style={S.input}
-            placeholder={username}
+            placeholder="Display name"
             value={displayNameVal}
             onChange={e => { setDisplayNameVal(e.target.value); setDisplayNameStatus(null); }}
             onKeyDown={e => e.key === "Enter" && saveDisplayName()}
@@ -191,11 +235,6 @@ export default function Profile() {
       {/* ── Change email ── */}
       <div style={S.card}>
         <div style={S.cardTitle}>Change email</div>
-        {isLaxstatsAccount && (
-          <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>
-            You currently sign in with the username <strong>{username}</strong>. Adding a real email lets you use it to sign in instead.
-          </div>
-        )}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
             style={S.input}

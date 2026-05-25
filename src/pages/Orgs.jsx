@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDocTitle } from "../hooks/useDocTitle";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -312,7 +312,9 @@ function SummaryBar({ memberships, orgData }) {
 
 export default function Orgs() {
   const navigate = useNavigate();
-  const { user, isAdmin, orgMemberships, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const checkoutSuccess = searchParams.get("checkout") === "success";
+  const { user, isAdmin, orgMemberships, loading: authLoading, refreshProfile } = useAuth();
   useDocTitle("Organizations");
   const [orgData, setOrgData] = useState({});
   const [v2Scores, setV2Scores] = useState({});
@@ -324,6 +326,45 @@ export default function Orgs() {
     if (orgMemberships.length === 0) { setLoading(false); return; }
     loadOrgData();
   }, [authLoading, orgMemberships]);
+
+  // After a Stripe checkout redirect, redirect to the most recently joined org.
+  // The snapshot is empty at mount (orgMemberships=[] before auth loads), so any
+  // org present when auth settles is treated as new. For users with existing orgs
+  // we sort by created_at to pick the one just purchased.
+  const pollRef        = useRef(null);
+  const knownOrgIdsRef = useRef(checkoutSuccess ? new Set() : null);
+
+  function newestMembership(memberships) {
+    return [...memberships].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+  }
+
+  useEffect(() => {
+    if (!checkoutSuccess || authLoading) return;
+
+    // Fast path: webhook already ran before auth finished loading.
+    if (orgMemberships.length > 0) {
+      navigate(`/orgs/${newestMembership(orgMemberships).org.slug}`, { replace: true });
+      return;
+    }
+
+    // Slow path: poll until the webhook creates the org (up to 30s).
+    let elapsed = 0;
+    pollRef.current = setInterval(async () => {
+      elapsed += 2;
+      await refreshProfile();
+      if (elapsed >= 30) clearInterval(pollRef.current);
+    }, 2000);
+
+    return () => clearInterval(pollRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutSuccess, authLoading]);
+
+  // Slow-path redirect: fires when polling surfaces a new org membership.
+  useEffect(() => {
+    if (!checkoutSuccess || !pollRef.current || orgMemberships.length === 0) return;
+    clearInterval(pollRef.current);
+    navigate(`/orgs/${newestMembership(orgMemberships).org.slug}`, { replace: true });
+  }, [orgMemberships, checkoutSuccess, navigate]);
 
   async function loadOrgData() {
     const orgIds = orgMemberships.map(m => m.org_id);
@@ -404,6 +445,12 @@ export default function Orgs() {
           </div>
         </div>
       </div>
+
+      {checkoutSuccess && (
+        <div style={{ background: "#eaf6ec", borderBottom: "1px solid #b7dfc1", padding: "12px 20px", textAlign: "center", fontSize: 14, color: "#2a7a3b", fontWeight: 600 }}>
+          Payment successful — your org plan is active. It may take a moment to appear below.
+        </div>
+      )}
 
       {/* Body */}
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "28px 20px" }}>

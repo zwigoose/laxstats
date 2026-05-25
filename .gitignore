@@ -27,3 +27,4 @@ dist-ssr
 *.sw?
 .claude/
 supabase/.temp/
+*_backup_*.sql
