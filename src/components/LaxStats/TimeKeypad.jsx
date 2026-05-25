@@ -21,7 +21,7 @@ function timeStringToDigits(str) {
   return m === 0 ? String(s) : String(m) + String(s).padStart(2, "0");
 }
 
-export default function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeiling = false, onConfirm, showSameAsLatest = false, latestLabel = null }) {
+export default function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeiling = false, onConfirm, showSameAsLatest = false, latestLabel = null, oneHandedMode = false }) {
   const [digits, setDigits] = useState("");
   const parsed = parseClockDigits(digits);
   const exceedsMax = parsed.valid && parsed.totalSeconds > maxSeconds;
@@ -44,12 +44,12 @@ export default function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeilin
   }
 
   const keyStyle = (special) => ({
-    padding: "16px 0",
-    fontSize: special ? 18 : 22,
-    fontWeight: special ? 500 : 400,
+    padding: oneHandedMode ? "20px 0" : "16px 0",
+    fontSize: special ? (oneHandedMode ? 20 : 18) : (oneHandedMode ? 24 : 22),
+    fontWeight: special ? 600 : 400,
     background: special ? "#f0f0f0" : "#f7f7f7",
     border: "1px solid #e8e8e8",
-    borderRadius: 10,
+    borderRadius: 14,
     cursor: "pointer",
     color: "#111",
     fontFamily: "system-ui, sans-serif",
@@ -57,10 +57,10 @@ export default function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeilin
     WebkitUserSelect: "none",
   });
 
-  return (
-    <div style={{ marginTop: 12 }}>
+  const displaySection = (
+    <div>
       <div style={{ textAlign: "center", marginBottom: 4 }}>
-        <span style={{ fontSize: 48, fontWeight: 300, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums", color: canUse ? "#111" : errorMsg ? "#c0392b" : digits.length > 0 ? "#111" : "#ccc" }}>
+        <span style={{ fontSize: oneHandedMode ? 36 : 48, fontWeight: 300, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums", color: canUse ? "#111" : errorMsg ? "#c0392b" : digits.length > 0 ? "#111" : "#ccc" }}>
           {parsed.label ?? (digits.length > 0 ? "—:——" : "--:--")}
         </span>
       </div>
@@ -71,28 +71,47 @@ export default function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeilin
             </span>
           : <span style={{ fontSize: 12, color: "#ddd" }}>Enter time remaining</span>}
       </div>
-      <div style={{ height: 50 }}>
+      <div style={{ height: showSameAsLatest && latestLabel ? 50 : 0, marginBottom: showSameAsLatest && latestLabel ? 10 : 0 }}>
         {showSameAsLatest && latestLabel && (
           <button
             onClick={() => setDigits(timeStringToDigits(latestLabel))}
-            style={{ width: "100%", marginBottom: 10, padding: "10px 0", fontSize: 13, fontWeight: 600, background: "#f0f8ff", border: "1px solid #c0d8f0", borderRadius: 10, cursor: "pointer", color: "#1a6bab" }}>
+            style={{ width: "100%", padding: "10px 0", fontSize: 13, fontWeight: 600, background: "#f0f8ff", border: "1px solid #c0d8f0", borderRadius: 10, cursor: "pointer", color: "#1a6bab" }}>
             Same as latest: {latestLabel}
           </button>
         )}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-        {[1,2,3,4,5,6,7,8,9].map(d => (
-          <button key={d} style={keyStyle(false)} onClick={() => pressDigit(String(d))}>{d}</button>
-        ))}
-        <button style={keyStyle(true)} onClick={() => setDigits(prev => prev.slice(0, -1))}>⌫</button>
-        <button style={keyStyle(false)} onClick={() => pressDigit("0")}>0</button>
-        <button
-          style={{ ...keyStyle(true), background: canUse ? "#111" : "#ccc", color: "#fff", fontWeight: 600, fontSize: 15 }}
-          disabled={!canUse}
-          onClick={() => canUse && onConfirm(parsed.label)}>
-          Use
-        </button>
-      </div>
+    </div>
+  );
+
+  const keysGrid = (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+      {[1,2,3,4,5,6,7,8,9].map(d => (
+        <button key={d} style={keyStyle(false)} onClick={() => pressDigit(String(d))}>{d}</button>
+      ))}
+      <button style={keyStyle(true)} onClick={() => setDigits(prev => prev.slice(0, -1))}>⌫</button>
+      <button style={keyStyle(false)} onClick={() => pressDigit("0")}>{0}</button>
+      <button
+        style={{ ...keyStyle(true), background: canUse ? "#111" : "#ccc", color: "#fff", fontWeight: 600, fontSize: 15 }}
+        disabled={!canUse}
+        onClick={() => canUse && onConfirm(parsed.label)}>
+        Use
+      </button>
+    </div>
+  );
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      {oneHandedMode ? (
+        <>
+          {keysGrid}
+          {displaySection}
+        </>
+      ) : (
+        <>
+          {displaySection}
+          {keysGrid}
+        </>
+      )}
     </div>
   );
 }
