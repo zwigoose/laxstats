@@ -25,6 +25,9 @@ export default function AdminGameRow({ game, userMap, users, onReassigned, onDel
   const [multiScorerEnabled, setMultiScorerEnabled] = useState(!!game.multi_scorer_enabled);
   const [togglingMultiScorer, setTogglingMultiScorer] = useState(false);
   const [multiScorerError, setMultiScorerError]     = useState(null);
+  const [shotLocationEnabled, setShotLocationEnabled] = useState(!!game.shot_location_enabled);
+  const [togglingShotLocation, setTogglingShotLocation] = useState(false);
+  const [shotLocationError, setShotLocationError]   = useState(null);
 
   async function handleDelete() {
     if (!deleteConfirm) { setDeleteConfirm(true); return; }
@@ -48,6 +51,14 @@ export default function AdminGameRow({ game, userMap, users, onReassigned, onDel
     const { error: err } = await supabase.rpc("admin_set_game_multi_scorer", { p_game_id: game.id, p_enabled: next });
     if (err) { setMultiScorerError(err.message); setTogglingMultiScorer(false); return; }
     setMultiScorerEnabled(next); setTogglingMultiScorer(false);
+  }
+
+  async function handleToggleShotLocation() {
+    setTogglingShotLocation(true); setShotLocationError(null);
+    const next = !shotLocationEnabled;
+    const { error: err } = await supabase.rpc("admin_set_game_shot_location", { p_game_id: game.id, p_enabled: next });
+    if (err) { setShotLocationError(err.message); setTogglingShotLocation(false); return; }
+    setShotLocationEnabled(next); setTogglingShotLocation(false);
   }
 
   async function handleReassign() {
@@ -169,6 +180,21 @@ export default function AdminGameRow({ game, userMap, users, onReassigned, onDel
             </div>
             {multiScorerError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{multiScorerError}</div>}
           </div>
+          {game.schema_ver === 2 && (
+            <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Shot Location Overlay</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button onClick={handleToggleShotLocation} disabled={togglingShotLocation}
+                  style={{ position: "relative", width: 40, height: 22, borderRadius: 11, border: "none", background: shotLocationEnabled ? "#111" : "#ddd", cursor: togglingShotLocation ? "default" : "pointer", transition: "background 0.2s", flexShrink: 0, padding: 0 }}>
+                  <span style={{ position: "absolute", top: 3, left: shotLocationEnabled ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                </button>
+                <span style={{ fontSize: 13, color: "#555" }}>
+                  {shotLocationEnabled ? "Enabled — shot locations are tracked on the field map" : "Disabled — shots are tracked without coordinates"}
+                </span>
+              </div>
+              {shotLocationError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{shotLocationError}</div>}
+            </div>
+          )}
           <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Danger zone</div>
             {!deleteConfirm ? (
