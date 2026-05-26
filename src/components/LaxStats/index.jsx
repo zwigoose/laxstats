@@ -1469,42 +1469,54 @@ export default function LaxStats({
               </div>
               {/* Penalty box */}
               {penaltyBoxEntries.length > 0 && (
-                <div style={{ marginTop: 16, border: "1px solid #e8e8e8", borderRadius: 12, overflow: "hidden" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", padding: "8px 14px", background: "#f9f9f9", borderBottom: "1px solid #e8e8e8" }}>
-                    Penalty Box
+                oneHandedMode ? (
+                  <div style={{ marginTop: 10, marginBottom: 4, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>Box:</span>
+                    {penaltyBoxEntries.filter(e => !e.isNested).map((entry, i) => (
+                      <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#c0392b", background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 6, padding: "2px 7px" }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: entry.color, flexShrink: 0 }} />
+                        #{entry.num} · {entry.nonReleasable ? "NR" : entry.releaseTime}
+                      </span>
+                    ))}
                   </div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: "#fafafa" }}>
-                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Team</th>
-                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Player</th>
-                        <th style={{ padding: "6px 14px", textAlign: "right", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Releases at</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {penaltyBoxEntries.map((entry, i) => (
-                        <tr key={i} style={{ borderBottom: i < penaltyBoxEntries.length - 1 ? "1px solid #f5f5f5" : "none", background: entry.isNested ? "#fafafa" : "#fff" }}>
-                          <td style={{ padding: entry.isNested ? "5px 14px 5px 26px" : "8px 14px" }}>
-                            {entry.isNested
-                              ? <span style={{ fontSize: 11, color: "#bbb", marginRight: 4 }}>└</span>
-                              : <div style={{ width: 14, height: 14, borderRadius: "50%", background: entry.teamIdx === 0 ? "#fff" : entry.color, border: `2px solid ${entry.color}`, boxSizing: "border-box" }} />
-                            }
-                          </td>
-                          <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", fontWeight: entry.isNested ? 400 : 600, color: entry.isNested ? "#888" : "#111", fontSize: entry.isNested ? 12 : 13 }}>
-                            #{entry.num}
-                          </td>
-                          <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", textAlign: "right", fontWeight: entry.isNested ? 500 : 700, fontVariantNumeric: "tabular-nums", color: entry.isNested ? "#aaa" : "#c0392b", fontSize: entry.isNested ? 12 : 13 }}>
-                            {entry.nonReleasable && (
-                              <span style={{ marginRight: 5, fontSize: 9, fontWeight: 700, color: "#c0392b", background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 4, padding: "1px 4px", letterSpacing: "0.05em", verticalAlign: "middle" }}>NR</span>
-                            )}
-                            {entry.crossQuarter && <span style={{ fontSize: 10, fontWeight: 600, color: "#aaa", marginRight: 4 }}>{qLabel(entry.releaseQ)}</span>}
-                            {entry.releaseTime}
-                          </td>
+                ) : (
+                  <div style={{ marginTop: 16, border: "1px solid #e8e8e8", borderRadius: 12, overflow: "hidden" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", padding: "8px 14px", background: "#f9f9f9", borderBottom: "1px solid #e8e8e8" }}>
+                      Penalty Box
+                    </div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#fafafa" }}>
+                          <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Team</th>
+                          <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Player</th>
+                          <th style={{ padding: "6px 14px", textAlign: "right", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Releases at</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {penaltyBoxEntries.map((entry, i) => (
+                          <tr key={i} style={{ borderBottom: i < penaltyBoxEntries.length - 1 ? "1px solid #f5f5f5" : "none", background: entry.isNested ? "#fafafa" : "#fff" }}>
+                            <td style={{ padding: entry.isNested ? "5px 14px 5px 26px" : "8px 14px" }}>
+                              {entry.isNested
+                                ? <span style={{ fontSize: 11, color: "#bbb", marginRight: 4 }}>└</span>
+                                : <div style={{ width: 14, height: 14, borderRadius: "50%", background: entry.teamIdx === 0 ? "#fff" : entry.color, border: `2px solid ${entry.color}`, boxSizing: "border-box" }} />
+                              }
+                            </td>
+                            <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", fontWeight: entry.isNested ? 400 : 600, color: entry.isNested ? "#888" : "#111", fontSize: entry.isNested ? 12 : 13 }}>
+                              #{entry.num}
+                            </td>
+                            <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", textAlign: "right", fontWeight: entry.isNested ? 500 : 700, fontVariantNumeric: "tabular-nums", color: entry.isNested ? "#aaa" : "#c0392b", fontSize: entry.isNested ? 12 : 13 }}>
+                              {entry.nonReleasable && (
+                                <span style={{ marginRight: 5, fontSize: 9, fontWeight: 700, color: "#c0392b", background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 4, padding: "1px 4px", letterSpacing: "0.05em", verticalAlign: "middle" }}>NR</span>
+                              )}
+                              {entry.crossQuarter && <span style={{ fontSize: 10, fontWeight: 600, color: "#aaa", marginRight: 4 }}>{qLabel(entry.releaseQ)}</span>}
+                              {entry.releaseTime}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
               )}
 
               <button style={S.endQtrBtn(gameOver || scorekeeperRole === "secondary")}
@@ -1634,7 +1646,7 @@ export default function LaxStats({
                   <div style={oneHandedMode ? S.playerGridOneHanded : S.playerGrid}>
                     {featured && (
                       <button
-                        style={oneHandedMode ? { ...S.playerBtnOneHanded(true, teamColors[selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 } : { ...S.playerBtn(true, teamColors[selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 }}
+                        style={oneHandedMode ? { ...S.playerBtnOneHanded(true, teamColors[selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 72 } : { ...S.playerBtn(true, teamColors[selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 }}
                         onClick={() => handlePlayerSelected(featured)}
                       >
                         <span style={oneHandedMode ? S.playerNumOneHanded(true, isHome, teamColors[selectedTeam]) : S.playerNum(true, isHome, teamColors[selectedTeam])}>#{featured.num}</span>
@@ -1659,10 +1671,12 @@ export default function LaxStats({
                 🔄 Faceoff Win — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
               <div style={S.questionCard}><div style={S.questionText}>Who came up with the GB?</div></div>
-              <div style={S.yesNoRow}>
-                <button style={S.btnNo} onClick={handleFaceoffGBNo}>Nobody (Straight win)</button>
-                <button style={S.btnYes} onClick={() => handleFaceoffGBPlayerSelected(selectedPlayer)}>FOGO did (#{selectedPlayer?.num})</button>
-                <button style={S.btnYes} onClick={handleFaceoffGBYes}>Someone else...</button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button style={S.btnYes} onClick={() => handleFaceoffGBPlayerSelected(selectedPlayer)}>
+                  #{selectedPlayer?.num} {selectedPlayer?.name} — same player
+                </button>
+                <button style={S.btnNo} onClick={handleFaceoffGBYes}>Someone else on {teams[selectedTeam]?.name}…</button>
+                <button style={S.btnNo} onClick={handleFaceoffGBNo}>Nobody — straight win, no GB</button>
               </div>
             </div>
           )}
@@ -1699,7 +1713,7 @@ export default function LaxStats({
               <div style={{ ...S.stepLabel, color: teamColors[1 - selectedTeam] }}>
                 {teams[1 - selectedTeam]?.name} — Which player turned it over?
               </div>
-              <div style={S.playerGrid}>
+              <div style={oneHandedMode ? S.playerGridOneHanded : S.playerGrid}>
                 {parsedRosters[1 - selectedTeam]?.map((p, i) => {
                   const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "turnover")?.player : null;
                   const sel = prev ? (prev.num === p.num && prev.name === p.name) : false;
@@ -1741,7 +1755,7 @@ export default function LaxStats({
                 🥍 Goal — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
               <div style={{ ...S.stepLabel, color: teamColors[selectedTeam] }}>{teams[selectedTeam]?.name} — Who assisted?</div>
-              <div style={S.playerGrid}>
+              <div style={oneHandedMode ? S.playerGridOneHanded : S.playerGrid}>
                 {parsedRosters[selectedTeam]?.filter(p => !(p.num === selectedPlayer?.num && p.name === selectedPlayer?.name)).map((p, i) => {
                   const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "assist")?.player : null;
                   const sel = prev ? (prev.num === p.num && prev.name === p.name) : false;
@@ -1838,7 +1852,7 @@ export default function LaxStats({
                   <div style={oneHandedMode ? S.playerGridOneHanded : S.playerGrid}>
                     {featuredGoalie && (
                       <button
-                        style={oneHandedMode ? { ...S.playerBtnOneHanded(true, teamColors[1 - selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 } : { ...S.playerBtn(true, teamColors[1 - selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 }}
+                        style={oneHandedMode ? { ...S.playerBtnOneHanded(true, teamColors[1 - selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 72 } : { ...S.playerBtn(true, teamColors[1 - selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 }}
                         onClick={() => handleSavePlayerSelected(featuredGoalie)}
                       >
                         <span style={oneHandedMode ? S.playerNumOneHanded(true, isHome, teamColors[1 - selectedTeam]) : S.playerNum(true, isHome, teamColors[1 - selectedTeam])}>#{featuredGoalie.num}</span>
@@ -1863,7 +1877,7 @@ export default function LaxStats({
                 🎯 Shot blocked — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
               <div style={{ ...S.stepLabel, color: teamColors[1 - selectedTeam] }}>{teams[1 - selectedTeam]?.name} — Who made the block?</div>
-              <div style={S.playerGrid}>
+              <div style={oneHandedMode ? S.playerGridOneHanded : S.playerGrid}>
                 {parsedRosters[1 - selectedTeam]?.map((p, i) => {
                   const isHome = (1 - selectedTeam) === 0;
                   const sel = false;
