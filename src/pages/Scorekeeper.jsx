@@ -314,6 +314,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
           remoteQuarterState={remoteQuarterState}
           derivedQuarterState={derivedQuarterState}
           scorekeeperRole={isPrimary ? "primary" : "secondary"}
+          shotLocationEnabled={!!game?.shot_location_enabled}
           orgContext={orgContext}
           onOrgTeamSelected={async (teamIdx, teamId) => {
             const col = teamIdx === 0 ? "home_team_id" : "away_team_id";

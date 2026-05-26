@@ -34,6 +34,7 @@ export default function LaxStats({
   // org game props — optional; omit for personal games
   orgContext = null,          // { orgId, orgName, seasonName } — shows org banner + loads org teams
   onOrgTeamSelected = null,   // async (teamIdx, teamId) => void — persist home/away_team_id
+  shotLocationEnabled = false, // game-level flag — show field map only when admin has enabled it
 }) {
   const [screen, setScreen] = useState("setup"); // setup | track | stats | log
   const [trackingStarted, setTrackingStarted] = useState(false);
@@ -716,7 +717,7 @@ export default function LaxStats({
     const assister = entries.find(e => e.event === "assist");
     setPendingEntries(entries);
     setPendingFlashText(`Goal${isEmo ? " (EMO)" : ""} — #${selectedPlayer.num} ${selectedPlayer.name}${assister ? ` (assist #${assister.player?.num})` : ""}`);
-    setStep("ask_shot_location");
+    if (shotLocationEnabled) setStep("ask_shot_location"); else commitEntries(entries, pendingFlashText);
   }
 
   // Shot flow: outcome picker → optional player picker
@@ -728,7 +729,7 @@ export default function LaxStats({
   function handleShotOutcome(outcome) {
     if (outcome === "missed") {
       setPendingFlashText(`Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
-      setStep("ask_shot_location");
+      if (shotLocationEnabled) setStep("ask_shot_location"); else commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
     } else if (outcome === "saved") {
       setStep("save_player");
     } else if (outcome === "blocked") {
@@ -737,14 +738,18 @@ export default function LaxStats({
   }
   function handleSavePlayerSelected(goalie) {
     setLastGoalie(prev => prev.map((g, i) => i === (1 - selectedTeam) ? goalie : g));
-    setPendingEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_saved", goalie)]);
-    setPendingFlashText(`Shot (saved) — #${selectedPlayer.num} ${selectedPlayer.name} · saved by #${goalie.num} ${goalie.name}`);
-    setStep("ask_shot_location");
+    const entries = [...pendingEntries, mkEntry(1 - selectedTeam, "shot_saved", goalie)];
+    const flashText = `Shot (saved) — #${selectedPlayer.num} ${selectedPlayer.name} · saved by #${goalie.num} ${goalie.name}`;
+    setPendingEntries(entries);
+    setPendingFlashText(flashText);
+    if (shotLocationEnabled) setStep("ask_shot_location"); else commitEntries(entries, flashText);
   }
   function handleBlockerSelected(blockingPlayer) {
-    setPendingEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_blocked", blockingPlayer)]);
-    setPendingFlashText(`Shot blocked — #${selectedPlayer.num} ${selectedPlayer.name} · blocked by #${blockingPlayer.num} ${blockingPlayer.name}`);
-    setStep("ask_shot_location");
+    const entries = [...pendingEntries, mkEntry(1 - selectedTeam, "shot_blocked", blockingPlayer)];
+    const flashText = `Shot blocked — #${selectedPlayer.num} ${selectedPlayer.name} · blocked by #${blockingPlayer.num} ${blockingPlayer.name}`;
+    setPendingEntries(entries);
+    setPendingFlashText(flashText);
+    if (shotLocationEnabled) setStep("ask_shot_location"); else commitEntries(entries, flashText);
   }
   function handleFaceoffGBNo() {
     const f = pendingEntries.find(e => e.event === 'faceoff_win');
@@ -1374,6 +1379,48 @@ export default function LaxStats({
               </button>
             </div>
           )}
+          {/* Penalty box — shown at top in one-handed mode to fill the white space above interactive elements */}
+          {oneHandedMode && penaltyBoxEntries.length > 0 && (
+            <div style={{ marginBottom: "auto", width: "100%", paddingBottom: 12 }}>
+              <div style={{ border: "1px solid #e8e8e8", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", padding: "8px 14px", background: "#f9f9f9", borderBottom: "1px solid #e8e8e8" }}>
+                  Penalty Box
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "#fafafa" }}>
+                      <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Team</th>
+                      <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Player</th>
+                      <th style={{ padding: "6px 14px", textAlign: "right", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Releases at</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {penaltyBoxEntries.map((entry, i) => (
+                      <tr key={i} style={{ borderBottom: i < penaltyBoxEntries.length - 1 ? "1px solid #f5f5f5" : "none", background: entry.isNested ? "#fafafa" : "#fff" }}>
+                        <td style={{ padding: entry.isNested ? "5px 14px 5px 26px" : "8px 14px" }}>
+                          {entry.isNested
+                            ? <span style={{ fontSize: 11, color: "#bbb", marginRight: 4 }}>└</span>
+                            : <div style={{ width: 14, height: 14, borderRadius: "50%", background: entry.teamIdx === 0 ? "#fff" : entry.color, border: `2px solid ${entry.color}`, boxSizing: "border-box" }} />
+                          }
+                        </td>
+                        <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", fontWeight: entry.isNested ? 400 : 600, color: entry.isNested ? "#888" : "#111", fontSize: entry.isNested ? 12 : 13 }}>
+                          #{entry.num}
+                        </td>
+                        <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", textAlign: "right", fontWeight: entry.isNested ? 500 : 700, fontVariantNumeric: "tabular-nums", color: entry.isNested ? "#aaa" : "#c0392b", fontSize: entry.isNested ? 12 : 13 }}>
+                          {entry.nonReleasable && (
+                            <span style={{ marginRight: 5, fontSize: 9, fontWeight: 700, color: "#c0392b", background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 4, padding: "1px 4px", letterSpacing: "0.05em", verticalAlign: "middle" }}>NR</span>
+                          )}
+                          {entry.crossQuarter && <span style={{ fontSize: 10, fontWeight: 600, color: "#aaa", marginRight: 4 }}>{qLabel(entry.releaseQ)}</span>}
+                          {entry.releaseTime}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Desync reconciliation banner — blocks new entries until scorer acknowledges */}
           {desyncBanner && (
             <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
@@ -1459,64 +1506,52 @@ export default function LaxStats({
               <div style={oneHandedMode ? S.teamBtnsOneHanded : S.teamBtns}>
                 {[0, 1].map(ti => (
                   <button key={ti} style={oneHandedMode ? S.teamBigBtnOneHanded(teamColors[ti], ti === 0) : S.teamBigBtn(teamColors[ti], ti === 0)} onClick={() => { setSelectedTeam(ti); setStep("event"); }}>
-                    <span style={{ fontSize: 36, fontWeight: 600, display: "block", marginBottom: 4, color: (ti === 0 && !oneHandedMode) ? teamColors[0] : "#fff" }}>{totalScores[ti]}</span>
-                    <span style={{ fontSize: 13, color: (ti === 0 && !oneHandedMode) ? teamColors[0] : "rgba(255,255,255,0.8)" }}>{teams[ti].name}</span>
-                    <span style={{ fontSize: 13, marginTop: 6, display: "block", opacity: 0.8, color: (ti === 0 && !oneHandedMode) ? teamColors[0] : "#fff", fontWeight: 500 }}>
+                    <span style={{ fontSize: 36, fontWeight: 600, display: "block", marginBottom: 4, color: ti === 0 ? teamColors[0] : "#fff" }}>{totalScores[ti]}</span>
+                    <span style={{ fontSize: 13, color: ti === 0 ? teamColors[0] : "rgba(255,255,255,0.8)" }}>{teams[ti].name}</span>
+                    <span style={{ fontSize: 13, marginTop: 6, display: "block", opacity: 0.8, color: ti === 0 ? teamColors[0] : "#fff", fontWeight: 500 }}>
                       ⏸ {timeoutsLeft[ti]} timeout{timeoutsLeft[ti] !== 1 ? "s" : ""} left
                     </span>
                   </button>
                 ))}
               </div>
-              {/* Penalty box */}
-              {penaltyBoxEntries.length > 0 && (
-                oneHandedMode ? (
-                  <div style={{ marginTop: 10, marginBottom: 4, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>Box:</span>
-                    {penaltyBoxEntries.filter(e => !e.isNested).map((entry, i) => (
-                      <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#c0392b", background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 6, padding: "2px 7px" }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: entry.color, flexShrink: 0 }} />
-                        #{entry.num} · {entry.nonReleasable ? "NR" : entry.releaseTime}
-                      </span>
-                    ))}
+              {/* Penalty box — normal mode only; one-handed mode renders this at the top of the container */}
+              {!oneHandedMode && penaltyBoxEntries.length > 0 && (
+                <div style={{ marginTop: 16, border: "1px solid #e8e8e8", borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", padding: "8px 14px", background: "#f9f9f9", borderBottom: "1px solid #e8e8e8" }}>
+                    Penalty Box
                   </div>
-                ) : (
-                  <div style={{ marginTop: 16, border: "1px solid #e8e8e8", borderRadius: 12, overflow: "hidden" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", padding: "8px 14px", background: "#f9f9f9", borderBottom: "1px solid #e8e8e8" }}>
-                      Penalty Box
-                    </div>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ background: "#fafafa" }}>
-                          <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Team</th>
-                          <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Player</th>
-                          <th style={{ padding: "6px 14px", textAlign: "right", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Releases at</th>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: "#fafafa" }}>
+                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Team</th>
+                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Player</th>
+                        <th style={{ padding: "6px 14px", textAlign: "right", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Releases at</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {penaltyBoxEntries.map((entry, i) => (
+                        <tr key={i} style={{ borderBottom: i < penaltyBoxEntries.length - 1 ? "1px solid #f5f5f5" : "none", background: entry.isNested ? "#fafafa" : "#fff" }}>
+                          <td style={{ padding: entry.isNested ? "5px 14px 5px 26px" : "8px 14px" }}>
+                            {entry.isNested
+                              ? <span style={{ fontSize: 11, color: "#bbb", marginRight: 4 }}>└</span>
+                              : <div style={{ width: 14, height: 14, borderRadius: "50%", background: entry.teamIdx === 0 ? "#fff" : entry.color, border: `2px solid ${entry.color}`, boxSizing: "border-box" }} />
+                            }
+                          </td>
+                          <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", fontWeight: entry.isNested ? 400 : 600, color: entry.isNested ? "#888" : "#111", fontSize: entry.isNested ? 12 : 13 }}>
+                            #{entry.num}
+                          </td>
+                          <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", textAlign: "right", fontWeight: entry.isNested ? 500 : 700, fontVariantNumeric: "tabular-nums", color: entry.isNested ? "#aaa" : "#c0392b", fontSize: entry.isNested ? 12 : 13 }}>
+                            {entry.nonReleasable && (
+                              <span style={{ marginRight: 5, fontSize: 9, fontWeight: 700, color: "#c0392b", background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 4, padding: "1px 4px", letterSpacing: "0.05em", verticalAlign: "middle" }}>NR</span>
+                            )}
+                            {entry.crossQuarter && <span style={{ fontSize: 10, fontWeight: 600, color: "#aaa", marginRight: 4 }}>{qLabel(entry.releaseQ)}</span>}
+                            {entry.releaseTime}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {penaltyBoxEntries.map((entry, i) => (
-                          <tr key={i} style={{ borderBottom: i < penaltyBoxEntries.length - 1 ? "1px solid #f5f5f5" : "none", background: entry.isNested ? "#fafafa" : "#fff" }}>
-                            <td style={{ padding: entry.isNested ? "5px 14px 5px 26px" : "8px 14px" }}>
-                              {entry.isNested
-                                ? <span style={{ fontSize: 11, color: "#bbb", marginRight: 4 }}>└</span>
-                                : <div style={{ width: 14, height: 14, borderRadius: "50%", background: entry.teamIdx === 0 ? "#fff" : entry.color, border: `2px solid ${entry.color}`, boxSizing: "border-box" }} />
-                              }
-                            </td>
-                            <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", fontWeight: entry.isNested ? 400 : 600, color: entry.isNested ? "#888" : "#111", fontSize: entry.isNested ? 12 : 13 }}>
-                              #{entry.num}
-                            </td>
-                            <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", textAlign: "right", fontWeight: entry.isNested ? 500 : 700, fontVariantNumeric: "tabular-nums", color: entry.isNested ? "#aaa" : "#c0392b", fontSize: entry.isNested ? 12 : 13 }}>
-                              {entry.nonReleasable && (
-                                <span style={{ marginRight: 5, fontSize: 9, fontWeight: 700, color: "#c0392b", background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 4, padding: "1px 4px", letterSpacing: "0.05em", verticalAlign: "middle" }}>NR</span>
-                              )}
-                              {entry.crossQuarter && <span style={{ fontSize: 10, fontWeight: 600, color: "#aaa", marginRight: 4 }}>{qLabel(entry.releaseQ)}</span>}
-                              {entry.releaseTime}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
 
               <button style={S.endQtrBtn(gameOver || scorekeeperRole === "secondary")}
