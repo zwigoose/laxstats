@@ -2278,6 +2278,7 @@ export default function LaxStats({
                         if (e.event === "shot_saved") subItems.push(`🧤 Saved by #${e.player?.num} ${e.player?.name}`);
                         if (e.event === "assist") subItems.push(`🤝 Assist: #${e.player?.num} ${e.player?.name}`);
                         if (e.event === "turnover" && group.some(x => x.event === "forced_to")) subItems.push(`↩️ TO by #${e.player?.num} ${e.player?.name}`);
+                        if (e.event === "ground_ball" && group.some(x => x.event === "faceoff_win")) subItems.push(`🪣 GB: #${e.player?.num} ${e.player?.name}`);
                       });
                       if (primary.event === "goal" && primary.goalTime) subItems.push(`⏱ ${primary.goalTime} remaining`);
                       return (
@@ -2337,6 +2338,7 @@ export default function LaxStats({
                           if (e.event === "shot_saved") subItems.push(`🧤 Saved by #${e.player?.num} ${e.player?.name}`);
                           if (e.event === "assist") subItems.push(`🤝 Assist: #${e.player?.num} ${e.player?.name}`);
                           if (e.event === "turnover" && group.some(x => x.event === "forced_to")) subItems.push(`↩️ TO by #${e.player?.num} ${e.player?.name}`);
+                          if (e.event === "ground_ball" && group.some(x => x.event === "faceoff_win")) subItems.push(`🪣 GB: #${e.player?.num} ${e.player?.name}`);
                         });
                         if (primary.event === "goal" && primary.goalTime) subItems.push(`⏱ ${primary.goalTime} remaining`);
                         if (primary.event === "goal" && primary.emo) subItems.push("⚡ EMO");
