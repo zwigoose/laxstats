@@ -11,6 +11,7 @@ import S from "../../styles/laxStats";
 import TimeKeypad from "./TimeKeypad";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../PlayerStatsTable";
 import FieldMapInput from "./FieldMapInput";
+import ShotMap from "../ShotMap";
 
 export { EVENTS, STAT_KEYS, STAT_LABELS, buildPlayerStats, buildTeamTotals, buildLogGroups, buildScoringTimeline, qLabel, isOT, toSecs, entryDisplayInfo };
 
@@ -2077,9 +2078,9 @@ export default function LaxStats({
             {!gameOver && <button style={S.tabBtn(statsQtr === String(currentQuarter))} onClick={() => setStatsQtr(String(currentQuarter))}>{curQLabel} <span style={{ fontSize: 10, color: statsQtr === String(currentQuarter) ? "#aaa" : "#4caf50" }}>●</span></button>}
           </div>
 
-          {/* Stats sub-tabs: Summary | Players | Timeline */}
+          {/* Stats sub-tabs: Summary | Players | Map | Timeline */}
           <div style={S.tabsRow}>
-            {["summary","players","timeline"].map(t => (
+            {["summary","players","map","timeline"].map(t => (
               <button key={t} style={{ ...S.tabBtn(statsTab === t), border: "1px solid #ddd" }} onClick={() => setStatsTab(t)}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -2138,6 +2139,11 @@ export default function LaxStats({
                 statKeys={PLAYER_STAT_KEYS}
               />
             </div>
+          )}
+
+          {/* Shot Map */}
+          {statsTab === "map" && (
+            <ShotMap log={filteredLog} teamColors={teamColors} />
           )}
 
           {/* Timeline — goals, timeouts, and penalties with timestamps */}
