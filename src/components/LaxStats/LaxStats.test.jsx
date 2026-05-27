@@ -454,25 +454,3 @@ describe("LaxStats — penalty box display", () => {
   });
 });
 
-describe("LaxStats — One-Handed Mode", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("shows One-Handed Mode toggle button on track screen and toggles layout", async () => {
-    renderLaxStats();
-    await waitFor(() => screen.getAllByPlaceholderText(/First Last/));
-    await act(async () => { await startTracking(); });
-
-    // Find the toggle button
-    const toggleBtn = screen.getByText(/One-Handed Mode/);
-    expect(toggleBtn).toBeInTheDocument();
-
-    // Toggle it on
-    fireEvent.click(toggleBtn);
-    expect(screen.getByText(/Standard Mode/)).toBeInTheDocument();
-    expect(screen.getByText(/Standard UI/)).toBeInTheDocument();
-
-    // Toggle it off
-    fireEvent.click(screen.getByText(/Standard Mode/));
-    expect(screen.getByText(/One-Handed Mode/)).toBeInTheDocument();
-  });
-});

@@ -198,7 +198,7 @@ function sortGroups(groups) {
     if (ta !== null && tb !== null && ta !== tb) return tb - ta;
     if (ta !== null && tb === null) return -1;
     if (ta === null && tb !== null) return 1;
-    return (pa.seq ?? 0) - (pb.seq ?? 0);
+    return (pa.seq ?? Number.MAX_SAFE_INTEGER) - (pb.seq ?? Number.MAX_SAFE_INTEGER);
   });
 }
 
