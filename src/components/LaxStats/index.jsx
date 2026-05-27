@@ -2143,7 +2143,7 @@ export default function LaxStats({
 
           {/* Shot Map */}
           {statsTab === "map" && (
-            <ShotMap log={filteredLog} teamColors={teamColors} />
+            <ShotMap log={filteredLog} teamColors={teamColors} teams={teams} />
           )}
 
           {/* Timeline — goals, timeouts, and penalties with timestamps */}

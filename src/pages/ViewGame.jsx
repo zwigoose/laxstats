@@ -551,7 +551,7 @@ useEffect(() => {
 
             {/* Shot Map */}
             {statsTab === "map" && (
-              <ShotMap log={filteredLog} teamColors={teamColors} />
+              <ShotMap log={filteredLog} teamColors={teamColors} teams={teams} />
             )}
 
             {/* Players */}
