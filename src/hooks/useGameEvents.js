@@ -41,6 +41,7 @@ export function dbRowToEntry(row) {
     shotY:         row.shot_y           ?? undefined,
     foulName:           row.foul_name            ?? undefined,
     isPossibleDuplicate: row.is_possible_duplicate ?? false,
+    emo:                row.is_emo || undefined,
     seq:                row.seq,
   };
 }
@@ -70,6 +71,7 @@ export function entryToDbRow(entry, gameId, userId) {
     shot_x:             entry.shotX          ?? null,
     shot_y:             entry.shotY          ?? null,
     foul_name:          entry.foulName       ?? null,
+    is_emo:             entry.emo            ?? false,
     created_by:         userId,
     client_created_at:  new Date().toISOString(),
   };
