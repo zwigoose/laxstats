@@ -3,9 +3,9 @@ import { useState } from 'react';
 // viewBox 0 0 120 110 — 2 units per yard, full half-field
 // y=0: midline  y=110: end line
 // x=0: left sideline  x=120: right sideline
-// Restraining line at y=70 (20 yd from end)
-// Goal line at y=80 (15 yd from end), goal x=58–62 (6 ft wide)
-// Crease: center (60,80) radius 6 (9 ft = 3 yd)
+// Restraining line at y=40 (20 yd from midline; restraining→end = 35 yd)
+// Goal line at y=90 (20 yd from restraining, 15 yd from end)
+// Crease: center (60,90) radius 6 (9 ft = 3 yd)
 const VW = 120;
 const VH = 110;
 
@@ -28,13 +28,12 @@ function HalfField() {
       <line x1="20" y1="40" x2="20" y2={VH} stroke="#064e3b" strokeWidth="0.75" opacity="0.7" />
       <line x1="100" y1="40" x2="100" y2={VH} stroke="#064e3b" strokeWidth="0.75" opacity="0.7" />
       {/* Goal crease */}
-      <circle cx="60" cy="80" r="6" fill="rgba(255,255,255,0.35)" stroke="#064e3b" strokeWidth="0.75" />
+      <circle cx="60" cy="90" r="6" fill="rgba(255,255,255,0.35)" stroke="#064e3b" strokeWidth="0.75" />
       {/* Goal cage — triangle viewed from above.
-           Posts at (57,80) and (63,80); net converges to apex at (60,84).
-           Apex is 4 units behind goal line = 2 yards = 6 ft (standard cage depth). */}
-      <polygon points="57,80 63,80 60,84" fill="rgba(255,255,255,0.75)" stroke="#064e3b" strokeWidth="1" strokeLinejoin="round" />
-      {/* Goal line (front of cage, drawn over GLE for emphasis) */}
-      <line x1="57" y1="80" x2="63" y2="80" stroke="#064e3b" strokeWidth="2" />
+           Posts at (57,90) and (63,90); net converges to apex at (60,94). */}
+      <polygon points="57,90 63,90 60,94" fill="rgba(255,255,255,0.75)" stroke="#064e3b" strokeWidth="1" strokeLinejoin="round" />
+      {/* Goal line (front of cage) */}
+      <line x1="57" y1="90" x2="63" y2="90" stroke="#064e3b" strokeWidth="2" />
     </>
   );
 }
