@@ -27,8 +27,6 @@ function HalfField() {
       {/* Wing lines — attack-area boundaries, orthogonal to restraining, restraining→end line */}
       <line x1="20" y1="40" x2="20" y2={VH} stroke="#064e3b" strokeWidth="0.75" opacity="0.7" />
       <line x1="100" y1="40" x2="100" y2={VH} stroke="#064e3b" strokeWidth="0.75" opacity="0.7" />
-      {/* GLE — goal line extended, sideline to sideline (solid) */}
-      <line x1="0" y1="80" x2={VW} y2="80" stroke="#064e3b" strokeWidth="0.75" opacity="0.6" />
       {/* Goal crease */}
       <circle cx="60" cy="80" r="6" fill="rgba(255,255,255,0.35)" stroke="#064e3b" strokeWidth="0.75" />
       {/* Goal cage — triangle viewed from above.
