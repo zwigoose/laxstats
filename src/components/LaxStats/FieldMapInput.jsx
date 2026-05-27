@@ -42,9 +42,12 @@ export default function FieldMapInput({ onLocationSelected }) {
           {/* Midline */}
           <line x1="0" y1="0" x2="120" y2="0" stroke="#064e3b" strokeWidth="1.5" />
           <text x="60" y="6" textAnchor="middle" fontSize="4" fill="#064e3b" opacity="0.45">Midfield</text>
-          {/* Restraining line (dashed) */}
-          <line x1="0" y1="70" x2="120" y2="70" stroke="#064e3b" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.7" />
-          <text x="3" y="68" fontSize="3" fill="#064e3b" opacity="0.4">Restraining</text>
+          {/* Restraining line — 20 yd from midline, full width */}
+          <line x1="0" y1="40" x2="120" y2="40" stroke="#064e3b" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.8" />
+          <text x="3" y="38" fontSize="3" fill="#064e3b" opacity="0.4">Restraining</text>
+          {/* Wing lines — attack-area boundaries, orthogonal to restraining, restraining→end line */}
+          <line x1="20" y1="40" x2="20" y2="110" stroke="#064e3b" strokeWidth="0.75" opacity="0.7" />
+          <line x1="100" y1="40" x2="100" y2="110" stroke="#064e3b" strokeWidth="0.75" opacity="0.7" />
           {/* GLE — goal line extended sideline to sideline */}
           <line x1="0" y1="80" x2="120" y2="80" stroke="#064e3b" strokeWidth="0.75" opacity="0.6" />
           {/* Goal crease */}
