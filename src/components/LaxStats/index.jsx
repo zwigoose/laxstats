@@ -48,7 +48,6 @@ export default function LaxStats({
   const [completedQuarters, setCompletedQuarters] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   const [gameDate, setGameDate] = useState(() => (createdAt ?? new Date().toISOString()).split("T")[0]);
-  const [oneHandedMode, setOneHandedMode] = useState(false);
 
   // Step machine:
   // team | event | player
@@ -988,29 +987,6 @@ export default function LaxStats({
   return (
     <div style={S.app}>
       {/* Nav: Setup | Track | Stats | Log */}
-      {!gameOver && (
-        <div style={{ display: "flex", justifyContent: "flex-end", margin: "10px 4px 6px" }}>
-          <button
-            onClick={() => setOneHandedMode(v => !v)}
-            style={{
-              padding: "6px 12px",
-              fontSize: 11,
-              fontWeight: 600,
-              background: oneHandedMode ? "#111" : "#f5f5f5",
-              color: oneHandedMode ? "#fff" : "#555",
-              border: "1px solid #ddd",
-              borderRadius: 12,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
-            }}
-          >
-            <span>📱</span> {oneHandedMode ? "Standard Mode" : "One-Handed Mode"}
-          </button>
-        </div>
-      )}
 
       <div style={S.nav}>
         {[
@@ -1349,77 +1325,7 @@ export default function LaxStats({
 
       {/* ══ TRACK ══ */}
       {screen === "track" && (
-        <div style={S.oneHandedContainer(oneHandedMode)}>
-          {/* Header/Status section at the top of the container, ONLY in oneHandedMode */}
-          {oneHandedMode && (
-            <div style={{ width: "100%", borderBottom: "1px solid #eee", paddingBottom: 10, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={S.qtrPill}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOT(currentQuarter) ? "#e67e22" : "#4caf50", display: "inline-block" }}></span>
-                &nbsp;{curQLabel} — Live
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 700 }}>
-                <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
-                <span style={{ margin: "0 6px", color: "#ccc" }}>—</span>
-                <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
-              </div>
-              <button
-                onClick={() => setOneHandedMode(false)}
-                style={{
-                  padding: "6px 12px",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  background: "#fff5f5",
-                  color: "#c0392b",
-                  border: "1px solid #f0a0a0",
-                  borderRadius: 10,
-                  cursor: "pointer"
-                }}
-              >
-                Standard UI
-              </button>
-            </div>
-          )}
-          {/* Penalty box — shown at top in one-handed mode to fill the white space above interactive elements */}
-          {oneHandedMode && penaltyBoxEntries.length > 0 && (
-            <div style={{ marginBottom: "auto", width: "100%", paddingBottom: 12 }}>
-              <div style={{ border: "1px solid #e8e8e8", borderRadius: 12, overflow: "hidden" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", padding: "8px 14px", background: "#f9f9f9", borderBottom: "1px solid #e8e8e8" }}>
-                  Penalty Box
-                </div>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: "#fafafa" }}>
-                      <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Team</th>
-                      <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Player</th>
-                      <th style={{ padding: "6px 14px", textAlign: "right", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Releases at</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {penaltyBoxEntries.map((entry, i) => (
-                      <tr key={i} style={{ borderBottom: i < penaltyBoxEntries.length - 1 ? "1px solid #f5f5f5" : "none", background: entry.isNested ? "#fafafa" : "#fff" }}>
-                        <td style={{ padding: entry.isNested ? "5px 14px 5px 26px" : "8px 14px" }}>
-                          {entry.isNested
-                            ? <span style={{ fontSize: 11, color: "#bbb", marginRight: 4 }}>└</span>
-                            : <div style={{ width: 14, height: 14, borderRadius: "50%", background: entry.teamIdx === 0 ? "#fff" : entry.color, border: `2px solid ${entry.color}`, boxSizing: "border-box" }} />
-                          }
-                        </td>
-                        <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", fontWeight: entry.isNested ? 400 : 600, color: entry.isNested ? "#888" : "#111", fontSize: entry.isNested ? 12 : 13 }}>
-                          #{entry.num}
-                        </td>
-                        <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", textAlign: "right", fontWeight: entry.isNested ? 500 : 700, fontVariantNumeric: "tabular-nums", color: entry.isNested ? "#aaa" : "#c0392b", fontSize: entry.isNested ? 12 : 13 }}>
-                          {entry.nonReleasable && (
-                            <span style={{ marginRight: 5, fontSize: 9, fontWeight: 700, color: "#c0392b", background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 4, padding: "1px 4px", letterSpacing: "0.05em", verticalAlign: "middle" }}>NR</span>
-                          )}
-                          {entry.crossQuarter && <span style={{ fontSize: 10, fontWeight: 600, color: "#aaa", marginRight: 4 }}>{qLabel(entry.releaseQ)}</span>}
-                          {entry.releaseTime}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+        <div>
 
           {/* Desync reconciliation banner — blocks new entries until scorer acknowledges */}
           {desyncBanner && (
@@ -1488,8 +1394,7 @@ export default function LaxStats({
           {/* Team select */}
           {step === "team" && (
             <div>
-              {!oneHandedMode && (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <div style={S.qtrPill}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOT(currentQuarter) ? "#e67e22" : "#4caf50", display: "inline-block" }}></span>
                   {curQLabel} — Live
@@ -1500,12 +1405,11 @@ export default function LaxStats({
                   <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
                 </div>
               </div>
-              )}
-              {isOT(currentQuarter) && !oneHandedMode && <div style={{ fontSize: 12, color: "#e67e22", background: "#fff8f0", border: "1px solid #f0d9b5", borderRadius: 8, padding: "6px 12px", marginBottom: 12, textAlign: "center" }}>Sudden death — next goal wins</div>}
+              {isOT(currentQuarter) && <div style={{ fontSize: 12, color: "#e67e22", background: "#fff8f0", border: "1px solid #f0d9b5", borderRadius: 8, padding: "6px 12px", marginBottom: 12, textAlign: "center" }}>Sudden death — next goal wins</div>}
               <div style={S.stepLabel}>Who scored / acted?</div>
-              <div style={oneHandedMode ? S.teamBtnsOneHanded : S.teamBtns}>
+              <div style={S.teamBtns}>
                 {[0, 1].map(ti => (
-                  <button key={ti} style={oneHandedMode ? S.teamBigBtnOneHanded(teamColors[ti], ti === 0) : S.teamBigBtn(teamColors[ti], ti === 0)} onClick={() => { setSelectedTeam(ti); setStep("event"); }}>
+                  <button key={ti} style={S.teamBigBtn(teamColors[ti], ti === 0)} onClick={() => { setSelectedTeam(ti); setStep("event"); }}>
                     <span style={{ fontSize: 36, fontWeight: 600, display: "block", marginBottom: 4, color: ti === 0 ? teamColors[0] : "#fff" }}>{totalScores[ti]}</span>
                     <span style={{ fontSize: 13, color: ti === 0 ? teamColors[0] : "rgba(255,255,255,0.8)" }}>{teams[ti].name}</span>
                     <span style={{ fontSize: 13, marginTop: 6, display: "block", opacity: 0.8, color: ti === 0 ? teamColors[0] : "#fff", fontWeight: 500 }}>
@@ -1514,8 +1418,7 @@ export default function LaxStats({
                   </button>
                 ))}
               </div>
-              {/* Penalty box — normal mode only; one-handed mode renders this at the top of the container */}
-              {!oneHandedMode && penaltyBoxEntries.length > 0 && (
+              {penaltyBoxEntries.length > 0 && (
                 <div style={{ marginTop: 16, border: "1px solid #e8e8e8", borderRadius: 12, overflow: "hidden" }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", padding: "8px 14px", background: "#f9f9f9", borderBottom: "1px solid #e8e8e8" }}>
                     Penalty Box
@@ -1621,7 +1524,7 @@ export default function LaxStats({
           {/* Event select */}
           {step === "event" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={resetEntry}>← Back</button>
+              <button style={S.backBtn} onClick={resetEntry}>← Back</button>
               <div style={{
                 background: teamColors[selectedTeam],
                 borderRadius: 10,
@@ -1640,11 +1543,11 @@ export default function LaxStats({
                   <div style={{ fontSize: 20, fontWeight: 600, color: "#fff", letterSpacing: 0 }}>{teams[selectedTeam].name}</div>
                 </div>
               </div>
-              <div style={oneHandedMode ? S.eventGridOneHanded : S.eventGrid}>
+              <div style={S.eventGrid}>
                 {EVENTS.map(ev => {
                   const prevEv = editingGroupId ? (() => { const g = getGroupById(editingGroupId); return g.find(e => e.event === "goal") ? "goal" : g.find(e => e.event === "shot") ? "shot" : g[0]?.event; })() : null;
                   return (
-                    <button key={ev.id} style={oneHandedMode ? S.eventBtnOneHanded(editingGroupId && prevEv === ev.id) : S.eventBtn(editingGroupId && prevEv === ev.id)}
+                    <button key={ev.id} style={S.eventBtn(editingGroupId && prevEv === ev.id)}
                       onClick={() => {
                         setSelectedEvent(ev);
                         if (ev.id === "timeout") {
@@ -1668,7 +1571,7 @@ export default function LaxStats({
           {/* Player select */}
           {step === "player" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("event")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("event")}>← Back</button>
               <div style={{ ...S.stepLabel }}>{selectedEvent?.label} — Which player?</div>
               {(() => {
                 const isFaceoff = selectedEvent?.id === "faceoff_win";
@@ -1678,20 +1581,20 @@ export default function LaxStats({
                 const roster = parsedRosters[selectedTeam] || [];
                 const rest = featured ? roster.filter(p => !(p.num === featured.num && p.name === featured.name)) : roster;
                 return (
-                  <div style={oneHandedMode ? S.playerGridOneHanded : S.playerGrid}>
+                  <div style={S.playerGrid}>
                     {featured && (
                       <button
-                        style={oneHandedMode ? { ...S.playerBtnOneHanded(true, teamColors[selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 72 } : { ...S.playerBtn(true, teamColors[selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 }}
+                        style={{ ...S.playerBtn(true, teamColors[selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 }}
                         onClick={() => handlePlayerSelected(featured)}
                       >
-                        <span style={oneHandedMode ? S.playerNumOneHanded(true, isHome, teamColors[selectedTeam]) : S.playerNum(true, isHome, teamColors[selectedTeam])}>#{featured.num}</span>
-                        <span style={oneHandedMode ? S.playerNameOneHanded(true, isHome, teamColors[selectedTeam]) : S.playerName(true, isHome, teamColors[selectedTeam])}>{featured.name}</span>
+                        <span style={S.playerNum(true, isHome, teamColors[selectedTeam])}>#{featured.num}</span>
+                        <span style={S.playerName(true, isHome, teamColors[selectedTeam])}>{featured.name}</span>
                       </button>
                     )}
                     {rest.map((p, i) => {
                       const editPrev = editingGroupId ? prevPlayerInGroup(editingGroupId, selectedTeam) : null;
                       const sel = editPrev ? (editPrev.num === p.num && editPrev.name === p.name) : false;
-                      return <button key={i} style={oneHandedMode ? S.playerBtnOneHanded(sel, teamColors[selectedTeam], isHome) : S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handlePlayerSelected(p)}><span style={oneHandedMode ? S.playerNumOneHanded(sel, isHome, teamColors[selectedTeam]) : S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={oneHandedMode ? S.playerNameOneHanded(sel, isHome, teamColors[selectedTeam]) : S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
+                      return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handlePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
                     })}
                   </div>
                 );
@@ -1701,7 +1604,7 @@ export default function LaxStats({
           {/* Faceoff Cleanup: ask if there was a GB */}
           {step === "ask_faceoff_gb" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("player")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("player")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 🔄 Faceoff Win — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
@@ -1719,17 +1622,17 @@ export default function LaxStats({
           {/* Faceoff Cleanup: pick the GB player */}
           {step === "faceoff_gb_player" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("ask_faceoff_gb")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("ask_faceoff_gb")}>← Back</button>
               <div style={{ ...S.stepLabel }}>Ground Ball — Which player?</div>
               {(() => {
                 const isHome = selectedTeam === 0;
                 const roster = parsedRosters[selectedTeam] || [];
                 return (
-                  <div style={oneHandedMode ? S.playerGridOneHanded : S.playerGrid}>
+                  <div style={S.playerGrid}>
                     {roster.map((p, i) => (
-                      <button key={i} style={oneHandedMode ? S.playerBtnOneHanded(false, teamColors[selectedTeam], isHome) : S.playerBtn(false, teamColors[selectedTeam], isHome)} onClick={() => handleFaceoffGBPlayerSelected(p)}>
-                        <span style={oneHandedMode ? S.playerNumOneHanded(false, isHome, teamColors[selectedTeam]) : S.playerNum(false, isHome, teamColors[selectedTeam])}>#{p.num}</span>
-                        <span style={oneHandedMode ? S.playerNameOneHanded(false, isHome, teamColors[selectedTeam]) : S.playerName(false, isHome, teamColors[selectedTeam])}>{p.name}</span>
+                      <button key={i} style={S.playerBtn(false, teamColors[selectedTeam], isHome)} onClick={() => handleFaceoffGBPlayerSelected(p)}>
+                        <span style={S.playerNum(false, isHome, teamColors[selectedTeam])}>#{p.num}</span>
+                        <span style={S.playerName(false, isHome, teamColors[selectedTeam])}>{p.name}</span>
                       </button>
                     ))}
                   </div>
@@ -1741,19 +1644,19 @@ export default function LaxStats({
           {/* Caused TO: pick the opposing player who turned it over */}
           {step === "ask_forced_to_player" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("player")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("player")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 🥊 Caused TO — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
               <div style={{ ...S.stepLabel, color: teamColors[1 - selectedTeam] }}>
                 {teams[1 - selectedTeam]?.name} — Which player turned it over?
               </div>
-              <div style={oneHandedMode ? S.playerGridOneHanded : S.playerGrid}>
+              <div style={S.playerGrid}>
                 {parsedRosters[1 - selectedTeam]?.map((p, i) => {
                   const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "turnover")?.player : null;
                   const sel = prev ? (prev.num === p.num && prev.name === p.name) : false;
                   const isHome = (1 - selectedTeam) === 0;
-                  return <button key={i} style={oneHandedMode ? S.playerBtnOneHanded(sel, teamColors[1 - selectedTeam], isHome) : S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleForcedToPlayerSelected(p)}><span style={oneHandedMode ? S.playerNumOneHanded(sel, isHome, teamColors[1 - selectedTeam]) : S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={oneHandedMode ? S.playerNameOneHanded(sel, isHome, teamColors[1 - selectedTeam]) : S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
+                  return <button key={i} style={S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleForcedToPlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
                 })}
               </div>
             </div>
@@ -1762,7 +1665,7 @@ export default function LaxStats({
           {/* Goal: ask assist */}
           {step === "ask_assist" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("player")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("player")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 🥍 Goal — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
@@ -1785,17 +1688,17 @@ export default function LaxStats({
           {/* Goal: assist player */}
           {step === "assist_player" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("ask_assist")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("ask_assist")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 🥍 Goal — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
               <div style={{ ...S.stepLabel, color: teamColors[selectedTeam] }}>{teams[selectedTeam]?.name} — Who assisted?</div>
-              <div style={oneHandedMode ? S.playerGridOneHanded : S.playerGrid}>
+              <div style={S.playerGrid}>
                 {parsedRosters[selectedTeam]?.filter(p => !(p.num === selectedPlayer?.num && p.name === selectedPlayer?.name)).map((p, i) => {
                   const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "assist")?.player : null;
                   const sel = prev ? (prev.num === p.num && prev.name === p.name) : false;
                   const isHome = selectedTeam === 0;
-                  return <button key={i} style={oneHandedMode ? S.playerBtnOneHanded(sel, teamColors[selectedTeam], isHome) : S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handleAssistPlayerSelected(p)}><span style={oneHandedMode ? S.playerNumOneHanded(sel, isHome, teamColors[selectedTeam]) : S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={oneHandedMode ? S.playerNameOneHanded(sel, isHome, teamColors[selectedTeam]) : S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
+                  return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handleAssistPlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
                 })}
               </div>
             </div>
@@ -1804,14 +1707,14 @@ export default function LaxStats({
           {/* Goal: time remaining */}
           {step === "ask_goal_time" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => { const hasAssist = pendingEntries.some(e => e.event === "assist"); setStep(hasAssist ? "assist_player" : "ask_assist"); }}>← Back</button>
+              <button style={S.backBtn} onClick={() => { const hasAssist = pendingEntries.some(e => e.event === "assist"); setStep(hasAssist ? "assist_player" : "ask_assist"); }}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 {pendingContext()}
               </div>
               <div style={S.questionCard}>
                 <div style={S.questionText}>Time remaining in {curQLabel}?</div>
               </div>
-              <TimeKeypad oneHandedMode={oneHandedMode}
+              <TimeKeypad
                 maxSeconds={isOT(currentQuarter) ? 240 : 720}
                 ceilingSecs={timeCeilingSecs}
                 allowEqualToCeiling={false}
@@ -1823,12 +1726,12 @@ export default function LaxStats({
           {/* Timeout: time remaining */}
           {step === "ask_timeout_time" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("event")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("event")}>← Back</button>
               <div style={S.questionCard}>
                 <div style={S.questionText}>Timeout — {teams[selectedTeam]?.name}</div>
                 <div style={S.questionSub}>Time remaining in {curQLabel}?</div>
               </div>
-              <TimeKeypad oneHandedMode={oneHandedMode}
+              <TimeKeypad
                 maxSeconds={isOT(currentQuarter) ? 240 : 720}
                 ceilingSecs={timeCeilingSecs}
                 allowEqualToCeiling={false}
@@ -1845,7 +1748,7 @@ export default function LaxStats({
           {/* Shot: outcome picker */}
           {step === "ask_shot_outcome" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("player")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("player")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 🎯 Shot — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
@@ -1871,7 +1774,7 @@ export default function LaxStats({
           {/* Shot: pick goalie */}
           {step === "save_player" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("ask_shot_outcome")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("ask_shot_outcome")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 🎯 Shot — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
@@ -1884,19 +1787,19 @@ export default function LaxStats({
                 const roster = parsedRosters[1 - selectedTeam] || [];
                 const rest = featuredGoalie ? roster.filter(p => !(p.num === featuredGoalie.num && p.name === featuredGoalie.name)) : roster;
                 return (
-                  <div style={oneHandedMode ? S.playerGridOneHanded : S.playerGrid}>
+                  <div style={S.playerGrid}>
                     {featuredGoalie && (
                       <button
-                        style={oneHandedMode ? { ...S.playerBtnOneHanded(true, teamColors[1 - selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 72 } : { ...S.playerBtn(true, teamColors[1 - selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 }}
+                        style={{ ...S.playerBtn(true, teamColors[1 - selectedTeam], isHome), gridRow: "span 2", gridColumn: "1 / -1", minHeight: 120 }}
                         onClick={() => handleSavePlayerSelected(featuredGoalie)}
                       >
-                        <span style={oneHandedMode ? S.playerNumOneHanded(true, isHome, teamColors[1 - selectedTeam]) : S.playerNum(true, isHome, teamColors[1 - selectedTeam])}>#{featuredGoalie.num}</span>
-                        <span style={oneHandedMode ? S.playerNameOneHanded(true, isHome, teamColors[1 - selectedTeam]) : S.playerName(true, isHome, teamColors[1 - selectedTeam])}>{featuredGoalie.name}</span>
+                        <span style={S.playerNum(true, isHome, teamColors[1 - selectedTeam])}>#{featuredGoalie.num}</span>
+                        <span style={S.playerName(true, isHome, teamColors[1 - selectedTeam])}>{featuredGoalie.name}</span>
                       </button>
                     )}
                     {rest.map((p, i) => {
                       const sel = false;
-                      return <button key={i} style={oneHandedMode ? S.playerBtnOneHanded(sel, teamColors[1 - selectedTeam], isHome) : S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleSavePlayerSelected(p)}><span style={oneHandedMode ? S.playerNumOneHanded(sel, isHome, teamColors[1 - selectedTeam]) : S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={oneHandedMode ? S.playerNameOneHanded(sel, isHome, teamColors[1 - selectedTeam]) : S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
+                      return <button key={i} style={S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleSavePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
                     })}
                   </div>
                 );
@@ -1907,16 +1810,16 @@ export default function LaxStats({
           {/* Shot: pick blocker */}
           {step === "blocked_player" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("ask_shot_outcome")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("ask_shot_outcome")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 🎯 Shot blocked — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
               <div style={{ ...S.stepLabel, color: teamColors[1 - selectedTeam] }}>{teams[1 - selectedTeam]?.name} — Who made the block?</div>
-              <div style={oneHandedMode ? S.playerGridOneHanded : S.playerGrid}>
+              <div style={S.playerGrid}>
                 {parsedRosters[1 - selectedTeam]?.map((p, i) => {
                   const isHome = (1 - selectedTeam) === 0;
                   const sel = false;
-                  return <button key={i} style={oneHandedMode ? S.playerBtnOneHanded(sel, teamColors[1 - selectedTeam], isHome) : S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleBlockerSelected(p)}><span style={oneHandedMode ? S.playerNumOneHanded(sel, isHome, teamColors[1 - selectedTeam]) : S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={oneHandedMode ? S.playerNameOneHanded(sel, isHome, teamColors[1 - selectedTeam]) : S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
+                  return <button key={i} style={S.playerBtn(sel, teamColors[1 - selectedTeam], isHome)} onClick={() => handleBlockerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[1 - selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[1 - selectedTeam])}>{p.name}</span></button>;
                 })}
               </div>
             </div>
@@ -1925,7 +1828,7 @@ export default function LaxStats({
           {/* Penalty: type */}
           {step === "ask_penalty_type" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("player")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("player")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>🟨 Penalty @ {penaltyTime} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
               {editingGroupId && (() => {
                 const existing = getGroupById(editingGroupId).find(e => e.event === "penalty_tech" || e.event === "penalty_min");
@@ -1933,15 +1836,14 @@ export default function LaxStats({
                   Currently: {existing.foulName}
                 </div> : null;
               })()}
-              {!oneHandedMode && <div style={S.questionCard}><div style={S.questionText}>What was the foul?</div></div>}
-              {oneHandedMode && <div style={{ fontSize: 14, fontWeight: 600, color: "#555", margin: "6px 0", textAlign: "center" }}>What was the foul?</div>}
-              <div style={{ display: "flex", flexDirection: "column", gap: oneHandedMode ? 5 : 8, marginTop: oneHandedMode ? 4 : 10, overflowY: oneHandedMode ? "auto" : "visible", maxHeight: oneHandedMode ? "55dvh" : "none" }}>
+              <div style={S.questionCard}><div style={S.questionText}>What was the foul?</div></div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
                 {PENALTY_OPTIONS.map(opt => {
                   const prevFoul = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "penalty_tech" || e.event === "penalty_min")?.foulName : null;
                   const isSelected = prevFoul === opt.name;
                   return (
                     <button key={opt.name}
-                      style={{ ...S.btnNo, textAlign: "center", padding: oneHandedMode ? "8px 16px" : "10px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, border: isSelected ? "2px solid #111" : "1px solid #ddd", fontWeight: isSelected ? 600 : 400 }}
+                      style={{ ...S.btnNo, textAlign: "center", padding: "10px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, border: isSelected ? "2px solid #111" : "1px solid #ddd", fontWeight: isSelected ? 600 : 400 }}
                       onClick={() => handlePenaltyFoul(opt)}>
                       <span>{opt.name}</span>
                       <span style={{ fontSize: 10, color: opt.type === "tech" ? "#b8860b" : "#c0392b", fontWeight: 400, letterSpacing: "0.03em" }}>{opt.type === "tech" ? "🟨 Technical" : "🟥 Personal"}</span>
@@ -1955,7 +1857,7 @@ export default function LaxStats({
           {/* Penalty: minutes */}
           {step === "ask_penalty_min" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("ask_penalty_type")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("ask_penalty_type")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 {penaltyFoulName} @ {penaltyTime} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
               {editingGroupId && (() => {
                 const prev = getGroupById(editingGroupId).find(e => e.event === "penalty_min")?.penaltyMin;
@@ -1963,11 +1865,10 @@ export default function LaxStats({
                   Currently: {prev} minute{prev !== 1 ? "s" : ""}
                 </div> : null;
               })()}
-              {!oneHandedMode && <div style={S.questionCard}><div style={S.questionText}>How many minutes?</div></div>}
-              {oneHandedMode && <div style={{ fontSize: 14, fontWeight: 600, color: "#555", margin: "6px 0", textAlign: "center" }}>How many minutes?</div>}
-              <div style={oneHandedMode ? { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 4 } : S.threeColRow}>
+              <div style={S.questionCard}><div style={S.questionText}>How many minutes?</div></div>
+              <div style={S.threeColRow}>
                 {[1,2,3].map(m => { const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "penalty_min")?.penaltyMin : null;
-                  return <button key={m} style={{ ...(oneHandedMode ? S.btnPrimaryOneHanded : S.btnYes), background: prev === m ? "#333" : "#111", border: prev === m ? "2px solid #555" : "none" }} onClick={() => handlePenaltyMin(m)}>{m} min{prev === m ? " ✓" : ""}</button>; })}
+                  return <button key={m} style={{ ...S.btnYes, background: prev === m ? "#333" : "#111", border: prev === m ? "2px solid #555" : "none" }} onClick={() => handlePenaltyMin(m)}>{m} min{prev === m ? " ✓" : ""}</button>; })}
               </div>
             </div>
           )}
@@ -1975,16 +1876,15 @@ export default function LaxStats({
           {/* Penalty: non-releasable? */}
           {step === "ask_penalty_nr" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("ask_penalty_min")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("ask_penalty_min")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 {penaltyFoulName} ({pendingEntries[0]?.penaltyMin}min) @ {penaltyTime} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
-              {!oneHandedMode && <div style={S.questionCard}>
+              <div style={S.questionCard}>
                 <div style={S.questionText}>Releasable or non-releasable?</div>
                 <div style={S.questionSub}>NR penalties are served in full — no early release on a goal</div>
-              </div>}
-              {oneHandedMode && <div style={{ fontSize: 14, fontWeight: 600, color: "#555", margin: "6px 0 2px", textAlign: "center" }}>Releasable or non-releasable?</div>}
-              <div style={oneHandedMode ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 6 } : S.yesNoRow}>
-                <button style={oneHandedMode ? S.btnPrimaryOneHanded : S.btnYes} onClick={() => handlePenaltyNR(false)}>Releasable</button>
-                <button style={oneHandedMode ? S.btnSecondaryOneHanded : S.btnNo} onClick={() => handlePenaltyNR(true)}>Non-Releasable</button>
+              </div>
+              <div style={S.yesNoRow}>
+                <button style={S.btnYes} onClick={() => handlePenaltyNR(false)}>Releasable</button>
+                <button style={S.btnNo} onClick={() => handlePenaltyNR(true)}>Non-Releasable</button>
               </div>
             </div>
           )}
@@ -1992,7 +1892,7 @@ export default function LaxStats({
           {/* Penalty: time remaining — asked first, before player selection */}
           {step === "ask_penalty_time" && (
             <div>
-              <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("event")}>← Back</button>
+              <button style={S.backBtn} onClick={() => setStep("event")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>
                 🟨 Penalty — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
               </div>
@@ -2007,7 +1907,7 @@ export default function LaxStats({
                 const latestLabel = editTime
                   || (timeCeilingSecs !== null ? `${Math.floor(timeCeilingSecs/60)}:${String(timeCeilingSecs%60).padStart(2,"0")}` : null);
                 return (
-                  <TimeKeypad oneHandedMode={oneHandedMode}
+                  <TimeKeypad
                     maxSeconds={isOT(currentQuarter) ? 240 : 720}
                     ceilingSecs={timeCeilingSecs}
                     allowEqualToCeiling={true}
