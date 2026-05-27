@@ -42,17 +42,17 @@ export default function FieldMapInput({ onLocationSelected }) {
           {/* Midline */}
           <line x1="0" y1="0" x2="120" y2="0" stroke="#064e3b" strokeWidth="1.5" />
           <text x="60" y="6" textAnchor="middle" fontSize="4" fill="#064e3b" opacity="0.45">Midfield</text>
-          {/* Restraining line */}
+          {/* Restraining line (dashed) */}
           <line x1="0" y1="70" x2="120" y2="70" stroke="#064e3b" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.7" />
           <text x="3" y="68" fontSize="3" fill="#064e3b" opacity="0.4">Restraining</text>
+          {/* GLE — goal line extended sideline to sideline */}
+          <line x1="0" y1="80" x2="120" y2="80" stroke="#064e3b" strokeWidth="0.75" opacity="0.6" />
           {/* Goal crease */}
-          <circle cx="60" cy="80" r="6" fill="rgba(255,255,255,0.4)" stroke="#064e3b" strokeWidth="0.75" />
-          {/* Goal line */}
-          <line x1="57" y1="80" x2="63" y2="80" stroke="#064e3b" strokeWidth="1.5" />
-          {/* Goal cage */}
-          <line x1="57" y1="80" x2="57" y2="84" stroke="#064e3b" strokeWidth="1" />
-          <line x1="63" y1="80" x2="63" y2="84" stroke="#064e3b" strokeWidth="1" />
-          <line x1="57" y1="84" x2="63" y2="84" stroke="#064e3b" strokeWidth="1" />
+          <circle cx="60" cy="80" r="6" fill="rgba(255,255,255,0.35)" stroke="#064e3b" strokeWidth="0.75" />
+          {/* Goal cage — triangle viewed from above */}
+          <polygon points="57,80 63,80 60,84" fill="rgba(255,255,255,0.75)" stroke="#064e3b" strokeWidth="1" strokeLinejoin="round" />
+          {/* Goal line (front of cage) */}
+          <line x1="57" y1="80" x2="63" y2="80" stroke="#064e3b" strokeWidth="2" />
           {/* Tap-to-mark hint */}
           <text x="60" y="40" textAnchor="middle" fontSize="4" fill="#064e3b" opacity="0.2">Tap to mark shot</text>
         </svg>
