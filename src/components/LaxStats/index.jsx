@@ -1933,14 +1933,15 @@ export default function LaxStats({
                   Currently: {existing.foulName}
                 </div> : null;
               })()}
-              <div style={S.questionCard}><div style={S.questionText}>What was the foul?</div></div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+              {!oneHandedMode && <div style={S.questionCard}><div style={S.questionText}>What was the foul?</div></div>}
+              {oneHandedMode && <div style={{ fontSize: 14, fontWeight: 600, color: "#555", margin: "6px 0", textAlign: "center" }}>What was the foul?</div>}
+              <div style={{ display: "flex", flexDirection: "column", gap: oneHandedMode ? 5 : 8, marginTop: oneHandedMode ? 4 : 10, overflowY: oneHandedMode ? "auto" : "visible", maxHeight: oneHandedMode ? "55dvh" : "none" }}>
                 {PENALTY_OPTIONS.map(opt => {
                   const prevFoul = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "penalty_tech" || e.event === "penalty_min")?.foulName : null;
                   const isSelected = prevFoul === opt.name;
                   return (
                     <button key={opt.name}
-                      style={{ ...S.btnNo, textAlign: "center", padding: "10px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, border: isSelected ? "2px solid #111" : "1px solid #ddd", fontWeight: isSelected ? 600 : 400 }}
+                      style={{ ...S.btnNo, textAlign: "center", padding: oneHandedMode ? "8px 16px" : "10px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, border: isSelected ? "2px solid #111" : "1px solid #ddd", fontWeight: isSelected ? 600 : 400 }}
                       onClick={() => handlePenaltyFoul(opt)}>
                       <span>{opt.name}</span>
                       <span style={{ fontSize: 10, color: opt.type === "tech" ? "#b8860b" : "#c0392b", fontWeight: 400, letterSpacing: "0.03em" }}>{opt.type === "tech" ? "🟨 Technical" : "🟥 Personal"}</span>
@@ -1962,10 +1963,11 @@ export default function LaxStats({
                   Currently: {prev} minute{prev !== 1 ? "s" : ""}
                 </div> : null;
               })()}
-              <div style={S.questionCard}><div style={S.questionText}>How many minutes?</div></div>
-              <div style={S.threeColRow}>
+              {!oneHandedMode && <div style={S.questionCard}><div style={S.questionText}>How many minutes?</div></div>}
+              {oneHandedMode && <div style={{ fontSize: 14, fontWeight: 600, color: "#555", margin: "6px 0", textAlign: "center" }}>How many minutes?</div>}
+              <div style={oneHandedMode ? { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 4 } : S.threeColRow}>
                 {[1,2,3].map(m => { const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "penalty_min")?.penaltyMin : null;
-                  return <button key={m} style={{ ...S.btnYes, background: prev === m ? "#333" : "#111", border: prev === m ? "2px solid #555" : "none" }} onClick={() => handlePenaltyMin(m)}>{m} min{prev === m ? " ✓" : ""}</button>; })}
+                  return <button key={m} style={{ ...(oneHandedMode ? S.btnPrimaryOneHanded : S.btnYes), background: prev === m ? "#333" : "#111", border: prev === m ? "2px solid #555" : "none" }} onClick={() => handlePenaltyMin(m)}>{m} min{prev === m ? " ✓" : ""}</button>; })}
               </div>
             </div>
           )}
@@ -1975,13 +1977,14 @@ export default function LaxStats({
             <div>
               <button style={oneHandedMode ? S.backBtnOneHanded : S.backBtn} onClick={() => setStep("ask_penalty_min")}>← Back</button>
               <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 {penaltyFoulName} ({pendingEntries[0]?.penaltyMin}min) @ {penaltyTime} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
-              <div style={S.questionCard}>
+              {!oneHandedMode && <div style={S.questionCard}>
                 <div style={S.questionText}>Releasable or non-releasable?</div>
                 <div style={S.questionSub}>NR penalties are served in full — no early release on a goal</div>
-              </div>
-              <div style={S.yesNoRow}>
-                <button style={S.btnYes} onClick={() => handlePenaltyNR(false)}>Releasable</button>
-                <button style={S.btnNo} onClick={() => handlePenaltyNR(true)}>Non-Releasable</button>
+              </div>}
+              {oneHandedMode && <div style={{ fontSize: 14, fontWeight: 600, color: "#555", margin: "6px 0 2px", textAlign: "center" }}>Releasable or non-releasable?</div>}
+              <div style={oneHandedMode ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 6 } : S.yesNoRow}>
+                <button style={oneHandedMode ? S.btnPrimaryOneHanded : S.btnYes} onClick={() => handlePenaltyNR(false)}>Releasable</button>
+                <button style={oneHandedMode ? S.btnSecondaryOneHanded : S.btnNo} onClick={() => handlePenaltyNR(true)}>Non-Releasable</button>
               </div>
             </div>
           )}

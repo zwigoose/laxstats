@@ -114,7 +114,7 @@ const S = {
     padding: "0 8px"
   },
   teamBigBtnOneHanded: (c, isHome) => ({
-    padding: "36px 16px",
+    padding: "20px 16px",
     fontWeight: 600,
     border: isHome ? `5px solid ${c}` : "none",
     borderRadius: 16,
@@ -135,7 +135,7 @@ const S = {
     padding: "4px"
   },
   eventBtnOneHanded: (sel) => ({
-    padding: "24px 8px",
+    padding: "16px 8px",
     fontSize: "14px",
     fontWeight: 600,
     border: sel ? "3px solid #111" : "1px solid #ddd",
@@ -157,7 +157,7 @@ const S = {
     padding: "4px"
   },
   playerBtnOneHanded: (sel, color, isHome) => ({
-    padding: "20px 6px",
+    padding: "12px 6px",
     fontSize: "15px",
     borderRadius: 16,
     cursor: "pointer",
@@ -187,7 +187,7 @@ const S = {
     textOverflow: "ellipsis"
   }),
   btnPrimaryOneHanded: {
-    padding: "18px 14px",
+    padding: "14px 14px",
     fontSize: "16px",
     fontWeight: 600,
     border: "none",
@@ -199,7 +199,7 @@ const S = {
     boxShadow: "0 4px 10px rgba(0,0,0,0.1)"
   },
   btnSecondaryOneHanded: {
-    padding: "18px 14px",
+    padding: "14px 14px",
     fontSize: "16px",
     fontWeight: 600,
     border: "1px solid #ddd",
@@ -211,7 +211,7 @@ const S = {
     boxShadow: "0 2px 6px rgba(0,0,0,0.05)"
   },
   btnWarningOneHanded: {
-    padding: "18px 14px",
+    padding: "14px 14px",
     fontSize: "16px",
     fontWeight: 600,
     border: "1px solid #e0c060",
@@ -223,7 +223,7 @@ const S = {
     boxShadow: "0 2px 6px rgba(0,0,0,0.05)"
   },
   btnDangerOneHanded: {
-    padding: "18px 14px",
+    padding: "14px 14px",
     fontSize: "16px",
     fontWeight: 600,
     border: "1px solid #f0a0a0",
