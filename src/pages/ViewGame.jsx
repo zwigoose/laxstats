@@ -15,6 +15,8 @@ import GameTimeline from "../components/GameTimeline";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
 import ShotMap from "../components/ShotMap";
 import HeroCard from "../components/HeroCard";
+import GameLiveStream from "../components/GameLiveStream";
+import { usePushNotifications } from "../hooks/usePushNotifications";
 
 function getLatestTime(log, currentQuarter) {
   if (!log?.length) return null;
@@ -77,6 +79,7 @@ export default function ViewGame() {
   const [hasPressbox, setHasPressbox] = useState(false);
   const [derivedQuarterState, setDerivedQuarterState] = useState(null);
   const [heroCardOpen, setHeroCardOpen] = useState(false);
+  const push = usePushNotifications(id, user?.id);
 
   // Away org "Add to my season" state
   const [awayOrgRole, setAwayOrgRole]       = useState(null); // role string if viewer is a member of away org
@@ -322,6 +325,14 @@ useEffect(() => {
         {hasPressbox && (
           <button style={S.copyBtn} onClick={() => window.open(`/games/${id}/pressbox`, "_blank")}>Press Box ↗</button>
         )}
+        {push.isSupported && !gameOver && (
+          <button
+            style={push.isSubscribed ? { ...S.copyBtn, color: "#2a7a3b", background: "#e8f5e9", borderColor: "#c8e6c9" } : S.copyBtn}
+            onClick={push.isSubscribed ? push.unsubscribe : push.subscribe}
+            disabled={push.loading}>
+            {push.loading ? "…" : push.isSubscribed ? "✓ Following" : "Follow"}
+          </button>
+        )}
         {gameOver && (
           <button style={S.copyBtn} onClick={() => setHeroCardOpen(true)}>Hero Card</button>
         )}
@@ -529,9 +540,9 @@ useEffect(() => {
 
             {/* Stats sub-tabs */}
             <div style={S.tabsRow}>
-              {["summary", "players", "map", "timeline"].map(t => (
+              {["summary", "players", "map", "timeline", "feed"].map(t => (
                 <button key={t} style={S.tabBtn(statsTab === t)} onClick={() => setStatsTab(t)}>
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                  {t === "feed" ? (gameOver ? "Feed" : "● Feed") : t.charAt(0).toUpperCase() + t.slice(1)}
                 </button>
               ))}
             </div>
@@ -603,6 +614,18 @@ useEffect(() => {
                 <div style={S.tableTitle}><span>Timeline</span></div>
                 <GameTimeline scoringTimeline={scoringTimeline} teams={teams} teamColors={teamColors} />
               </div>
+            )}
+
+            {/* Live Feed */}
+            {statsTab === "feed" && (
+              <GameLiveStream
+                log={log}
+                teams={teams}
+                teamColors={teamColors}
+                completedQuarters={completedQuarters}
+                currentQuarter={currentQuarter}
+                gameOver={gameOver}
+              />
             )}
           </>
         )}
