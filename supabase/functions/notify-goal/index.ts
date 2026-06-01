@@ -23,8 +23,50 @@ function json(body: unknown, status = 200) {
 serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  const { game_id, title, body, url, tag } = await req.json();
-  if (!game_id) return json({ error: "game_id required" }, 400);
+  const payload = await req.json();
+
+  let game_id: string, title: string, body: string, url: string, tag: string;
+
+  if (payload.record) {
+    // ── Supabase database webhook format ──────────────────────────────────────
+    const record = payload.record;
+
+    // Only notify for goals; ignore soft-deletes
+    if (record.event_type !== "goal" || record.deleted_at) return json({ skipped: true });
+
+    game_id = record.game_id;
+
+    // Look up game name + team names from state
+    const { data: game } = await supabase
+      .from("games")
+      .select("name, state")
+      .eq("id", game_id)
+      .single();
+
+    const teams: { name: string }[] = game?.state?.teams ?? [{ name: "Home" }, { name: "Away" }];
+    const teamName = teams[record.team_idx]?.name ?? "Team";
+    const scorer   = record.player_name ?? (record.player_num ? `#${record.player_num}` : null);
+
+    // Tally current score
+    const { data: goals } = await supabase
+      .from("game_events")
+      .select("team_idx")
+      .eq("game_id", game_id)
+      .eq("event_type", "goal")
+      .is("deleted_at", null);
+
+    const score = [0, 0];
+    for (const g of goals ?? []) score[g.team_idx as 0 | 1]++;
+
+    title = `Goal — ${teamName}  ${score[0]}–${score[1]}`;
+    body  = scorer ? `${scorer} scores` : `${teamName} scores`;
+    url   = `/games/${game_id}/view`;
+    tag   = `game-${game_id}`;
+  } else {
+    // ── Direct call format ────────────────────────────────────────────────────
+    ({ game_id, title, body, url, tag } = payload);
+    if (!game_id) return json({ error: "game_id required" }, 400);
+  }
 
   const { data: subs, error } = await supabase
     .from("game_subscriptions")
@@ -34,15 +76,14 @@ serve(async (req) => {
   if (error) return json({ error: error.message }, 500);
   if (!subs?.length) return json({ sent: 0 });
 
-  const payload = JSON.stringify({ title, body, url, tag });
+  const notifPayload = JSON.stringify({ title, body, url, tag });
   const stale: string[] = [];
 
   await Promise.allSettled(
     subs.map(async (row) => {
       try {
-        await webpush.sendNotification(row.push_subscription, payload);
+        await webpush.sendNotification(row.push_subscription, notifPayload);
       } catch (err: unknown) {
-        // 410 Gone = subscription expired; remove it
         if ((err as { statusCode?: number }).statusCode === 410) stale.push(row.id);
       }
     })
