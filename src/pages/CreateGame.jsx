@@ -56,6 +56,9 @@ export default function CreateGame() {
   const [newSeasonName, setNewSeasonName]     = useState("");
   const [gameDate, setGameDate]               = useState(new Date().toISOString().slice(0, 10));
   const [gameType, setGameType]               = useState("regular");
+  const [fieldLocation, setFieldLocation]         = useState("");
+  const [weatherConditions, setWeatherConditions] = useState("");
+  const [refereeNames, setRefereeNames]           = useState("");
 
   // Opponent search state
   const [opponentSearch, setOpponentSearch]       = useState("");
@@ -144,6 +147,14 @@ export default function CreateGame() {
     });
 
     if (err) { setError(entitlementMsg(err.message)); return; }
+    const logistics = {};
+    if (fieldLocation.trim())      logistics.field_location     = fieldLocation.trim();
+    if (weatherConditions.trim())  logistics.weather_conditions = weatherConditions.trim();
+    if (refereeNames.trim())       logistics.referee_names      = refereeNames.trim();
+    if (Object.keys(logistics).length) {
+      const { updateGame } = await import("../services/games");
+      await updateGame(gameId, logistics);
+    }
     navigate(`/games/${gameId}/score`);
   }
 
@@ -247,6 +258,15 @@ export default function CreateGame() {
             <select style={S.select} value={gameType} onChange={e => setGameType(e.target.value)}>
               {GAME_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
             </select>
+
+            <span style={S.label}>Field Location</span>
+            <input style={S.input} value={fieldLocation} onChange={e => setFieldLocation(e.target.value)} placeholder="Field name or address" />
+
+            <span style={S.label}>Conditions</span>
+            <input style={S.input} value={weatherConditions} onChange={e => setWeatherConditions(e.target.value)} placeholder="e.g. Sunny, 72°F" />
+
+            <span style={S.label}>Referees</span>
+            <input style={S.input} value={refereeNames} onChange={e => setRefereeNames(e.target.value)} placeholder="Names of officials" />
 
             <button style={S.btn} onClick={() => setStep("org-opponent")}>Next →</button>
             <button style={S.btnGray} onClick={() => setStep("org-season")}>← Back</button>

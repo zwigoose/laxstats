@@ -191,7 +191,7 @@ useEffect(() => {
     setError(null);
     const { data, error: err } = await supabase
       .from("games")
-      .select("id, created_at, name, state, schema_ver, org_id, away_org_id, away_season_id, pressbox_enabled, user_id")
+      .select("id, created_at, name, state, schema_ver, org_id, away_org_id, away_season_id, pressbox_enabled, user_id, referee_names, weather_conditions, field_location")
       .eq("id", id)
       .single();
     if (err) { setError(err.message); setLoading(false); return; }
@@ -455,6 +455,21 @@ useEffect(() => {
                 <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[1], textAlign: "right" }}>{teams[1].name}</div>
               </div>
             )}
+
+            {/* Game logistics */}
+            {(() => {
+              const loc  = game?.field_location     || game?.state?.fieldLocation;
+              const cond = game?.weather_conditions || game?.state?.weatherConditions;
+              const refs = game?.referee_names      || game?.state?.refereeNames;
+              if (!loc && !cond && !refs) return null;
+              return (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", padding: "8px 2px 16px", fontSize: 12, color: "#777" }}>
+                  {loc  && <span><span style={{ color: "#aaa", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10 }}>Field </span>{loc}</span>}
+                  {cond && <span><span style={{ color: "#aaa", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10 }}>Conditions </span>{cond}</span>}
+                  {refs && <span><span style={{ color: "#aaa", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10 }}>Referees </span>{refs}</span>}
+                </div>
+              );
+            })()}
 
             {/* Quarter score grid */}
             {allQuarters.length > 1 && (
