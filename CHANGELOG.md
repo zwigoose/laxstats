@@ -5,6 +5,23 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.13.0] — 2026-06-01
+
+### Added
+- **Shot location tracking** — when enabled on a game by a platform admin, the scorekeeper is prompted to tap the shot location on a field map after each shot or goal; coordinates are stored as normalized floats (`shot_x`, `shot_y`) on `game_events`
+- **Shot map view** — a **Map** tab in the scorekeeper Stats screen shows all recorded shot locations plotted on a half-field diagram, mirroring the existing map on `/view`; both support a team filter (Both / Home / Away)
+- **Faceoff ground ball sub-item** — when a faceoff win has an attributed ground ball, the GB appears as a sub-item chip in the event log alongside assists, saves, and goal time — consistent with the existing goal detail pattern
+
+### Changed
+- **Stat columns unified** — `/score`, `/view`, and `/pressbox` player tables now show identical columns in the same order: G, A, Sh, SOG, Sv, Blk, GB, FW, TO, CTO, Tech, PF Min; previously the full and pressbox tables differed by two columns (EMO, Blk)
+- **Shot map field graphic** — redrawn as a true half-field (midline to end line, full width); restraining line at 20 yd from midfield, vertical wing lines from restraining to end line, goal triangle with crease, correct proportions throughout
+
+### Fixed
+- **Event log not updating live** — newly committed entries were sorted to position 0 (missing DB `seq`) and appeared at the bottom of the reversed log, off-screen on mobile; fallback changed from `0` to `Number.MAX_SAFE_INTEGER` so unsaved entries sort last and appear at the top of the display immediately after being logged
+- **Player stats table header and first column now frozen** — added `position: sticky` to `<thead>` cells (`top: 0`) and the Player name column (`left: 0`); wrapper given `overflow: auto` + `max-height` so both sticky axes work correctly as a 2D scroll container
+
+---
+
 ## [2.12.0] — 2026-05-21
 
 ### Added
