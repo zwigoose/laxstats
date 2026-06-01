@@ -114,7 +114,7 @@ export default function PlayerStatsTable({
           No player stats for this period
         </div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 200px)" }}>
           <table style={{ width: "100%", fontSize: fs, borderCollapse: "collapse" }}>
             <thead>
               <tr>
