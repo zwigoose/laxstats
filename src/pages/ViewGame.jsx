@@ -14,6 +14,7 @@ import { deriveQuarterState } from "../services/gameEvents";
 import GameTimeline from "../components/GameTimeline";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
 import ShotMap from "../components/ShotMap";
+import HeroCard from "../components/HeroCard";
 
 function getLatestTime(log, currentQuarter) {
   if (!log?.length) return null;
@@ -75,6 +76,7 @@ export default function ViewGame() {
   const qrCanvasRef = useRef(null);
   const [hasPressbox, setHasPressbox] = useState(false);
   const [derivedQuarterState, setDerivedQuarterState] = useState(null);
+  const [heroCardOpen, setHeroCardOpen] = useState(false);
 
   // Away org "Add to my season" state
   const [awayOrgRole, setAwayOrgRole]       = useState(null); // role string if viewer is a member of away org
@@ -320,6 +322,9 @@ useEffect(() => {
         {hasPressbox && (
           <button style={S.copyBtn} onClick={() => window.open(`/games/${id}/pressbox`, "_blank")}>Press Box ↗</button>
         )}
+        {gameOver && (
+          <button style={S.copyBtn} onClick={() => setHeroCardOpen(true)}>Hero Card</button>
+        )}
 <button style={copied ? S.copyBtnDone : S.copyBtn} onClick={copyUrl}>
           {copied ? "✓ Copied" : "Copy link"}
         </button>
@@ -413,6 +418,17 @@ useEffect(() => {
         <div style={{ padding: "8px 16px", background: "#f0faf2", borderBottom: "1px solid #b5e0c0", fontFamily: "system-ui, sans-serif", fontSize: 12, color: "#2a7a3b", maxWidth: 600, margin: "0 auto" }}>
           ✓ Game added to {awayOrgName} season
         </div>
+      )}
+
+      {heroCardOpen && (
+        <HeroCard
+          teams={teams}
+          teamColors={teamColors}
+          totalScores={totalScores}
+          playerStats={playerStats}
+          gameName={game?.name}
+          onClose={() => setHeroCardOpen(false)}
+        />
       )}
 
       <div style={S.body}>
