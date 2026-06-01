@@ -1,4 +1,5 @@
 import { qLabel } from "./LaxStats";
+import { buildLogGroups } from "../utils/stats";
 
 const EVENT_LABELS = {
   goal:           "Goal",
@@ -14,47 +15,55 @@ const EVENT_LABELS = {
   failed_clear:   "Failed Clear",
 };
 
-function buildFeed(log, teams, completedQuarters, currentQuarter, gameOver) {
-  const items = [];
-
-  const allQuarters = [...new Set([...completedQuarters, currentQuarter])].sort((a, b) => a - b);
-
-  for (const q of allQuarters) {
-    // oldest → newest so score accumulates correctly
-    const qEvents = log
-      .filter(e => e.quarter === q)
-      .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
-
-    let runningScore = [0, 0];
-    for (const e of log) {
-      if (e.event === "goal" && e.quarter < q) runningScore[e.teamIdx]++;
-    }
-
-    const qItems = [];
-    for (const e of qEvents) {
-      if (e.event === "goal") {
-        runningScore = [runningScore[0], runningScore[1]];
-        runningScore[e.teamIdx]++;
-        qItems.push({ type: "goal", event: e, score: [...runningScore] });
-      } else if (EVENT_LABELS[e.event]) {
-        qItems.push({ type: "event", event: e });
-      }
-    }
-
-    if (completedQuarters.includes(q) || (gameOver && q === currentQuarter)) {
-      items.push({ type: "quarter-end", quarter: q });
-    } else {
-      items.push({ type: "quarter-live", quarter: q });
-    }
-    // reverse so newest appears at top with its correct score
-    items.push(...qItems.reverse());
-  }
-
-  return items;
+function groupPrimary(group) {
+  return group.find(e => e.event === "goal") || group.find(e => e.event === "shot") || group[0];
 }
 
-export default function GameLiveStream({ log, teams, teamColors, completedQuarters, currentQuarter, gameOver }) {
-  const feed = buildFeed(log, teams, completedQuarters, currentQuarter, gameOver);
+function buildFeed(log, completedQuarters, gameOver) {
+  // Sort chronologically (quarter ASC, time-remaining DESC within quarter, seq ASC)
+  const groups = buildLogGroups(log);
+
+  // Forward pass: accumulate running score so each goal captures the score after it
+  const runningScore = [0, 0];
+  const forwardItems = [];
+  for (const group of groups) {
+    const primary = groupPrimary(group);
+    if (primary.event === "goal") {
+      runningScore[primary.teamIdx]++;
+      const assist = group.find(e => e.event === "assist");
+      forwardItems.push({
+        type: "goal",
+        entry: primary,
+        score: [...runningScore],
+        scorer: primary.player ?? null,
+        assist: assist?.player ?? null,
+      });
+    } else if (EVENT_LABELS[primary.event]) {
+      forwardItems.push({ type: "event", entry: primary });
+    }
+  }
+
+  // Reverse so newest events are at the top
+  forwardItems.reverse();
+
+  // Insert quarter dividers at quarter transitions (newest quarter first)
+  const displayItems = [];
+  let lastQ = null;
+  for (const item of forwardItems) {
+    const q = item.entry.quarter;
+    if (q !== lastQ) {
+      const isLive = !completedQuarters.includes(q) && !gameOver;
+      displayItems.push({ type: isLive ? "quarter-live" : "quarter-end", quarter: q });
+      lastQ = q;
+    }
+    displayItems.push(item);
+  }
+
+  return displayItems;
+}
+
+export default function GameLiveStream({ log, teams, teamColors, completedQuarters, gameOver }) {
+  const feed = buildFeed(log, completedQuarters, gameOver);
 
   if (!log.length) {
     return (
@@ -86,20 +95,18 @@ export default function GameLiveStream({ log, teams, teamColors, completedQuarte
         }
 
         if (item.type === "goal") {
-          const { event: e, score } = item;
-          const color = teamColors[e.teamIdx];
-          const teamName = teams[e.teamIdx]?.name;
-          const scorer = e.players?.[0];
-          const assist = e.players?.[1];
+          const { entry, score, scorer, assist } = item;
+          const color = teamColors[entry.teamIdx];
+          const teamName = teams[entry.teamIdx]?.name;
           return (
-            <div key={e.dbId ?? i} style={{
+            <div key={entry.dbId ?? i} style={{
               background: "#fff", border: `1px solid #e5e5e5`, borderLeft: `4px solid ${color}`,
               borderRadius: 10, padding: "14px 16px", marginBottom: 10,
             }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color }}>Goal — {teamName}</span>
-                  {e.goalTime && <span style={{ fontSize: 11, color: "#bbb" }}>{e.goalTime}</span>}
+                  {entry.goalTime && <span style={{ fontSize: 11, color: "#bbb" }}>{entry.goalTime}</span>}
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: 1 }}>
                   <span style={{ color: teamColors[0] }}>{score[0]}</span>
@@ -118,12 +125,12 @@ export default function GameLiveStream({ log, teams, teamColors, completedQuarte
         }
 
         if (item.type === "event") {
-          const { event: e } = item;
-          const color = teamColors[e.teamIdx];
-          const player = e.players?.[0];
-          const label = EVENT_LABELS[e.event] ?? e.event;
+          const { entry } = item;
+          const color = teamColors[entry.teamIdx];
+          const player = entry.teamStat ? null : entry.player;
+          const label = EVENT_LABELS[entry.event] ?? entry.event;
           return (
-            <div key={e.dbId ?? i} style={{
+            <div key={entry.dbId ?? i} style={{
               display: "flex", alignItems: "center", gap: 10,
               padding: "8px 14px", marginBottom: 6,
               background: "#fafafa", border: "1px solid #f0f0f0", borderRadius: 8,
@@ -132,9 +139,9 @@ export default function GameLiveStream({ log, teams, teamColors, completedQuarte
               <div style={{ fontSize: 13, color: "#555", flex: 1 }}>
                 <span style={{ fontWeight: 600, color: "#333" }}>{label}</span>
                 {player && <span style={{ color: "#888" }}> — #{player.num} {player.name}</span>}
-                <span style={{ color: "#bbb" }}> · {teams[e.teamIdx]?.name}</span>
+                <span style={{ color: "#bbb" }}> · {teams[entry.teamIdx]?.name}</span>
               </div>
-              {e.goalTime && <div style={{ fontSize: 11, color: "#ccc" }}>{e.goalTime}</div>}
+              {entry.goalTime && <div style={{ fontSize: 11, color: "#ccc" }}>{entry.goalTime}</div>}
             </div>
           );
         }
