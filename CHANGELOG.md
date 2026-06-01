@@ -5,6 +5,15 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.14.0] — 2026-06-01
+
+### Added
+- **Hero Card** — a "Hero Card" button appears in the game header once a game is marked Final; clicking opens a modal with a dark 1080×1080-style graphic showing the final score with team colors, winner callout, and auto-selected Player of the Game (highest G+A); one-click PNG download via `html-to-image`
+- **Live event feed** — a **Feed** tab on the game view page shows a fan-oriented goal-by-goal stream with running score, quarter separators (Live/Final), and key non-goal events; updates in real time via existing Supabase Realtime subscription
+- **Follow game / push notifications** — a **Follow** button appears in the game header on live games; clicking requests browser notification permission, registers a Web Push subscription via service worker, and stores it in the new `game_subscriptions` table; a `notify-goal` Supabase Edge Function fans out push notifications to all followers when a goal is scored; stale subscriptions (410 responses) are pruned automatically
+
+---
+
 ## [2.13.0] — 2026-06-01
 
 ### Added
