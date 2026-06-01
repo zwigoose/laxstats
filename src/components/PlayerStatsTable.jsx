@@ -1,18 +1,18 @@
 import { useState, useMemo } from "react";
 import { parseRoster } from "../utils/stats";
-import { STAT_KEYS, STAT_LABELS } from "../constants/lacrosse";
+import { STAT_LABELS } from "../constants/lacrosse";
 
-// Stat columns for full player tables (LaxStats, ViewGame)
-export const PLAYER_STAT_KEYS = STAT_KEYS.filter(
-  k => !["clear", "failed_clear", "successful_ride", "failed_ride", "mdd_success", "mdd_fail", "emo_fail", "shot_post"].includes(k)
-);
-
-// Stat columns for the condensed Pressbox player panel
-export const PRESSBOX_STAT_KEYS = [
-  "goal", "assist", "shot", "sog", "shot_saved",
+const SHARED_STAT_KEYS = [
+  "goal", "assist", "shot", "sog", "shot_saved", "shot_blocked",
   "ground_ball", "faceoff_win", "turnover", "forced_to",
   "penalty_tech", "penalty_min",
 ];
+
+// Stat columns for full player tables (LaxStats, ViewGame)
+export const PLAYER_STAT_KEYS = SHARED_STAT_KEYS;
+
+// Stat columns for the condensed Pressbox player panel
+export const PRESSBOX_STAT_KEYS = SHARED_STAT_KEYS;
 
 /**
  * Shared player stats table used by LaxStats (/score), ViewGame (/view), and Pressbox (/pressbox).
@@ -72,9 +72,9 @@ export default function PlayerStatsTable({
     borderBottom: "1px solid #e5e5e5", background: "#f5f5f5",
     cursor: "pointer", whiteSpace: "nowrap",
   };
-  const thL  = { ...thBase, textAlign: "left", cursor: "default", padding: compact ? "5px 10px" : "8px 14px" };
-  const th   = sorted => ({ ...thBase, padding: compact ? "5px 6px" : "8px 8px", color: sorted ? "#111" : "#888" });
-  const tdL  = { fontSize: fs, padding: compact ? "4px 10px" : "9px 14px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "left", whiteSpace: "nowrap" };
+  const thL  = { ...thBase, textAlign: "left", cursor: "default", padding: compact ? "5px 10px" : "8px 14px", position: "sticky", top: 0, left: 0, zIndex: 3 };
+  const th   = sorted => ({ ...thBase, padding: compact ? "5px 6px" : "8px 8px", color: sorted ? "#111" : "#888", position: "sticky", top: 0, zIndex: 2 });
+  const tdL  = { fontSize: fs, padding: compact ? "4px 10px" : "9px 14px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "left", whiteSpace: "nowrap", position: "sticky", left: 0, zIndex: 1, background: "#fff" };
   const td   = sorted => ({ fontSize: fs, padding: compact ? "4px 6px" : "9px 8px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "right", fontWeight: sorted ? 600 : 400 });
   const badge = { display: "inline-block", borderRadius: "50%", background: "#f0f0f0", fontWeight: 600, textAlign: "center", color: "#888", flexShrink: 0,
     width: compact ? 18 : 24, height: compact ? 18 : 24,
@@ -114,7 +114,7 @@ export default function PlayerStatsTable({
           No player stats for this period
         </div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "calc(100vh - 200px)" }}>
           <table style={{ width: "100%", fontSize: fs, borderCollapse: "collapse" }}>
             <thead>
               <tr>
