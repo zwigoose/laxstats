@@ -20,12 +20,12 @@ function buildFeed(log, teams, completedQuarters, currentQuarter, gameOver) {
   const allQuarters = [...new Set([...completedQuarters, currentQuarter])].sort((a, b) => a - b);
 
   for (const q of allQuarters) {
+    // oldest → newest so score accumulates correctly
     const qEvents = log
       .filter(e => e.quarter === q)
-      .sort((a, b) => (b.seq ?? 0) - (a.seq ?? 0)); // newest first within quarter
+      .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
 
     let runningScore = [0, 0];
-    // compute score up to start of this quarter
     for (const e of log) {
       if (e.event === "goal" && e.quarter < q) runningScore[e.teamIdx]++;
     }
@@ -33,7 +33,7 @@ function buildFeed(log, teams, completedQuarters, currentQuarter, gameOver) {
     const qItems = [];
     for (const e of qEvents) {
       if (e.event === "goal") {
-        runningScore = [...runningScore];
+        runningScore = [runningScore[0], runningScore[1]];
         runningScore[e.teamIdx]++;
         qItems.push({ type: "goal", event: e, score: [...runningScore] });
       } else if (EVENT_LABELS[e.event]) {
@@ -46,7 +46,8 @@ function buildFeed(log, teams, completedQuarters, currentQuarter, gameOver) {
     } else {
       items.push({ type: "quarter-live", quarter: q });
     }
-    items.push(...qItems);
+    // reverse so newest appears at top with its correct score
+    items.push(...qItems.reverse());
   }
 
   return items;

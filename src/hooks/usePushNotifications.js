@@ -37,7 +37,7 @@ export function usePushNotifications(gameId, userId) {
         .from("game_subscriptions")
         .select("id")
         .eq("game_id", gameId)
-        .eq("push_subscription->endpoint", sub.endpoint)
+        .contains("push_subscription", { endpoint: sub.endpoint })
         .maybeSingle();
       setIsSubscribed(!!data);
     } catch {
@@ -66,11 +66,21 @@ export function usePushNotifications(gameId, userId) {
 
       setEndpoint(sub.endpoint);
 
-      await supabase.from("game_subscriptions").upsert({
-        game_id:           gameId,
-        user_id:           userId ?? null,
-        push_subscription: sub.toJSON(),
-      }, { onConflict: "game_id,push_subscription->endpoint", ignoreDuplicates: true });
+      // Check if this browser+game combo is already stored before inserting
+      const { data: existing } = await supabase
+        .from("game_subscriptions")
+        .select("id")
+        .eq("game_id", gameId)
+        .contains("push_subscription", { endpoint: sub.endpoint })
+        .maybeSingle();
+
+      if (!existing) {
+        await supabase.from("game_subscriptions").insert({
+          game_id:           gameId,
+          user_id:           userId ?? null,
+          push_subscription: sub.toJSON(),
+        });
+      }
 
       setIsSubscribed(true);
     } catch (err) {
@@ -91,7 +101,7 @@ export function usePushNotifications(gameId, userId) {
           .from("game_subscriptions")
           .delete()
           .eq("game_id", gameId)
-          .eq("push_subscription->endpoint", sub.endpoint);
+          .contains("push_subscription", { endpoint: sub.endpoint });
         await sub.unsubscribe();
       }
       setIsSubscribed(false);
