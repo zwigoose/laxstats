@@ -29,17 +29,13 @@ export function usePushNotifications(gameId, userId) {
 
   async function checkExistingSubscription() {
     try {
+      await navigator.serviceWorker.register("/sw.js");
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (!sub) return;
       setEndpoint(sub.endpoint);
-      const { data } = await supabase
-        .from("game_subscriptions")
-        .select("id")
-        .eq("game_id", gameId)
-        .contains("push_subscription", { endpoint: sub.endpoint })
-        .maybeSingle();
-      setIsSubscribed(!!data);
+      // Trust browser state — avoids RLS issues for anonymous users
+      setIsSubscribed(true);
     } catch {
       // ignore — browser may not have an active SW yet
     }
@@ -75,11 +71,12 @@ export function usePushNotifications(gameId, userId) {
         .maybeSingle();
 
       if (!existing) {
-        await supabase.from("game_subscriptions").insert({
+        const { error: insertErr } = await supabase.from("game_subscriptions").insert({
           game_id:           gameId,
           user_id:           userId ?? null,
           push_subscription: sub.toJSON(),
         });
+        if (insertErr) { console.error("Push subscription save failed:", insertErr); return; }
       }
 
       setIsSubscribed(true);
