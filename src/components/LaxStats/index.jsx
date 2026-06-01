@@ -49,6 +49,9 @@ export default function LaxStats({
   const [completedQuarters, setCompletedQuarters] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   const [gameDate, setGameDate] = useState(() => (createdAt ?? new Date().toISOString()).split("T")[0]);
+  const [refereeNames, setRefereeNames]           = useState("");
+  const [weatherConditions, setWeatherConditions] = useState("");
+  const [fieldLocation, setFieldLocation]         = useState("");
 
   // Step machine:
   // team | event | player
@@ -122,6 +125,9 @@ export default function LaxStats({
     setGameOver(initialState.gameOver ?? false);
     setTrackingStarted(initialState.trackingStarted ?? false);
     if (initialState.gameDate) setGameDate(initialState.gameDate);
+    if (initialState.refereeNames)      setRefereeNames(initialState.refereeNames);
+    if (initialState.weatherConditions) setWeatherConditions(initialState.weatherConditions);
+    if (initialState.fieldLocation)     setFieldLocation(initialState.fieldLocation);
     if (initialState._nextId) _nextId = initialState._nextId;
     setScreen(initialState.gameOver ? "stats" : initialState.trackingStarted ? "track" : "setup");
     resetEntry();
@@ -145,9 +151,9 @@ export default function LaxStats({
   // Notify parent of state changes (for Supabase save)
   useEffect(() => {
     if (!onStateChange || !hydratedRef.current) return;
-    onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, _nextId });
+    onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, refereeNames, weatherConditions, fieldLocation, _nextId });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate]);
+  }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, refereeNames, weatherConditions, fieldLocation]);
 
   // v2: authoritative quarter state from game_meta_events — takes priority over broadcast hint.
   // Only applied after hydration so we don't overwrite the initial DB-derived state that was
@@ -1028,6 +1034,22 @@ export default function LaxStats({
               />
             )}
           </div>
+          {[
+            { label: "Field Location", value: fieldLocation, set: setFieldLocation, placeholder: "Field name or address" },
+            { label: "Conditions", value: weatherConditions, set: setWeatherConditions, placeholder: "e.g. Sunny, 72°F" },
+            { label: "Referees", value: refereeNames, set: setRefereeNames, placeholder: "Names of officials" },
+          ].map(({ label, value, set, placeholder }) => (
+            <div key={label} style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</div>
+              <input
+                type="text"
+                value={value}
+                onChange={e => set(e.target.value)}
+                placeholder={placeholder}
+                style={{ width: "100%", padding: "8px 10px", fontSize: 14, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", color: "#111", background: "#fff", boxSizing: "border-box" }}
+              />
+            </div>
+          ))}
           <div style={S.setupGrid}>
             {[0, 1].map(ti => (
               <div key={ti} style={S.setupCard(teams[ti].color)}>

@@ -87,6 +87,10 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     : (() => {
         if (!game?.state && entries.length === 0) return null;
         const base = game?.state ? { ...game.state } : {};
+        // Merge dedicated logistics columns as fallback (populated via CreateGame flow).
+        if (!base.refereeNames      && game?.referee_names)      base.refereeNames      = game.referee_names;
+        if (!base.weatherConditions && game?.weather_conditions) base.weatherConditions = game.weather_conditions;
+        if (!base.fieldLocation     && game?.field_location)     base.fieldLocation     = game.field_location;
         // Override quarter fields from the authoritative meta-event log.
         // This ensures remount always produces state consistent with game_meta_events.
         if (derivedQuarterState) {
@@ -119,6 +123,9 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
       updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
     }
+    updatePayload.referee_names      = stateToSave.refereeNames      ?? null;
+    updatePayload.weather_conditions = stateToSave.weatherConditions ?? null;
+    updatePayload.field_location     = stateToSave.fieldLocation     ?? null;
     const { error: err } = await updateGame(id, updatePayload);
     saveInFlight.current = false;
     if (err) {
