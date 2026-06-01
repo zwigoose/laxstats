@@ -196,8 +196,6 @@ function sortGroups(groups) {
     const ta = rawA ? toSecs(rawA) : null;
     const tb = rawB ? toSecs(rawB) : null;
     if (ta !== null && tb !== null && ta !== tb) return tb - ta;
-    if (ta !== null && tb === null) return -1;
-    if (ta === null && tb !== null) return 1;
     return (pa.seq ?? Number.MAX_SAFE_INTEGER) - (pb.seq ?? Number.MAX_SAFE_INTEGER);
   });
 }
