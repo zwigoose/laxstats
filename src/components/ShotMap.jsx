@@ -1,0 +1,109 @@
+import { useState } from 'react';
+
+// viewBox 0 0 120 110 — 2 units per yard, full half-field
+// y=0: midline  y=110: end line
+// x=0: left sideline  x=120: right sideline
+// Restraining line at y=40 (20 yd from midline; restraining→end = 35 yd)
+// Goal line at y=90 (20 yd from restraining, 15 yd from end)
+// Crease: center (60,90) radius 6 (9 ft = 3 yd)
+const VW = 120;
+const VH = 110;
+
+function HalfField() {
+  return (
+    <>
+      <rect x="0" y="0" width={VW} height={VH} fill="#34d399" fillOpacity="0.12" />
+      {/* Sidelines */}
+      <line x1="0" y1="0" x2="0" y2={VH} stroke="#064e3b" strokeWidth="1" />
+      <line x1={VW} y1="0" x2={VW} y2={VH} stroke="#064e3b" strokeWidth="1" />
+      {/* End line */}
+      <line x1="0" y1={VH} x2={VW} y2={VH} stroke="#064e3b" strokeWidth="2" />
+      {/* Midline */}
+      <line x1="0" y1="0" x2={VW} y2="0" stroke="#064e3b" strokeWidth="1.5" />
+      <text x="60" y="6" textAnchor="middle" fontSize="4" fill="#064e3b" opacity="0.45">Midfield</text>
+      {/* Restraining line — 20 yd from midline, full width */}
+      <line x1="0" y1="40" x2={VW} y2="40" stroke="#064e3b" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.8" />
+      <text x="3" y="38" fontSize="3" fill="#064e3b" opacity="0.4">Restraining</text>
+      {/* Wing lines — attack-area boundaries, orthogonal to restraining, restraining→end line */}
+      <line x1="20" y1="40" x2="20" y2={VH} stroke="#064e3b" strokeWidth="0.75" opacity="0.7" />
+      <line x1="100" y1="40" x2="100" y2={VH} stroke="#064e3b" strokeWidth="0.75" opacity="0.7" />
+      {/* Goal crease */}
+      <circle cx="60" cy="90" r="6" fill="rgba(255,255,255,0.35)" stroke="#064e3b" strokeWidth="0.75" />
+      {/* Goal cage — triangle viewed from above.
+           Posts at (57,90) and (63,90); net converges to apex at (60,94). */}
+      <polygon points="57,90 63,90 60,94" fill="rgba(255,255,255,0.75)" stroke="#064e3b" strokeWidth="1" strokeLinejoin="round" />
+      {/* Goal line (front of cage) */}
+      <line x1="57" y1="90" x2="63" y2="90" stroke="#064e3b" strokeWidth="2" />
+    </>
+  );
+}
+
+export default function ShotMap({ log, teamColors, teams }) {
+  const [teamFilter, setTeamFilter] = useState("both");
+
+  const shots = log
+    .filter(e => (e.event === 'shot' || e.event === 'goal') && e.shotX != null && e.shotY != null)
+    .filter(e => teamFilter === "both" || e.teamIdx === Number(teamFilter));
+
+  const teamName = (idx) => teams?.[idx]?.name || `Team ${idx + 1}`;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, background: '#fff', borderRadius: 12, border: '1px solid #e5e5e5' }}>
+
+      {/* Team filter */}
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {[["both", "Both"], ["0", teamName(0)], ["1", teamName(1)]].map(([val, label]) => (
+          <button key={val} onClick={() => setTeamFilter(val)} style={{
+            padding: "5px 14px",
+            fontSize: 12,
+            fontWeight: 500,
+            border: `1px solid ${teamFilter === val ? '#111' : '#ddd'}`,
+            borderRadius: 20,
+            background: teamFilter === val
+              ? (val === "both" ? "#111" : teamColors[Number(val)])
+              : "transparent",
+            color: teamFilter === val ? "#fff" : "#888",
+            cursor: "pointer",
+          }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Field */}
+      <div style={{ width: '100%', aspectRatio: `${VW}/${VH}`, border: '1.5px solid #064e3b', borderRadius: 8, overflow: 'hidden' }}>
+        <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: '100%', height: '100%', display: 'block' }}>
+          <HalfField />
+          {shots.map((s, i) => (
+            <circle
+              key={i}
+              cx={s.shotX * VW}
+              cy={s.shotY * VH}
+              r={s.event === 'goal' ? 2.5 : 1.8}
+              fill={s.event === 'goal' ? '#fff' : teamColors[s.teamIdx]}
+              stroke={teamColors[s.teamIdx]}
+              strokeWidth={s.event === 'goal' ? 1.5 : 0.5}
+              fillOpacity={s.event === 'goal' ? 1 : 0.65}
+            />
+          ))}
+        </svg>
+      </div>
+
+      {shots.length === 0 && (
+        <div style={{ textAlign: 'center', fontSize: 13, color: '#aaa' }}>No shot locations recorded yet</div>
+      )}
+
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: 16, fontSize: 12, fontWeight: 500, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', border: '1.5px solid #888', background: '#fff' }} />
+          <span>Goal</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#888', opacity: 0.65 }} />
+          <span>Shot</span>
+        </div>
+      </div>
+    </div>
+  );
+}

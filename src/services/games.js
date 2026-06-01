@@ -3,7 +3,7 @@ import { supabase as _supabase } from "../lib/supabase";
 export async function fetchGame(id, db = _supabase) {
   return db
     .from("games")
-    .select("id, created_at, name, state, schema_ver, org_id, away_org_id, season_id, away_season_id, user_id, multi_scorer_enabled")
+    .select("id, created_at, name, state, schema_ver, org_id, away_org_id, season_id, away_season_id, user_id, multi_scorer_enabled, shot_location_enabled")
     .eq("id", id)
     .single();
 }

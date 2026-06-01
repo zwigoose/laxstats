@@ -13,6 +13,7 @@ import { dbRowToEntry } from "../hooks/useGameEvents";
 import { deriveQuarterState } from "../services/gameEvents";
 import GameTimeline from "../components/GameTimeline";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
+import ShotMap from "../components/ShotMap";
 
 function getLatestTime(log, currentQuarter) {
   if (!log?.length) return null;
@@ -57,6 +58,8 @@ const S = {
   emptyState: { textAlign: "center", padding: "40px 16px", color: "#aaa", fontSize: 14 },
   noGame: { textAlign: "center", padding: "40px 16px", color: "#aaa", fontSize: 14 },
 };
+
+
 
 export default function ViewGame() {
   const { id } = useParams();
@@ -495,7 +498,7 @@ useEffect(() => {
 
             {/* Stats sub-tabs */}
             <div style={S.tabsRow}>
-              {["summary", "players", "timeline"].map(t => (
+              {["summary", "players", "map", "timeline"].map(t => (
                 <button key={t} style={S.tabBtn(statsTab === t)} onClick={() => setStatsTab(t)}>
                   {t.charAt(0).toUpperCase() + t.slice(1)}
                 </button>
@@ -544,6 +547,11 @@ useEffect(() => {
                   </div>
                 ))}
               </div>
+            )}
+
+            {/* Shot Map */}
+            {statsTab === "map" && (
+              <ShotMap log={filteredLog} teamColors={teamColors} teams={teams} />
             )}
 
             {/* Players */}

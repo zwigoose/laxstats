@@ -453,3 +453,4 @@ describe("LaxStats — penalty box display", () => {
     expect(screen.queryByText("Penalty Box")).not.toBeInTheDocument();
   });
 });
+

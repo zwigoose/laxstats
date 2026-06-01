@@ -10,6 +10,8 @@ import {
 import S from "../../styles/laxStats";
 import TimeKeypad from "./TimeKeypad";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../PlayerStatsTable";
+import FieldMapInput from "./FieldMapInput";
+import ShotMap from "../ShotMap";
 
 export { EVENTS, STAT_KEYS, STAT_LABELS, buildPlayerStats, buildTeamTotals, buildLogGroups, buildScoringTimeline, qLabel, isOT, toSecs, entryDisplayInfo };
 
@@ -33,6 +35,7 @@ export default function LaxStats({
   // org game props — optional; omit for personal games
   orgContext = null,          // { orgId, orgName, seasonName } — shows org banner + loads org teams
   onOrgTeamSelected = null,   // async (teamIdx, teamId) => void — persist home/away_team_id
+  shotLocationEnabled = false, // game-level flag — show field map only when admin has enabled it
 }) {
   const [screen, setScreen] = useState("setup"); // setup | track | stats | log
   const [trackingStarted, setTrackingStarted] = useState(false);
@@ -59,6 +62,7 @@ export default function LaxStats({
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [pendingEntries, setPendingEntries] = useState([]);
+  const [pendingFlashText, setPendingFlashText] = useState("");
   const [penaltyType, setPenaltyType] = useState(null);
   const [penaltyFoulName, setPenaltyFoulName] = useState(null);
   const [penaltyNR, setPenaltyNR] = useState(false);
@@ -662,8 +666,11 @@ export default function LaxStats({
     } else {
       if (ev.id === "faceoff_win") {
         setLastFaceoffWinner(prev => prev.map((v, i) => i === selectedTeam ? player : v));
+        setPendingEntries([mkEntry(selectedTeam, "faceoff_win", player)]);
+        setStep("ask_faceoff_gb");
+      } else {
+        commitEntries([mkEntry(selectedTeam, ev.id, player)], `${ev.label} — #${player.num} ${player.name}`);
       }
-      commitEntries([mkEntry(selectedTeam, ev.id, player)], `${ev.label} — #${player.num} ${player.name}`);
     }
   }
 
@@ -708,13 +715,21 @@ export default function LaxStats({
     const isEmo = defendingInBox > scoringInBox;
     const entries = pendingEntries.map(e => e.event === "goal" ? { ...e, goalTime: t, emo: isEmo || undefined } : e);
     const assister = entries.find(e => e.event === "assist");
-    commitEntries(entries, `Goal${isEmo ? " (EMO)" : ""} — #${selectedPlayer.num} ${selectedPlayer.name}${assister ? ` (assist #${assister.player?.num})` : ""}`);
+    setPendingEntries(entries);
+    setPendingFlashText(`Goal${isEmo ? " (EMO)" : ""} — #${selectedPlayer.num} ${selectedPlayer.name}${assister ? ` (assist #${assister.player?.num})` : ""}`);
+    if (shotLocationEnabled) setStep("ask_shot_location"); else commitEntries(entries, pendingFlashText);
   }
 
   // Shot flow: outcome picker → optional player picker
+  function handleShotLocationSelected(loc) {
+    const entries = pendingEntries.map(e => (e.event === "shot" || e.event === "goal") ? { ...e, shotX: loc.x, shotY: loc.y } : e);
+    commitEntries(entries, pendingFlashText);
+  }
+
   function handleShotOutcome(outcome) {
     if (outcome === "missed") {
-      commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
+      setPendingFlashText(`Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
+      if (shotLocationEnabled) setStep("ask_shot_location"); else commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
     } else if (outcome === "saved") {
       setStep("save_player");
     } else if (outcome === "blocked") {
@@ -723,11 +738,30 @@ export default function LaxStats({
   }
   function handleSavePlayerSelected(goalie) {
     setLastGoalie(prev => prev.map((g, i) => i === (1 - selectedTeam) ? goalie : g));
-    commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_saved", goalie)], `Shot (saved) — #${selectedPlayer.num} ${selectedPlayer.name} · saved by #${goalie.num} ${goalie.name}`);
+    const entries = [...pendingEntries, mkEntry(1 - selectedTeam, "shot_saved", goalie)];
+    const flashText = `Shot (saved) — #${selectedPlayer.num} ${selectedPlayer.name} · saved by #${goalie.num} ${goalie.name}`;
+    setPendingEntries(entries);
+    setPendingFlashText(flashText);
+    if (shotLocationEnabled) setStep("ask_shot_location"); else commitEntries(entries, flashText);
   }
   function handleBlockerSelected(blockingPlayer) {
-    commitEntries([...pendingEntries, mkEntry(1 - selectedTeam, "shot_blocked", blockingPlayer)], `Shot blocked — #${selectedPlayer.num} ${selectedPlayer.name} · blocked by #${blockingPlayer.num} ${blockingPlayer.name}`);
+    const entries = [...pendingEntries, mkEntry(1 - selectedTeam, "shot_blocked", blockingPlayer)];
+    const flashText = `Shot blocked — #${selectedPlayer.num} ${selectedPlayer.name} · blocked by #${blockingPlayer.num} ${blockingPlayer.name}`;
+    setPendingEntries(entries);
+    setPendingFlashText(flashText);
+    if (shotLocationEnabled) setStep("ask_shot_location"); else commitEntries(entries, flashText);
   }
+  function handleFaceoffGBNo() {
+    const f = pendingEntries.find(e => e.event === 'faceoff_win');
+    commitEntries(pendingEntries, `Faceoff W — #${f.player.num} ${f.player.name}`);
+  }
+  function handleFaceoffGBYes() { setStep("faceoff_gb_player"); }
+  function handleFaceoffGBPlayerSelected(player) {
+    const f = pendingEntries.find(e => e.event === 'faceoff_win');
+    const entries = [...pendingEntries, mkEntry(selectedTeam, "ground_ball", player)];
+    commitEntries(entries, `FO Win + GB — #${f.player.num} / #${player.num}`);
+  }
+
 
   // Forced TO flow: pick the opposing player who turned it over
   function handleForcedToPlayerSelected(victim) {
@@ -954,6 +988,7 @@ export default function LaxStats({
   return (
     <div style={S.app}>
       {/* Nav: Setup | Track | Stats | Log */}
+
       <div style={S.nav}>
         {[
           { id: "setup", label: "Setup" },
@@ -1292,6 +1327,7 @@ export default function LaxStats({
       {/* ══ TRACK ══ */}
       {screen === "track" && (
         <div>
+
           {/* Desync reconciliation banner — blocks new entries until scorer acknowledges */}
           {desyncBanner && (
             <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
@@ -1383,7 +1419,6 @@ export default function LaxStats({
                   </button>
                 ))}
               </div>
-              {/* Penalty box */}
               {penaltyBoxEntries.length > 0 && (
                 <div style={{ marginTop: 16, border: "1px solid #e8e8e8", borderRadius: 12, overflow: "hidden" }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", padding: "8px 14px", background: "#f9f9f9", borderBottom: "1px solid #e8e8e8" }}>
@@ -1562,6 +1597,45 @@ export default function LaxStats({
                       const sel = editPrev ? (editPrev.num === p.num && editPrev.name === p.name) : false;
                       return <button key={i} style={S.playerBtn(sel, teamColors[selectedTeam], isHome)} onClick={() => handlePlayerSelected(p)}><span style={S.playerNum(sel, isHome, teamColors[selectedTeam])}>#{p.num}</span><span style={S.playerName(sel, isHome, teamColors[selectedTeam])}>{p.name}</span></button>;
                     })}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+          {/* Faceoff Cleanup: ask if there was a GB */}
+          {step === "ask_faceoff_gb" && (
+            <div>
+              <button style={S.backBtn} onClick={() => setStep("player")}>← Back</button>
+              <div style={S.pendingBubble(teamColors[selectedTeam])}>
+                🔄 Faceoff Win — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}
+              </div>
+              <div style={S.questionCard}><div style={S.questionText}>Who came up with the GB?</div></div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button style={S.btnYes} onClick={() => handleFaceoffGBPlayerSelected(selectedPlayer)}>
+                  #{selectedPlayer?.num} {selectedPlayer?.name} — same player
+                </button>
+                <button style={S.btnNo} onClick={handleFaceoffGBYes}>Someone else on {teams[selectedTeam]?.name}…</button>
+                <button style={S.btnNo} onClick={handleFaceoffGBNo}>Nobody — straight win, no GB</button>
+              </div>
+            </div>
+          )}
+
+          {/* Faceoff Cleanup: pick the GB player */}
+          {step === "faceoff_gb_player" && (
+            <div>
+              <button style={S.backBtn} onClick={() => setStep("ask_faceoff_gb")}>← Back</button>
+              <div style={{ ...S.stepLabel }}>Ground Ball — Which player?</div>
+              {(() => {
+                const isHome = selectedTeam === 0;
+                const roster = parsedRosters[selectedTeam] || [];
+                return (
+                  <div style={S.playerGrid}>
+                    {roster.map((p, i) => (
+                      <button key={i} style={S.playerBtn(false, teamColors[selectedTeam], isHome)} onClick={() => handleFaceoffGBPlayerSelected(p)}>
+                        <span style={S.playerNum(false, isHome, teamColors[selectedTeam])}>#{p.num}</span>
+                        <span style={S.playerName(false, isHome, teamColors[selectedTeam])}>{p.name}</span>
+                      </button>
+                    ))}
                   </div>
                 );
               })()}
@@ -1847,6 +1921,11 @@ export default function LaxStats({
             </div>
           )}
 
+          {/* Shot Location */}
+          {step === "ask_shot_location" && (
+            <FieldMapInput onLocationSelected={handleShotLocationSelected} />
+          )}
+
           {/* End quarter */}
           {step === "endqtr" && (
             <div>
@@ -1999,9 +2078,9 @@ export default function LaxStats({
             {!gameOver && <button style={S.tabBtn(statsQtr === String(currentQuarter))} onClick={() => setStatsQtr(String(currentQuarter))}>{curQLabel} <span style={{ fontSize: 10, color: statsQtr === String(currentQuarter) ? "#aaa" : "#4caf50" }}>●</span></button>}
           </div>
 
-          {/* Stats sub-tabs: Summary | Players | Timeline */}
+          {/* Stats sub-tabs: Summary | Players | Map | Timeline */}
           <div style={S.tabsRow}>
-            {["summary","players","timeline"].map(t => (
+            {["summary","players","map","timeline"].map(t => (
               <button key={t} style={{ ...S.tabBtn(statsTab === t), border: "1px solid #ddd" }} onClick={() => setStatsTab(t)}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -2060,6 +2139,11 @@ export default function LaxStats({
                 statKeys={PLAYER_STAT_KEYS}
               />
             </div>
+          )}
+
+          {/* Shot Map */}
+          {statsTab === "map" && (
+            <ShotMap log={filteredLog} teamColors={teamColors} teams={teams} />
           )}
 
           {/* Timeline — goals, timeouts, and penalties with timestamps */}
@@ -2194,6 +2278,7 @@ export default function LaxStats({
                         if (e.event === "shot_saved") subItems.push(`🧤 Saved by #${e.player?.num} ${e.player?.name}`);
                         if (e.event === "assist") subItems.push(`🤝 Assist: #${e.player?.num} ${e.player?.name}`);
                         if (e.event === "turnover" && group.some(x => x.event === "forced_to")) subItems.push(`↩️ TO by #${e.player?.num} ${e.player?.name}`);
+                        if (e.event === "ground_ball" && group.some(x => x.event === "faceoff_win")) subItems.push(`🪣 GB: #${e.player?.num} ${e.player?.name}`);
                       });
                       if (primary.event === "goal" && primary.goalTime) subItems.push(`⏱ ${primary.goalTime} remaining`);
                       return (
@@ -2253,6 +2338,7 @@ export default function LaxStats({
                           if (e.event === "shot_saved") subItems.push(`🧤 Saved by #${e.player?.num} ${e.player?.name}`);
                           if (e.event === "assist") subItems.push(`🤝 Assist: #${e.player?.num} ${e.player?.name}`);
                           if (e.event === "turnover" && group.some(x => x.event === "forced_to")) subItems.push(`↩️ TO by #${e.player?.num} ${e.player?.name}`);
+                          if (e.event === "ground_ball" && group.some(x => x.event === "faceoff_win")) subItems.push(`🪣 GB: #${e.player?.num} ${e.player?.name}`);
                         });
                         if (primary.event === "goal" && primary.goalTime) subItems.push(`⏱ ${primary.goalTime} remaining`);
                         if (primary.event === "goal" && primary.emo) subItems.push("⚡ EMO");
