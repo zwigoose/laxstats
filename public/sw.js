@@ -4,7 +4,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body:  data.body,
-      icon:  `${self.location.origin}/LaxStatsIcon.png`,
+      icon:  `${self.location.origin}/notification-icon.png`,
       badge: `${self.location.origin}/favicon-96x96.png`,
       data:  { url: data.url },
       tag:   data.tag ?? "laxstats-game",
