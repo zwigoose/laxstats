@@ -452,7 +452,7 @@ Press Box access is controlled per-game. Personal games require a platform admin
 |---|---|---|
 | **G** | Goals | Goals scored |
 | **A** | Assists | Pass directly leading to a goal |
-| **EMO** | Successful EMO | Goals scored while on a man-up power play |
+| **EMO** | Successful EMO | Goals scored while the opposing team was net shorthanded; auto-computed from penalty box state at the time of each goal |
 | **FEMO** | Failed EMO | Man-up opportunities that ended without a goal; auto-computed as opponent's successful MDD |
 | **EMO %** | EMO percentage | Successful EMO ÷ (Successful + Failed EMO) |
 
