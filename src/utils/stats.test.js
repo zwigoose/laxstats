@@ -8,6 +8,8 @@ import {
   computePenaltyWindows,
   getTimeoutsLeft,
   entryDisplayInfo,
+  buildLogGroups,
+  buildScoringTimeline,
 } from "./stats";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -532,5 +534,121 @@ describe("entryDisplayInfo", () => {
   it("falls back to bullet icon for unknown event types", () => {
     const info = entryDisplayInfo({ event: "unknown_event", player: {} });
     expect(info.icon).toBe("•");
+  });
+});
+
+// ── buildLogGroups ────────────────────────────────────────────────────────────
+
+describe("buildLogGroups", () => {
+  it("groups entries by groupId", () => {
+    const entries = [
+      mkEntry(0, "goal",   "7", "Alice", "g1", { seq: 1, quarter: 1, goalTime: "8:00" }),
+      mkEntry(0, "assist", "9", "Bob",   "g1", { seq: 2, quarter: 1, goalTime: "8:00" }),
+      mkEntry(1, "shot",   "5", "Eve",   "g2", { seq: 3, quarter: 1 }),
+    ];
+    const groups = buildLogGroups(entries);
+    expect(groups).toHaveLength(2);
+    const g1 = groups.find(g => g[0].groupId === "g1");
+    expect(g1).toHaveLength(2);
+  });
+
+  it("returns one group per unique groupId", () => {
+    const entries = [
+      mkEntry(0, "ground_ball", "1", "P1", "ga", { seq: 1, quarter: 1 }),
+      mkEntry(0, "ground_ball", "2", "P2", "gb", { seq: 2, quarter: 1 }),
+      mkEntry(0, "ground_ball", "3", "P3", "gc", { seq: 3, quarter: 1 }),
+    ];
+    expect(buildLogGroups(entries)).toHaveLength(3);
+  });
+
+  it("sorts groups by quarter then by time descending (highest time first = earliest in quarter)", () => {
+    const entries = [
+      mkEntry(0, "goal", "1", "A", "g1", { seq: 1, quarter: 1, goalTime: "5:00" }),
+      mkEntry(0, "goal", "2", "B", "g2", { seq: 2, quarter: 1, goalTime: "8:00" }),
+      mkEntry(0, "goal", "3", "C", "g3", { seq: 3, quarter: 2, goalTime: "9:00" }),
+    ];
+    const groups = buildLogGroups(entries);
+    expect(groups[0][0].quarter).toBe(1);
+    expect(groups[0][0].goalTime).toBe("8:00");
+    expect(groups[1][0].goalTime).toBe("5:00");
+    expect(groups[2][0].quarter).toBe(2);
+  });
+
+  it("falls back to seq order when entries have no time", () => {
+    const entries = [
+      mkEntry(0, "ground_ball", "1", "A", "g1", { seq: 1, quarter: 1 }),
+      mkEntry(0, "ground_ball", "2", "B", "g2", { seq: 2, quarter: 1 }),
+    ];
+    const groups = buildLogGroups(entries);
+    expect(groups[0][0].groupId).toBe("g1");
+    expect(groups[1][0].groupId).toBe("g2");
+  });
+
+  it("returns empty array for no entries", () => {
+    expect(buildLogGroups([])).toEqual([]);
+  });
+});
+
+// ── buildScoringTimeline ──────────────────────────────────────────────────────
+
+describe("buildScoringTimeline", () => {
+  it("includes goal groups as type 'goal'", () => {
+    const entries = [
+      mkEntry(0, "goal",  "7", "A", "g1", { seq: 1, quarter: 1, goalTime: "8:00" }),
+    ];
+    const tl = buildScoringTimeline(entries);
+    expect(tl).toHaveLength(1);
+    expect(tl[0].type).toBe("goal");
+    expect(tl[0].goal.event).toBe("goal");
+  });
+
+  it("includes assist on a goal group", () => {
+    const entries = [
+      mkEntry(0, "goal",   "7", "Alice", "g1", { seq: 1, quarter: 1, goalTime: "8:00" }),
+      mkEntry(0, "assist", "9", "Bob",   "g1", { seq: 2, quarter: 1, goalTime: "8:00" }),
+    ];
+    const tl = buildScoringTimeline(entries);
+    expect(tl[0].assist.event).toBe("assist");
+    expect(tl[0].assist.player.num).toBe("9");
+  });
+
+  it("includes timeout groups as type 'timeout'", () => {
+    const entries = [
+      mkEntry(0, "timeout", null, null, "g2", { seq: 3, quarter: 1, teamStat: true, timeoutTime: "6:00" }),
+    ];
+    const tl = buildScoringTimeline(entries);
+    expect(tl).toHaveLength(1);
+    expect(tl[0].type).toBe("timeout");
+  });
+
+  it("includes penalty_tech groups as type 'penalty'", () => {
+    const entries = [
+      mkEntry(0, "penalty_tech", "3", "P3", "g3", { seq: 4, quarter: 1, penaltyTime: "7:00", foulName: "Holding" }),
+    ];
+    const tl = buildScoringTimeline(entries);
+    expect(tl[0].type).toBe("penalty");
+    expect(tl[0].penalty.event).toBe("penalty_tech");
+  });
+
+  it("includes penalty_min groups as type 'penalty'", () => {
+    const entries = [
+      mkEntry(0, "penalty_min", "4", "P4", "g4", { seq: 5, quarter: 1, penaltyTime: "4:00", penaltyMin: 2 }),
+    ];
+    const tl = buildScoringTimeline(entries);
+    expect(tl[0].type).toBe("penalty");
+  });
+
+  it("excludes non-scoring non-penalty events (shot, ground_ball, etc.)", () => {
+    const entries = [
+      mkEntry(0, "shot",        "1", "A", "g1", { seq: 1, quarter: 1 }),
+      mkEntry(0, "ground_ball", "2", "B", "g2", { seq: 2, quarter: 1 }),
+      mkEntry(0, "faceoff_win", "3", "C", "g3", { seq: 3, quarter: 1 }),
+      mkEntry(0, "turnover",    "4", "D", "g4", { seq: 4, quarter: 1 }),
+    ];
+    expect(buildScoringTimeline(entries)).toHaveLength(0);
+  });
+
+  it("returns empty array for no entries", () => {
+    expect(buildScoringTimeline([])).toEqual([]);
   });
 });

@@ -201,6 +201,55 @@ describe("LaxStats — track screen", () => {
   });
 });
 
+// ── Faceoff GB follow-up flow ─────────────────────────────────────────────────
+
+describe("LaxStats — faceoff GB follow-up", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  async function navigateToFaceoffGB() {
+    renderLaxStats();
+    await waitFor(() => screen.getAllByPlaceholderText(/First Last/));
+    await act(async () => { await startTracking(); });
+    fireEvent.click(screen.getByText("Home"));
+    fireEvent.click(screen.getByText("Faceoff W"));
+    fireEvent.click(screen.getByText("#1"));
+  }
+
+  it("shows ground ball prompt after selecting faceoff winner", async () => {
+    await navigateToFaceoffGB();
+    expect(screen.getByText(/Who came up with the GB/i)).toBeInTheDocument();
+  });
+
+  it("shows 'Nobody — straight win' option", async () => {
+    await navigateToFaceoffGB();
+    expect(screen.getByText(/Nobody/i)).toBeInTheDocument();
+  });
+
+  it("shows 'Someone else' option for picking a different GB player", async () => {
+    await navigateToFaceoffGB();
+    expect(screen.getByText(/Someone else/i)).toBeInTheDocument();
+  });
+
+  it("commits immediately when 'Nobody' is chosen — no GB", async () => {
+    await navigateToFaceoffGB();
+    await act(async () => { fireEvent.click(screen.getByText(/Nobody/i)); });
+    await waitFor(() => expect(screen.getByText(/Last entry:/)).toBeInTheDocument());
+    expect(screen.getByText(/Faceoff/i)).toBeInTheDocument();
+  });
+
+  it("commits faceoff + GB when same player is chosen", async () => {
+    await navigateToFaceoffGB();
+    await act(async () => { fireEvent.click(screen.getByText(/— same player/i)); });
+    await waitFor(() => expect(screen.getByText(/Last entry:/)).toBeInTheDocument());
+  });
+
+  it("shows roster picker when 'Someone else' is chosen", async () => {
+    await navigateToFaceoffGB();
+    fireEvent.click(screen.getByText(/Someone else/i));
+    await waitFor(() => expect(screen.getByText(/Which player/i)).toBeInTheDocument());
+  });
+});
+
 // ── Undo / last entry banner ───────────────────────────────────────────────────
 
 describe("LaxStats — undo banner", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dbRowToEntry } from "./useGameEvents";
+import { dbRowToEntry, entryToDbRow } from "./useGameEvents";
 
 // ── dbRowToEntry ──────────────────────────────────────────────────────────────
 
@@ -84,5 +84,123 @@ describe("dbRowToEntry", () => {
   it("maps penalty_minutes when present", () => {
     const entry = dbRowToEntry({ ...base, penalty_minutes: 2 });
     expect(entry.penaltyMin).toBe(2);
+  });
+
+  it("maps shot_x and shot_y when present", () => {
+    const entry = dbRowToEntry({ ...base, shot_x: 0.42, shot_y: 0.77 });
+    expect(entry.shotX).toBe(0.42);
+    expect(entry.shotY).toBe(0.77);
+  });
+
+  it("leaves shotX/shotY undefined when shot_x/shot_y are null", () => {
+    const entry = dbRowToEntry({ ...base, shot_x: null, shot_y: null });
+    expect(entry.shotX).toBeUndefined();
+    expect(entry.shotY).toBeUndefined();
+  });
+
+  it("maps is_emo flag when true", () => {
+    const entry = dbRowToEntry({ ...base, is_emo: true });
+    expect(entry.emo).toBe(true);
+  });
+
+  it("leaves emo undefined when is_emo is false", () => {
+    const entry = dbRowToEntry({ ...base, is_emo: false });
+    expect(entry.emo).toBeUndefined();
+  });
+});
+
+// ── entryToDbRow ──────────────────────────────────────────────────────────────
+
+describe("entryToDbRow", () => {
+  const baseEntry = {
+    groupId:    "uuid-group",
+    quarter:    2,
+    event:      "goal",
+    teamIdx:    0,
+    teamStat:   false,
+    player:     { num: "7", name: "Alice" },
+    goalTime:   "5:30",
+    seq:        3,
+  };
+  const GAME_ID = "game-uuid";
+  const USER_ID = "user-uuid";
+
+  it("maps core fields to DB columns", () => {
+    const row = entryToDbRow(baseEntry, GAME_ID, USER_ID);
+    expect(row.game_id).toBe(GAME_ID);
+    expect(row.group_id).toBe("uuid-group");
+    expect(row.quarter).toBe(2);
+    expect(row.event_type).toBe("goal");
+    expect(row.team_idx).toBe(0);
+    expect(row.is_team_stat).toBe(false);
+    expect(row.created_by).toBe(USER_ID);
+  });
+
+  it("maps player fields when player is present", () => {
+    const row = entryToDbRow(baseEntry, GAME_ID, USER_ID);
+    expect(row.player_num).toBe("7");
+    expect(row.player_name).toBe("Alice");
+  });
+
+  it("sets player_num and player_name to null when player is null", () => {
+    const row = entryToDbRow({ ...baseEntry, player: null }, GAME_ID, USER_ID);
+    expect(row.player_num).toBeNull();
+    expect(row.player_name).toBeNull();
+  });
+
+  it("maps goal_time", () => {
+    const row = entryToDbRow(baseEntry, GAME_ID, USER_ID);
+    expect(row.goal_time).toBe("5:30");
+    expect(row.penalty_time).toBeNull();
+    expect(row.timeout_time).toBeNull();
+  });
+
+  it("maps penalty_time for penalty entries", () => {
+    const row = entryToDbRow({ ...baseEntry, event: "penalty_min", goalTime: undefined, penaltyTime: "3:00", penaltyMin: 2, nonReleasable: false }, GAME_ID, USER_ID);
+    expect(row.penalty_time).toBe("3:00");
+    expect(row.penalty_minutes).toBe(2);
+    expect(row.is_non_releasable).toBe(false);
+  });
+
+  it("maps is_non_releasable true", () => {
+    const row = entryToDbRow({ ...baseEntry, nonReleasable: true }, GAME_ID, USER_ID);
+    expect(row.is_non_releasable).toBe(true);
+  });
+
+  it("maps shot_outcome", () => {
+    const row = entryToDbRow({ ...baseEntry, shotOutcome: "saved" }, GAME_ID, USER_ID);
+    expect(row.shot_outcome).toBe("saved");
+  });
+
+  it("maps foul_name", () => {
+    const row = entryToDbRow({ ...baseEntry, event: "penalty_tech", foulName: "Holding" }, GAME_ID, USER_ID);
+    expect(row.foul_name).toBe("Holding");
+  });
+
+  it("maps shot_x and shot_y for shot location entries", () => {
+    const row = entryToDbRow({ ...baseEntry, event: "shot", shotX: 0.55, shotY: 0.32 }, GAME_ID, USER_ID);
+    expect(row.shot_x).toBe(0.55);
+    expect(row.shot_y).toBe(0.32);
+  });
+
+  it("sets shot_x and shot_y to null when not present", () => {
+    const row = entryToDbRow(baseEntry, GAME_ID, USER_ID);
+    expect(row.shot_x).toBeNull();
+    expect(row.shot_y).toBeNull();
+  });
+
+  it("maps is_emo true when emo flag set", () => {
+    const row = entryToDbRow({ ...baseEntry, emo: true }, GAME_ID, USER_ID);
+    expect(row.is_emo).toBe(true);
+  });
+
+  it("sets is_emo false when emo flag absent", () => {
+    const row = entryToDbRow(baseEntry, GAME_ID, USER_ID);
+    expect(row.is_emo).toBe(false);
+  });
+
+  it("includes client_created_at as an ISO string", () => {
+    const row = entryToDbRow(baseEntry, GAME_ID, USER_ID);
+    expect(row.client_created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });
