@@ -95,7 +95,6 @@ Both envs use `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Deployed to Verc
 
 When shipping a feature to staging:
 
-1. **Feature branch** — work on `feature/<name>` branched from `staging`; open a PR into `staging` when ready
-2. **After merge** — on `staging`, bump `"version"` in `package.json` and add a `CHANGELOG.md` entry (semver: minor for new features, patch for fixes)
-3. **Docs** — update `README.md` and `USER_GUIDE.md` to reflect any new or removed functionality
-4. **Commit** — commit version bump + docs together directly to `staging`
+1. **Feature branch** — work on `feature/<name>` branched from `staging`; include `README.md` and `USER_GUIDE.md` updates in the branch so docs are reviewed alongside code in the PR
+2. **PR** — open into `staging`; review covers both code and documentation
+3. **After merge** — bump `"version"` in `package.json` and add a `CHANGELOG.md` entry (semver: minor for new features, patch for fixes); commit directly to `staging`
