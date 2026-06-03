@@ -298,9 +298,6 @@ The app automatically handles **consecutive fouls** (same player, same dead-ball
 ### Penalty Box
 While any penalties are active, a **Penalty Box** table appears on the Track screen above the **End Q#** button. Each row shows the player's number, release time, NR badge, and a quarter label if the penalty carries across a quarter break.
 
-### MDD Stop 🛡️
-Team stat. Log when the defense kills a penalty without conceding. Automatically credits the opposing team with a Failed EMO.
-
 ### Timeout ⏸️
 Team stat. **Follow-up:** Time remaining (or tap **Log without time**).
 
@@ -456,15 +453,15 @@ Press Box access is controlled per-game. Personal games require a platform admin
 | **G** | Goals | Goals scored |
 | **A** | Assists | Pass directly leading to a goal |
 | **EMO** | Successful EMO | Goals scored while on a man-up power play |
-| **FEMO** | Failed EMO | Man-up opportunities that ended without a goal; equals opponent's MDD stops |
+| **FEMO** | Failed EMO | Man-up opportunities that ended without a goal; auto-computed as opponent's successful MDD |
 | **EMO %** | EMO percentage | Successful EMO ÷ (Successful + Failed EMO) |
 
 ### Defense
 
 | Abbrev | Name | Description |
 |---|---|---|
-| **MDD** | Successful MDD | Man-down defensive stops |
-| **FMDD** | Failed MDD | Man-down situations that resulted in a goal; equals opponent's EMO goals |
+| **MDD** | Successful MDD | Penalty windows where the defense held without conceding; auto-computed from penalty and goal data |
+| **FMDD** | Failed MDD | Man-down situations that resulted in a goal; auto-computed as opponent's EMO goals |
 | **MDD %** | MDD percentage | Successful MDD ÷ (Successful + Failed MDD) |
 | **Sv** | Saves | Shots stopped by the goalie |
 | **Save %** | Save percentage | Saves ÷ Opponent's SOG |
@@ -513,7 +510,6 @@ Press Box access is controlled per-game. Personal games require a platform admin
 - **Jersey colors guide your eye:** home team is the white-bordered button, away is solid color — same as what you see on the field.
 - **Time keypad:** type the time remaining as digits (e.g. `854` for 8:54) and confirm. Penalty time shows a **Same as latest** shortcut for fouls from the same dead-ball stop.
 - **Missed a stat?** Edit from the Event Log at any time, even from a completed quarter.
-- **MDD Stop:** log this every time the defense kills a penalty without conceding — it directly drives MDD % and EMO Fail for the opponent.
 - **Blocked shots:** pick the field player who made the block, not the goalie. Goalie stops go through Shot → Saved.
 - **Multi-scorer:** run the Scorekeeper on a phone at the table; send an invite link to a second device for backup coverage. Both feeds sync in real time.
 - **Guest link expires in 24h:** generate a new one from the scorekeeper header if you need to re-invite.
