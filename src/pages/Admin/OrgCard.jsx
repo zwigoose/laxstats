@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { getGameInfo } from "../../utils/game";
 import { PLANS, PLAN_STATUS, ORG_ROLES, BOOLEAN_FEATURES, PLAN_COLOR, STATUS_COLOR } from "../../constants/lacrosse";
 import { displayName } from "./helpers";
-import { ColorPicker, PRESET_COLORS } from "../TeamManager";
+import { ColorPicker, PRESET_COLORS, OrgLogoSection } from "../TeamManager";
 
 export default function OrgCard({ org, users, onUpdated, onDeleted }) {
   const navigate = useNavigate();
@@ -23,6 +23,7 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
   const [orgColor, setOrgColor]         = useState(org.color || PRESET_COLORS[0]);
   const [editingColor, setEditingColor] = useState(false);
   const [savingColor, setSavingColor]   = useState(false);
+  const [orgLogoUrl, setOrgLogoUrl]     = useState(org.logo_url || null);
 
   const [showNewGame, setShowNewGame] = useState(false);
   const [gameOwner, setGameOwner]     = useState("");
@@ -219,6 +220,17 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Org Logo */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Org Logo</div>
+                <OrgLogoSection
+                  orgId={org.id}
+                  initialLogoUrl={orgLogoUrl}
+                  canManage
+                  onSaved={url => setOrgLogoUrl(url)}
+                />
               </div>
 
               {/* Members */}

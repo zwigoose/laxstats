@@ -311,6 +311,7 @@ export default function Dashboard() {
             {/* Score banner */}
             <div style={{ background: "#1a1a1a", borderRadius: 10, padding: "10px 20px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div style={{ textAlign: "center" }}>
+                {teams[0]?.logoUrl && <img src={teams[0].logoUrl} alt="" style={{ height: 48, maxWidth: 80, objectFit: "contain", display: "block", margin: "0 auto 4px", opacity: 0.9 }} />}
                 <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[0]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[0].name}</div>
                 <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[0]), lineHeight: 1.1 }}>{totalScores[0]}</div>
               </div>
@@ -320,6 +321,7 @@ export default function Dashboard() {
                 {gameOver && <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>Final</div>}
               </div>
               <div style={{ textAlign: "center" }}>
+                {teams[1]?.logoUrl && <img src={teams[1].logoUrl} alt="" style={{ height: 48, maxWidth: 80, objectFit: "contain", display: "block", margin: "0 auto 4px", opacity: 0.9 }} />}
                 <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[1]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[1].name}</div>
                 <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[1]), lineHeight: 1.1 }}>{totalScores[1]}</div>
               </div>

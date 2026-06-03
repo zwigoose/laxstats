@@ -20,7 +20,7 @@ function pickPlayerOfTheGame(playerStats, teams) {
   };
 }
 
-export default function HeroCard({ teams, teamColors, totalScores, playerStats, gameName, onClose }) {
+export default function HeroCard({ teams, teamColors, totalScores, playerStats, gameName, logos = [null, null], onClose }) {
   const cardRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
 
@@ -70,6 +70,7 @@ export default function HeroCard({ teams, teamColors, totalScores, playerStats, 
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", width: "100%", gap: 8, marginBottom: 20 }}>
               {/* Team 0 */}
               <div style={{ textAlign: "center" }}>
+                {logos[0] && <img src={logos[0]} crossOrigin="anonymous" alt="" style={{ height: 52, maxWidth: 100, objectFit: "contain", display: "block", margin: "0 auto 8px" }} />}
                 <div style={{ fontSize: 56, fontWeight: 700, color: c0, lineHeight: 1, letterSpacing: -2 }}>{totalScores[0]}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: winnerIdx === 0 ? c0 : "#555", marginTop: 8, letterSpacing: "0.01em" }}>{teams[0]?.name}</div>
                 {winnerIdx === 0 && <div style={{ fontSize: 10, color: c0, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 3 }}>Winner</div>}
@@ -79,6 +80,7 @@ export default function HeroCard({ teams, teamColors, totalScores, playerStats, 
 
               {/* Team 1 */}
               <div style={{ textAlign: "center" }}>
+                {logos[1] && <img src={logos[1]} crossOrigin="anonymous" alt="" style={{ height: 52, maxWidth: 100, objectFit: "contain", display: "block", margin: "0 auto 8px" }} />}
                 <div style={{ fontSize: 56, fontWeight: 700, color: c1, lineHeight: 1, letterSpacing: -2 }}>{totalScores[1]}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: winnerIdx === 1 ? c1 : "#555", marginTop: 8, letterSpacing: "0.01em" }}>{teams[1]?.name}</div>
                 {winnerIdx === 1 && <div style={{ fontSize: 10, color: c1, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 3 }}>Winner</div>}

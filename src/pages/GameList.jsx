@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
@@ -9,7 +9,7 @@ import { getGameInfo, getLatestTime, formatDate, formatDateLong, formatDateTime 
 import RosterEditor from "../components/RosterEditor";
 import SharePanel from "../components/SharePanel";
 import { usePersonalGameUsage } from "../hooks/usePersonalGameUsage";
-export { RosterEditor, SharePanel };
+export { RosterEditor, SharePanel, SavedTeamLogoSection };
 
 // ── Men's lacrosse field SVG (110yd × 60yd) ──────────────────────────────────
 // Scale: 820px / 110yd = 7.45 px/yd (H), 420px / 60yd = 7.0 px/yd (V)
@@ -123,6 +123,7 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage, orgMemberships =
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, marginBottom: 8 }}>
               {/* Team 0 */}
               <div>
+                {info.t0?.logoUrl && <img src={info.t0.logoUrl} alt="" style={{ height: 40, maxWidth: 80, objectFit: "contain", display: "block", marginBottom: 6 }} />}
                 <div style={{ fontSize: 30, fontWeight: 700, color: c0, lineHeight: 1 }}>
                   {info.t0.name}
                 </div>
@@ -135,6 +136,7 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage, orgMemberships =
               </div>
               {/* Team 1 */}
               <div style={{ textAlign: "right" }}>
+                {info.t1?.logoUrl && <img src={info.t1.logoUrl} alt="" style={{ height: 40, maxWidth: 80, objectFit: "contain", display: "block", marginLeft: "auto", marginBottom: 6 }} />}
                 <div style={{ fontSize: 30, fontWeight: 700, color: c1, lineHeight: 1 }}>
                   {info.t1.name}
                 </div>
@@ -246,13 +248,19 @@ function LiveCard({ game, isOwner, hasPressbox }) {
       <div style={{ padding: "14px 16px 12px" }}>
         {info && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <div style={{ fontSize: 30, fontWeight: 700, color: c0, lineHeight: 1 }}>{info.t0.name}</div>
+            <div>
+              {info.t0?.logoUrl && <img src={info.t0.logoUrl} alt="" style={{ height: 40, maxWidth: 80, objectFit: "contain", display: "block", marginBottom: 6 }} />}
+              <div style={{ fontSize: 30, fontWeight: 700, color: c0, lineHeight: 1 }}>{info.t0.name}</div>
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
               <span style={{ fontSize: 30, fontWeight: 700, color: c0, lineHeight: 1, minWidth: 28, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{info.score0}</span>
               <span style={{ fontSize: 18, color: "#ccc", fontWeight: 300 }}>—</span>
               <span style={{ fontSize: 30, fontWeight: 700, color: c1, lineHeight: 1, minWidth: 28, textAlign: "left", fontVariantNumeric: "tabular-nums" }}>{info.score1}</span>
             </div>
-            <div style={{ textAlign: "right", fontSize: 30, fontWeight: 700, color: c1, lineHeight: 1 }}>{info.t1.name}</div>
+            <div style={{ textAlign: "right" }}>
+              {info.t1?.logoUrl && <img src={info.t1.logoUrl} alt="" style={{ height: 40, maxWidth: 80, objectFit: "contain", display: "block", marginLeft: "auto", marginBottom: 6 }} />}
+              <div style={{ fontSize: 30, fontWeight: 700, color: c1, lineHeight: 1 }}>{info.t1.name}</div>
+            </div>
           </div>
         )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
@@ -413,13 +421,19 @@ function PublicCompletedSection() {
                 <div style={{ padding: "14px 16px 12px" }}>
                   {info && (
                     <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <div style={{ fontSize: 28, fontWeight: 700, color: c0, lineHeight: 1 }}>{info.t0.name}</div>
+                      <div>
+                        {info.t0?.logoUrl && <img src={info.t0.logoUrl} alt="" style={{ height: 40, maxWidth: 80, objectFit: "contain", display: "block", marginBottom: 6 }} />}
+                        <div style={{ fontSize: 28, fontWeight: 700, color: c0, lineHeight: 1 }}>{info.t0.name}</div>
+                      </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span style={{ fontSize: 28, fontWeight: 700, color: info.score0 >= info.score1 ? c0 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{info.score0}</span>
                         <span style={{ fontSize: 16, color: "#ccc", fontWeight: 300 }}>—</span>
                         <span style={{ fontSize: 28, fontWeight: 700, color: info.score1 >= info.score0 ? c1 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{info.score1}</span>
                       </div>
-                      <div style={{ textAlign: "right", fontSize: 28, fontWeight: 700, color: c1, lineHeight: 1 }}>{info.t1.name}</div>
+                      <div style={{ textAlign: "right" }}>
+                        {info.t1?.logoUrl && <img src={info.t1.logoUrl} alt="" style={{ height: 40, maxWidth: 80, objectFit: "contain", display: "block", marginLeft: "auto", marginBottom: 6 }} />}
+                        <div style={{ fontSize: 28, fontWeight: 700, color: c1, lineHeight: 1 }}>{info.t1.name}</div>
+                      </div>
                     </div>
                   )}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
@@ -453,7 +467,7 @@ function OrgGamesSection({ orgMemberships }) {
     const orgIds = orgMemberships.map(m => m.org_id);
     const { data } = await supabase
       .from("games")
-      .select("id, created_at, name, state, org_id, game_date, home_team:teams!home_team_id(id, name, color), away_team:teams!away_team_id(id, name, color)")
+      .select("id, created_at, name, state, org_id, game_date, home_team:teams!home_team_id(id, name, color, logo_url), away_team:teams!away_team_id(id, name, color, logo_url)")
       .in("org_id", orgIds)
       .order("created_at", { ascending: false })
       .limit(30);
@@ -537,6 +551,8 @@ function OrgGamesSection({ orgMemberships }) {
                     const c1 = awayTeam?.color || info?.t1?.color || "#888";
                     const homeName = homeTeam?.name || info?.t0?.name || "Home";
                     const awayName = awayTeam?.name || info?.t1?.name || "Away";
+                    const homeLogo = info?.t0?.logoUrl || homeTeam?.logo_url || null;
+                    const awayLogo = info?.t1?.logoUrl || awayTeam?.logo_url || null;
                     const score0 = info?.score0 ?? 0;
                     const score1 = info?.score1 ?? 0;
                     const hasScore = info?.started;
@@ -548,10 +564,12 @@ function OrgGamesSection({ orgMemberships }) {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             {hasScore ? (
                               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                {homeLogo && <img src={homeLogo} alt="" style={{ height: 36, maxWidth: 64, objectFit: "contain", flexShrink: 0 }} />}
                                 <span style={{ fontSize: 15, fontWeight: 700, color: c0 }}>{homeName}</span>
                                 <span style={{ fontSize: 14, fontWeight: 700, color: score0 >= score1 ? c0 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{score0}</span>
                                 <span style={{ fontSize: 12, color: "#ccc" }}>–</span>
                                 <span style={{ fontSize: 14, fontWeight: 700, color: score1 >= score0 ? c1 : "#bbb", fontVariantNumeric: "tabular-nums" }}>{score1}</span>
+                                {awayLogo && <img src={awayLogo} alt="" style={{ height: 36, maxWidth: 64, objectFit: "contain", flexShrink: 0 }} />}
                                 <span style={{ fontSize: 15, fontWeight: 700, color: c1 }}>{awayName}</span>
                               </div>
                             ) : (
@@ -755,6 +773,72 @@ function GamesTab({ onNewGame, user, orgMemberships = [], usage }) {
 }
 
 
+// ── Saved team logo upload ────────────────────────────────────────────────────
+function SavedTeamLogoSection({ teamId, initialLogoUrl, onSaved }) {
+  const [logoUrl, setLogoUrl]     = useState(initialLogoUrl || null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError]         = useState(null);
+  const inputRef = useRef(null);
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { setError("Image must be under 2 MB."); return; }
+    setUploading(true);
+    setError(null);
+    const path = `saved/${teamId}/logo`;
+    const { error: uploadErr } = await supabase.storage
+      .from("game-logos")
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadErr) { setError(uploadErr.message); setUploading(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from("game-logos").getPublicUrl(path);
+    const { error: dbErr } = await supabase.from("saved_teams").update({ logo_url: publicUrl }).eq("id", teamId);
+    if (dbErr) { setError(dbErr.message); setUploading(false); return; }
+    setLogoUrl(publicUrl);
+    onSaved?.(publicUrl);
+    setUploading(false);
+  }
+
+  async function handleRemove() {
+    setUploading(true);
+    await supabase.storage.from("game-logos").remove([`saved/${teamId}/logo`]);
+    await supabase.from("saved_teams").update({ logo_url: null }).eq("id", teamId);
+    setLogoUrl(null);
+    onSaved?.(null);
+    setUploading(false);
+  }
+
+  const btnBase = { padding: "4px 10px", fontSize: 11, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" };
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#f8f8f8", borderRadius: 10, border: "1px solid #e8e8e8" }}>
+        {logoUrl ? (
+          <img src={logoUrl} alt="Team logo" style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 4, border: "1px solid #e0e0e0", background: "#fff" }} />
+        ) : (
+          <div style={{ width: 32, height: 32, borderRadius: 4, border: "1px dashed #ccc", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#bbb" }}>🏑</div>
+        )}
+        <span style={{ fontSize: 12, color: "#555", flex: 1 }}>
+          Team logo {uploading && <span style={{ color: "#aaa" }}>· uploading…</span>}
+        </span>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => inputRef.current?.click()} disabled={uploading} style={btnBase}>
+            {logoUrl ? "Replace" : "Upload"}
+          </button>
+          {logoUrl && (
+            <button onClick={handleRemove} disabled={uploading} style={{ ...btnBase, color: "#c0392b", borderColor: "#f0c0c0" }}>
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+      {error && <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4 }}>{error}</div>}
+      <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        style={{ display: "none" }} onChange={handleFile} />
+    </div>
+  );
+}
+
 // ── Rosters Tab ───────────────────────────────────────────────────────────────
 function RostersTab({ showNewInit = false }) {
   const { user } = useAuth();
@@ -768,7 +852,7 @@ function RostersTab({ showNewInit = false }) {
 
   async function loadTeams() {
     setLoading(true);
-    const { data, error: err } = await supabase.from("saved_teams").select("id, name, roster, color, user_id").order("name");
+    const { data, error: err } = await supabase.from("saved_teams").select("id, name, roster, color, user_id, logo_url").order("name");
     if (err) setError(err.message);
     else setTeams(data || []);
     setLoading(false);
@@ -822,6 +906,11 @@ function RostersTab({ showNewInit = false }) {
                 <RosterEditor initial={team}
                   onSave={(fields) => handleUpdate(team.id, fields)}
                   onDelete={() => handleDelete(team.id)} />
+                <SavedTeamLogoSection
+                  teamId={team.id}
+                  initialLogoUrl={team.logo_url}
+                  onSaved={url => setTeams(prev => prev.map(t => t.id === team.id ? { ...t, logo_url: url } : t))}
+                />
                 <SharePanel rosterId={team.id} />
               </>
             ) : (

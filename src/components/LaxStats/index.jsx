@@ -32,6 +32,7 @@ export default function LaxStats({
   remoteQuarterState = null, // { currentQuarter, completedQuarters, gameOver } broadcast hint from primary scorer
   derivedQuarterState = null, // { currentQuarter, completedQuarters, gameOver } authoritative from game_meta_events
   scorekeeperRole = "primary", // "primary" | "secondary"
+  gameId = null,               // game UUID — enables per-game logo uploads to game-logos bucket
   // org game props — optional; omit for personal games
   orgContext = null,          // { orgId, orgName, seasonName } — shows org banner + loads org teams
   onOrgTeamSelected = null,   // async (teamIdx, teamId) => void — persist home/away_team_id
@@ -497,6 +498,20 @@ export default function LaxStats({
     }
   }
 
+  // ── Per-team logo upload (setup screen) ─────────────────────────
+  const [logoUploading, setLogoUploading] = useState([false, false]);
+  async function handleLogoUpload(ti, file) {
+    if (!file || !gameId || !currentUserId) return;
+    setLogoUploading(prev => prev.map((v, i) => i === ti ? true : v));
+    const path = `${gameId}/${ti}/logo`;
+    const { error } = await supabase.storage.from("game-logos").upload(path, file, { upsert: true, contentType: file.type });
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage.from("game-logos").getPublicUrl(path);
+      setTeams(t => t.map((x, i) => i === ti ? { ...x, logoUrl: publicUrl } : x));
+    }
+    setLogoUploading(prev => prev.map((v, i) => i === ti ? false : v));
+  }
+
   // ── Saved teams (for setup screen loader) ───────────────────────
   const [savedTeams, setSavedTeams] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -511,7 +526,7 @@ export default function LaxStats({
     if (!orgContext?.orgId) return;
     supabase
       .from("teams")
-      .select("id, name, color, team_players(jersey_num, player:players!inner(id, name, number))")
+      .select("id, name, color, logo_url, team_players(jersey_num, player:players!inner(id, name, number))")
       .eq("org_id", orgContext.orgId)
       .order("name")
       .then(({ data }) => { if (data) setOrgTeams(data); });
@@ -522,7 +537,7 @@ export default function LaxStats({
     if (!orgContext?.awayOrgId) return;
     supabase
       .from("teams")
-      .select("id, name, color, team_players(jersey_num, player:players!inner(id, name, number))")
+      .select("id, name, color, logo_url, team_players(jersey_num, player:players!inner(id, name, number))")
       .eq("org_id", orgContext.awayOrgId)
       .order("name")
       .then(({ data }) => { if (data) setAwayOrgTeams(data); });
@@ -531,9 +546,6 @@ export default function LaxStats({
   // ── Export / Import ─────────────────────────────────────────────
   const [exportCopied, setExportCopied] = useState(false);
   const [exportJson, setExportJson] = useState(null);
-  const [importJson, setImportJson] = useState("");
-  const [importError, setImportError] = useState("");
-  const [showImport, setShowImport] = useState(false);
 
   function handleExport() {
     const state = {
@@ -548,39 +560,11 @@ export default function LaxStats({
     };
     const json = JSON.stringify(state, null, 2);
     setExportJson(json);
-    setShowImport(false);
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(json).then(() => {
         setExportCopied(true);
         setTimeout(() => setExportCopied(false), 3000);
       }).catch(() => {});
-    }
-  }
-
-  function handleImportJson() {
-    setImportError("");
-    try {
-      const state = JSON.parse(importJson);
-      if (!state.teams || !Array.isArray(state.log)) {
-        setImportError("Invalid — missing required fields (teams, log).");
-        return;
-      }
-      setTeams(state.teams);
-      setParsedRosters([
-        parseRoster(state.teams[0].roster),
-        parseRoster(state.teams[1].roster),
-      ]);
-      setLog(state.log);
-      setCurrentQuarter(state.currentQuarter ?? 1);
-      setCompletedQuarters(state.completedQuarters ?? []);
-      setGameOver(state.gameOver ?? false);
-      if (state._nextId) _nextId = state._nextId;
-      setImportJson("");
-      setShowImport(false);
-      resetEntry();
-      setScreen("stats");
-    } catch {
-      setImportError("Could not parse JSON. Make sure you pasted the full export.");
     }
   }
 
@@ -1069,12 +1053,12 @@ export default function LaxStats({
                             .sort((a, b) => (a.jersey_num ?? a.player?.number ?? 99) - (b.jersey_num ?? b.player?.number ?? 99))
                             .map(tp => `#${tp.jersey_num ?? tp.player?.number} ${tp.player?.name}`)
                             .join("\n");
-                          setTeams(t => t.map((x, i) => i === ti ? { ...x, name: orgTeam.name, roster, color: orgTeam.color || x.color, orgTeamId: orgTeam.id } : x));
+                          setTeams(t => t.map((x, i) => i === ti ? { ...x, name: orgTeam.name, roster, color: orgTeam.color || x.color, orgTeamId: orgTeam.id, logoUrl: orgTeam.logo_url || null } : x));
                           if (onOrgTeamSelected) onOrgTeamSelected(ti, orgTeam.id);
                         } else {
                           const saved = savedTeams.find(t => t.id === val);
                           if (!saved) return;
-                          setTeams(t => t.map((x, i) => i === ti ? { ...x, name: saved.name, roster: saved.roster, color: saved.color } : x));
+                          setTeams(t => t.map((x, i) => i === ti ? { ...x, name: saved.name, roster: saved.roster, color: saved.color, logoUrl: saved.logo_url || null } : x));
                         }
                         e.target.value = "";
                       }}>
@@ -1205,6 +1189,18 @@ export default function LaxStats({
                     <div style={{ fontSize: 11, fontWeight: 600, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #c0e8c8", borderRadius: 6, padding: "3px 9px", marginBottom: 10, display: "inline-block" }}>
                       Org roster · locked
                     </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                      {teams[ti].logoUrl && (
+                        <img src={teams[ti].logoUrl} alt="logo" style={{ width: 28, height: 28, objectFit: "contain", borderRadius: 4, border: "1px solid #e0e0e0", background: "#fff" }} />
+                      )}
+                      {gameId && currentUserId && (
+                        <label style={{ fontSize: 11, color: "#888", cursor: logoUploading[ti] ? "default" : "pointer", border: "1px dashed #ccc", borderRadius: 6, padding: "3px 10px", opacity: logoUploading[ti] ? 0.5 : 1 }}>
+                          {logoUploading[ti] ? "Uploading…" : teams[ti].logoUrl ? "Replace logo" : "Add logo"}
+                          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" style={{ display: "none" }} disabled={logoUploading[ti]}
+                            onChange={e => { handleLogoUpload(ti, e.target.files?.[0]); e.target.value = ""; }} />
+                        </label>
+                      )}
+                    </div>
                     {(() => {
                       const players = parseRoster(teams[ti].roster);
                       return (
@@ -1229,6 +1225,18 @@ export default function LaxStats({
                     <div style={S.colorRow}>
                       {PRESET_COLORS.map(c => <div key={c} style={S.colorSwatch(c, teams[ti].color === c)} onClick={() => setTeams(t => t.map((x, i) => i === ti ? { ...x, color: c } : x))} />)}
                       <input type="color" style={S.colorPickerInput} value={teams[ti].color} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, color: e.target.value } : x))} />
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      {teams[ti].logoUrl && (
+                        <img src={teams[ti].logoUrl} alt="logo" style={{ width: 28, height: 28, objectFit: "contain", borderRadius: 4, border: "1px solid #e0e0e0", background: "#fff" }} />
+                      )}
+                      {gameId && currentUserId && (
+                        <label style={{ fontSize: 11, color: "#888", cursor: logoUploading[ti] ? "default" : "pointer", border: "1px dashed #ccc", borderRadius: 6, padding: "3px 10px", opacity: logoUploading[ti] ? 0.5 : 1 }}>
+                          {logoUploading[ti] ? "Uploading…" : teams[ti].logoUrl ? "Replace logo" : "Add logo (optional)"}
+                          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" style={{ display: "none" }} disabled={logoUploading[ti]}
+                            onChange={e => { handleLogoUpload(ti, e.target.files?.[0]); e.target.value = ""; }} />
+                        </label>
+                      )}
                     </div>
                     <textarea style={S.textarea} placeholder={"#2 First Last\n#7 First Last\n#11 First Last"}
                       value={teams[ti].roster} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, roster: e.target.value } : x))} />
@@ -1285,18 +1293,14 @@ export default function LaxStats({
               </>
             );
           })()}
-          <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-            <button style={{ flex: 1, padding: "11px", fontSize: 14, fontWeight: 500, border: "1px solid #ddd", borderRadius: 10, color: showImport ? "#111" : "#555", cursor: "pointer", background: showImport ? "#f0f0f0" : "#f7f7f7" }}
-              onClick={() => { setShowImport(v => !v); setExportJson(null); setImportError(""); }}>
-              {showImport ? "Cancel Import" : "Import game (JSON)"}
-            </button>
-            {log.length > 0 && (
-              <button style={{ flex: 1, padding: "11px", fontSize: 14, fontWeight: 500, border: "1px solid #ddd", borderRadius: 10, color: exportCopied ? "#2a7a3b" : "#555", cursor: "pointer", background: exportCopied ? "#eaf3de" : "#f7f7f7" }}
+          {log.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <button style={{ width: "100%", padding: "11px", fontSize: 14, fontWeight: 500, border: "1px solid #ddd", borderRadius: 10, color: exportCopied ? "#2a7a3b" : "#555", cursor: "pointer", background: exportCopied ? "#eaf3de" : "#f7f7f7" }}
                 onClick={handleExport}>
                 {exportCopied ? "✓ Copied!" : "Export game (JSON)"}
               </button>
-            )}
-          </div>
+            </div>
+          )}
           {onCancel && !trackingStarted && (
             <div style={{ textAlign: "center", marginTop: 16 }}>
               <button style={{ fontSize: 13, color: "#c0392b", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
@@ -1306,26 +1310,8 @@ export default function LaxStats({
             </div>
           )}
 
-          {/* Import panel */}
-          {showImport && (
-            <div style={{ marginTop: 10, background: "#f7f7f7", border: "1px solid #e5e5e5", borderRadius: 10, padding: 14 }}>
-              <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Paste exported JSON below, then tap Load:</div>
-              <textarea
-                value={importJson}
-                onChange={e => { setImportJson(e.target.value); setImportError(""); }}
-                placeholder='{ "version": 1, "teams": [...], ... }'
-                style={{ width: "100%", height: 120, fontSize: 11, fontFamily: "monospace", border: "1px solid #ddd", borderRadius: 8, padding: 10, background: "#fff", color: "#444", resize: "none", boxSizing: "border-box" }}
-              />
-              {importError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{importError}</div>}
-              <button style={{ width: "100%", marginTop: 8, padding: "10px", fontSize: 14, fontWeight: 500, background: importJson.trim() ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: importJson.trim() ? "pointer" : "not-allowed" }}
-                disabled={!importJson.trim()} onClick={handleImportJson}>
-                Load game →
-              </button>
-            </div>
-          )}
-
           {/* Export panel */}
-          {exportJson && !showImport && (
+          {exportJson && (
             <div style={{ marginTop: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <div style={{ fontSize: 12, color: exportCopied ? "#2a7a3b" : "#888" }}>

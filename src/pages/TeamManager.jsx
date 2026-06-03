@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useOrgRole } from "../hooks/useOrgRole";
@@ -552,6 +552,13 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
                 </div>
               )}
 
+              <TeamLogoSection
+                teamId={team.id}
+                orgId={orgId}
+                initialLogoUrl={team.logo_url}
+                canManage={canManage}
+              />
+
               {/* Players list */}
               <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Roster</div>
 
@@ -704,7 +711,151 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
   );
 }
 
-export { TeamCard, TeamForm, ColorPicker, OrgColorSection, PRESET_COLORS };
+function TeamLogoSection({ teamId, orgId, initialLogoUrl, canManage, onSaved }) {
+  const [logoUrl, setLogoUrl]     = useState(initialLogoUrl || null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError]         = useState(null);
+  const [cacheBust, setCacheBust] = useState(Date.now());
+  const inputRef = useRef(null);
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { setError("Image must be under 2 MB."); return; }
+    setUploading(true);
+    setError(null);
+    const path = `${orgId}/teams/${teamId}/logo`;
+    const { error: uploadErr } = await supabase.storage
+      .from("org-logos")
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadErr) { setError(uploadErr.message); setUploading(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from("org-logos").getPublicUrl(path);
+    const { error: dbErr } = await supabase.from("teams").update({ logo_url: publicUrl }).eq("id", teamId);
+    if (dbErr) { setError(dbErr.message); setUploading(false); return; }
+    setLogoUrl(publicUrl);
+    setCacheBust(Date.now());
+    onSaved?.(publicUrl);
+    setUploading(false);
+  }
+
+  async function handleRemove() {
+    setUploading(true);
+    setError(null);
+    await supabase.storage.from("org-logos").remove([`${orgId}/teams/${teamId}/logo`]);
+    await supabase.from("teams").update({ logo_url: null }).eq("id", teamId);
+    setLogoUrl(null);
+    onSaved?.(null);
+    setUploading(false);
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#f8f8f8", borderRadius: 10, border: "1px solid #e8e8e8" }}>
+        {logoUrl ? (
+          <img src={`${logoUrl}?t=${cacheBust}`} alt="Team logo" style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 4, border: "1px solid #e0e0e0", background: "#fff" }} />
+        ) : (
+          <div style={{ width: 32, height: 32, borderRadius: 4, border: "1px dashed #ccc", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 16, color: "#bbb" }}>🏑</span>
+          </div>
+        )}
+        <span style={{ fontSize: 12, color: "#555", flex: 1 }}>
+          Team logo {uploading && <span style={{ color: "#aaa" }}>· uploading…</span>}
+        </span>
+        {canManage && (
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => inputRef.current?.click()} disabled={uploading}
+              style={{ ...S.btnOut, padding: "4px 10px", fontSize: 11 }}>
+              {logoUrl ? "Replace" : "Upload"}
+            </button>
+            {logoUrl && (
+              <button onClick={handleRemove} disabled={uploading}
+                style={{ ...S.btnOut, padding: "4px 10px", fontSize: 11, color: "#c0392b", borderColor: "#f0c0c0" }}>
+                Remove
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {error && <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4, paddingLeft: 4 }}>{error}</div>}
+      <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        style={{ display: "none" }} onChange={handleFile} />
+    </div>
+  );
+}
+
+function OrgLogoSection({ orgId, initialLogoUrl, canManage, onSaved }) {
+  const [logoUrl, setLogoUrl]   = useState(initialLogoUrl || null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError]       = useState(null);
+  const [cacheBust, setCacheBust] = useState(Date.now());
+  const inputRef = useRef(null);
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { setError("Image must be under 2 MB."); return; }
+    setUploading(true);
+    setError(null);
+    const path = `${orgId}/logo`;
+    const { error: uploadErr } = await supabase.storage
+      .from("org-logos")
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (uploadErr) { setError(uploadErr.message); setUploading(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from("org-logos").getPublicUrl(path);
+    const { error: dbErr } = await supabase.from("organizations").update({ logo_url: publicUrl }).eq("id", orgId);
+    if (dbErr) { setError(dbErr.message); setUploading(false); return; }
+    setLogoUrl(publicUrl);
+    setCacheBust(Date.now());
+    onSaved?.(publicUrl);
+    setUploading(false);
+  }
+
+  async function handleRemove() {
+    setUploading(true);
+    setError(null);
+    await supabase.storage.from("org-logos").remove([`${orgId}/logo`]);
+    await supabase.from("organizations").update({ logo_url: null }).eq("id", orgId);
+    setLogoUrl(null);
+    onSaved?.(null);
+    setUploading(false);
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#f8f8f8", borderRadius: 10, border: "1px solid #e8e8e8" }}>
+        {logoUrl ? (
+          <img src={`${logoUrl}?t=${cacheBust}`} alt="Org logo" style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 4, border: "1px solid #e0e0e0", background: "#fff" }} />
+        ) : (
+          <div style={{ width: 32, height: 32, borderRadius: 4, border: "1px dashed #ccc", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 16, color: "#bbb" }}>🏑</span>
+          </div>
+        )}
+        <span style={{ fontSize: 12, color: "#555", flex: 1 }}>
+          Team logo {uploading && <span style={{ color: "#aaa" }}>· uploading…</span>}
+        </span>
+        {canManage && (
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => inputRef.current?.click()} disabled={uploading}
+              style={{ ...S.btnOut, padding: "4px 10px", fontSize: 11 }}>
+              {logoUrl ? "Replace" : "Upload"}
+            </button>
+            {logoUrl && (
+              <button onClick={handleRemove} disabled={uploading}
+                style={{ ...S.btnOut, padding: "4px 10px", fontSize: 11, color: "#c0392b", borderColor: "#f0c0c0" }}>
+                Remove
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {error && <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4, paddingLeft: 4 }}>{error}</div>}
+      <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        style={{ display: "none" }} onChange={handleFile} />
+    </div>
+  );
+}
+
+export { TeamCard, TeamForm, ColorPicker, OrgColorSection, OrgLogoSection, TeamLogoSection, PRESET_COLORS };
 
 export default function TeamManager() {
   const { slug } = useParams();
@@ -737,7 +888,7 @@ export default function TeamManager() {
 
     const { data: teamsData, error: teamsErr } = await supabase
       .from("teams")
-      .select("id, name, color")
+      .select("id, name, color, logo_url")
       .eq("org_id", orgData.id)
       .order("name");
     if (teamsErr) { setError(teamsErr.message); setLoading(false); return; }
@@ -753,7 +904,7 @@ export default function TeamManager() {
       p_org_id: org.id, p_name: fields.name,
     });
     if (err) { setError(entitlementMsg(err.message)); setSaving(false); return; }
-    const { data } = await supabase.from("teams").select("id, name, color").eq("id", teamId).single();
+    const { data } = await supabase.from("teams").select("id, name, color, logo_url").eq("id", teamId).single();
     if (data) setTeams(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
     setShowNewTeam(false);
     setSaving(false);
