@@ -10,7 +10,7 @@ describe("fetchSavedTeams", () => {
     const db = { from: vi.fn().mockReturnValue(chain) };
     await fetchSavedTeams(db);
     expect(db.from).toHaveBeenCalledWith("saved_teams");
-    expect(chain.select).toHaveBeenCalledWith("id, name, roster, color, user_id");
+    expect(chain.select).toHaveBeenCalledWith("id, name, roster, color, user_id, logo_url");
     expect(chain.order).toHaveBeenCalledWith("name");
   });
 

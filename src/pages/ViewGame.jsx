@@ -266,6 +266,10 @@ useEffect(() => {
   const completedQuarters = derivedQuarterState?.completedQuarters ?? state?.completedQuarters ?? [];
   const gameOver          = derivedQuarterState?.gameOver          ?? state?.gameOver          ?? false;
   const teamColors = [teams[0]?.color || "#1a6bab", teams[1]?.color || "#b84e1a"];
+  const displayLogos = [
+    teams[0]?.logoUrl || orgLogos[0],
+    teams[1]?.logoUrl || orgLogos[1],
+  ];
 
   const totalScores = useMemo(() => [
     log.filter(e => e.event === "goal" && e.teamIdx === 0).length,
@@ -448,6 +452,7 @@ useEffect(() => {
           totalScores={totalScores}
           playerStats={playerStats}
           gameName={game?.name}
+          logos={displayLogos}
           onClose={() => setHeroCardOpen(false)}
         />
       )}
@@ -473,7 +478,7 @@ useEffect(() => {
                 <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#aaa", marginBottom: 12 }}>Final</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                    {orgLogos[0] && <img src={orgLogos[0]} alt="" style={{ height: 36, maxWidth: 72, objectFit: "contain" }} />}
+                    {displayLogos[0] && <img src={displayLogos[0]} alt="" style={{ height: 52, maxWidth: 96, objectFit: "contain" }} />}
                     <div style={{ fontSize: 12, color: teamColors[0], fontWeight: 600 }}>{teams[0].name}</div>
                   </div>
                   <div style={{ fontSize: 42, fontWeight: 500, letterSpacing: 4 }}>
@@ -482,7 +487,7 @@ useEffect(() => {
                     <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                    {orgLogos[1] && <img src={orgLogos[1]} alt="" style={{ height: 36, maxWidth: 72, objectFit: "contain" }} />}
+                    {displayLogos[1] && <img src={displayLogos[1]} alt="" style={{ height: 52, maxWidth: 96, objectFit: "contain" }} />}
                     <div style={{ fontSize: 12, color: teamColors[1], fontWeight: 600 }}>{teams[1].name}</div>
                   </div>
                 </div>
@@ -494,7 +499,7 @@ useEffect(() => {
             ) : (
               <div style={S.scoreHeader}>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-                  {orgLogos[0] && <img src={orgLogos[0]} alt="" style={{ height: 28, maxWidth: 64, objectFit: "contain" }} />}
+                  {displayLogos[0] && <img src={displayLogos[0]} alt="" style={{ height: 44, maxWidth: 80, objectFit: "contain" }} />}
                   <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[0] }}>{teams[0].name}</div>
                 </div>
                 <div style={S.scoreBig}>
@@ -503,7 +508,7 @@ useEffect(() => {
                   <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                  {orgLogos[1] && <img src={orgLogos[1]} alt="" style={{ height: 28, maxWidth: 64, objectFit: "contain" }} />}
+                  {displayLogos[1] && <img src={displayLogos[1]} alt="" style={{ height: 44, maxWidth: 80, objectFit: "contain" }} />}
                   <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[1], textAlign: "right" }}>{teams[1].name}</div>
                 </div>
               </div>
