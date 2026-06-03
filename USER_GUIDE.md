@@ -263,7 +263,9 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 ## 11. Event Reference
 
 ### Goal 🥍
-**Follow-ups:** Assist? → EMO? → Time remaining
+**Follow-ups:** Assist? → (if yes) Pick assister → Time remaining
+
+EMO is detected automatically: if the defending team is net shorthanded at the time of the goal, the goal is flagged as EMO with no extra input required.
 
 ### Shot 🎯
 **Follow-up:** Outcome — Missed / Saved (pick goalie) / Blocked (pick blocker) / Off the post
@@ -272,7 +274,7 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 Commits immediately after player selection.
 
 ### Faceoff Win 🔄
-Commits immediately.
+**Follow-up:** Ground ball? — options are: the faceoff winner got it / someone else on the team (pick from roster) / nobody (straight win, no GB). Selecting a player records the faceoff win and ground ball as one group.
 
 ### Turnover ↩️
 Unforced turnover. Commits immediately.
@@ -282,12 +284,15 @@ Unforced turnover. Commits immediately.
 
 ### Penalty 🟨
 **Follow-ups:**
-1. **Foul** — select from the list; tech vs. personal is inferred automatically
-   - *Technicals (30s):* Conduct, Holding, Illegal Procedure, Interference, Offsides, Pushing
+1. **Time remaining** — entered first, before player selection
+2. **Player** — select the penalized player from the number grid
+3. **Foul** — select from the list; tech vs. personal is inferred automatically
+   - *Technicals (30s):* Conduct, Delay of Game, Holding, Illegal Procedure, Interference, Offsides, Pushing
    - *Personals (1–3 min):* Cross Check, Illegal Body Check, Illegal Equipment, Slashing, Tripping, Unnecessary Roughness, Unsportsmanlike Conduct
-2. **Minutes** (personal only) — 1, 2, or 3
-3. **Releasable or non-releasable?** (personal only)
-4. **Time remaining**
+4. **Minutes** (personal only) — 1, 2, or 3
+5. **Releasable or non-releasable?** (personal only)
+
+Technical fouls commit immediately after foul selection — no minutes or NR step.
 
 The app automatically handles **consecutive fouls** (same player, same dead-ball cycle — served back-to-back) and **simultaneous fouls** (one per team, same dead-ball cycle — overlapping window forced NR for both).
 
@@ -392,6 +397,9 @@ Team totals for every tracked stat, side by side, organized into sections: Scori
 ### Players tab
 Sortable table of individual player stats. Tap any column header to sort. Players are grouped by team.
 
+### Map tab *(Scorekeeper only, when shot location is enabled)*
+Shot locations plotted on a half-field diagram. Visible only when a platform admin has enabled shot location tracking for the game. Supports a team filter (Both / Home / Away).
+
 ### Timeline tab
 Reverse-chronological list of goals, timeouts, and penalties, with time remaining, quarter, player, assist, and running score.
 
@@ -412,7 +420,12 @@ Open via **View** on any game card, or navigate to `/games/:id/view`.
 - **Shareable** — send the URL to anyone
 - **No account required**
 
-The header shows **● Live** or **Final**. For live games, the latest recorded time remaining is shown. A **Press Box ↗** button links to the press box for the same game. Game owners and admins see an **Invite scorer** button on live v2 games.
+The header shows **● Live** or **Final**. For live games, the latest recorded time remaining is shown. The header toolbar includes:
+
+- **Press Box ↗** — opens the press box for the same game in a new tab
+- **Follow** (live games) — subscribes to browser push notifications for goals; tap again to unfollow
+- **QR** — opens a modal with a scannable QR code for the game URL; tap **Save image** to download as PNG
+- **Hero Card** (final games) — generates a shareable PNG graphic with the final score, team colors, logos, and player of the game
 
 ---
 
@@ -463,10 +476,7 @@ All saved rosters across all users. Tap a roster to edit it inline, reassign the
 All organizations. View members and manage org-level settings. Each org card includes a **Logo** section where admins can upload, replace, or remove the org's logo. Org team logos are managed from the org's Team Manager page.
 
 ### Migration tab
-Tools for converting v1 JSONB-log games into the v2 normalized format.
-
-- **Dry run** — shows what would migrate without making any changes
-- **Run migration** — converts all eligible v1 games; idempotent (safe to re-run); games that fail the goal-count verification gate stay as v1 and are logged to the error table
+Informational only. All games now use the `game_events` / `game_meta_events` architecture — no migration tooling is needed or available.
 
 ---
 
