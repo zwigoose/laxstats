@@ -174,6 +174,9 @@ Saved rosters let you enter a team once and load it into any future personal gam
 ```
 The `#` is optional. Players must have unique numbers.
 
+### Adding a logo to a saved team
+Expand the team row and tap **Upload logo** in the Logo section. Choose a PNG or JPG; the logo is stored and will automatically appear on game cards and the scorekeeper when this roster is loaded. Tap **Remove** to clear it.
+
 ### Sharing a roster
 You can share a roster with another user so they can load it into their games.
 
@@ -209,8 +212,11 @@ On the home screen, tap **🗑** on any game card and confirm twice. Deletion is
 The left team card is always **Home**, the right is **Away**. Home team buttons are white with a colored border; away team buttons are solid color — matches jersey colors on the field.
 
 ### Loading a saved team or org team
-- **Personal games** — a **Load saved…** dropdown appears if you have saved rosters. Selecting one fills the name, color, and roster.
-- **Org games** — if home and away teams were set when the game was created, their registered rosters load automatically. You can still edit the roster before starting.
+- **Personal games** — a **Load saved…** dropdown appears if you have saved rosters. Selecting one fills the name, color, roster, and logo (if one is attached).
+- **Org games** — if home and away teams were set when the game was created, their registered rosters and logos load automatically. You can still edit the roster before starting.
+
+### Team logos
+Each team card in setup shows a logo area. If a logo was inherited from an org team or saved roster it is shown automatically. You can upload a different image for this game only — tap **Upload logo** and choose a file. The per-game logo takes precedence over any inherited logo throughout the app (game cards, Live View, Press Box, Hero Card).
 
 ### Roster entry
 Type players into the text area, one per line (`#number Name`). Validation rules:
@@ -222,9 +228,8 @@ You can also **Upload CSV** with one player per row.
 ### Starting tracking
 Once both rosters pass validation, tap **Start Tracking →**.
 
-### Import / Export
-- **Export game (JSON)** — copies the full game state to your clipboard
-- **Import game (JSON)** — paste exported JSON to restore a game's state
+### Export
+- **Export game (JSON)** — copies the full game state to your clipboard for external use or record-keeping
 
 ---
 
@@ -452,10 +457,10 @@ Each game row's **⚙** panel offers:
 - **🗑** — delete a user account (two-stage confirmation)
 
 ### Rosters tab
-All saved rosters across all users. Tap a roster to edit it inline, reassign the owner, or manage sharing. **+ New Roster for User** creates a roster under any user's account.
+All saved rosters across all users. Tap a roster to edit it inline, reassign the owner, manage sharing, or upload/remove a logo. **+ New Roster for User** creates a roster under any user's account.
 
 ### Orgs tab
-All organizations. View members and manage org-level settings.
+All organizations. View members and manage org-level settings. Each org card includes a **Logo** section where admins can upload, replace, or remove the org's logo. Org team logos are managed from the org's Team Manager page.
 
 ### Migration tab
 Tools for converting v1 JSONB-log games into the v2 normalized format.
@@ -536,3 +541,5 @@ Tools for converting v1 JSONB-log games into the v2 normalized format.
 - **Multi-scorer:** run the Scorekeeper on a phone at the table; send an invite link to a second device for backup coverage. Both feeds sync in real time.
 - **Guest link expires in 24h:** generate a new one from the scorekeeper header if you need to re-invite.
 - **Shared rosters:** appear in your **Load saved…** dropdown and under **Shared with me** in the Rosters tab.
+- **Hero Card:** once a game is final, tap **Hero Card** in the game header to generate a shareable PNG with the score, team colors, logos, and player of the game. Download it or close — the game data is unaffected.
+- **Logos:** attach a logo to a saved roster once and it will appear automatically on every game card and in the scorekeeper whenever that roster is loaded.

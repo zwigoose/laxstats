@@ -76,7 +76,7 @@ The scorekeeper for any v2 game supports simultaneous scorers:
 
 ### Before the game
 
-Set up your two teams on the setup screen. Load registered org teams or enter rosters manually. Set the game date, then tap **Start Tracking →**.
+Set up your two teams on the setup screen. Load registered org teams or enter rosters manually. Set the game date, and optionally add a team logo for each side. Then tap **Start Tracking →**.
 
 ### During the game
 
@@ -103,6 +103,7 @@ Tap **End Q# →** at the bottom of the Track screen. After Q4 the app finalizes
 
 - **Live View** — `/games/:id/view` — score, stats, and timeline updating in real time. Public.
 - **Press Box** — `/games/:id/pressbox` — full-width dashboard with score by quarter, team stats, player stats, event log, and timeline. Designed for a tablet or laptop at the press table. Public.
+- **Hero Card** — once a game is final, generate a shareable PNG graphic with the score, team colors, logos, and player of the game — one tap to download.
 - **Invite scorer** — generate a 24-hour link from the scorekeeper header to bring in a second scorer. No account required for the recipient.
 
 ---
