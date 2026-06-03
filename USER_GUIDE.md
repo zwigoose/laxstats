@@ -24,8 +24,7 @@ LaxStats is an electronic scorebook and league management platform for men's lac
 16. [Stats Views](#16-stats-views)
 17. [Live View](#17-live-view)
 18. [Press Box](#18-press-box)
-19. [Admin Panel](#19-admin-panel)
-20. [Stat Definitions](#20-stat-definitions)
+19. [Stat Definitions](#19-stat-definitions)
 
 ---
 
@@ -448,39 +447,7 @@ Press Box access is controlled per-game. Personal games require a platform admin
 
 ---
 
-## 19. Admin Panel
-
-Admin accounts have access to `/admin`. An **Admin** link appears in the top nav for admin accounts.
-
-### All Games tab
-Every game across all users. Live games shown first; Pending and Final in collapsible sections.
-
-Each game row's **⚙** panel offers:
-- **Reassign owner** — transfer the game to a different user
-- **Press Box** toggle — enable the press box link for this game
-- **Multi-Scorekeeper** toggle — enable scorer invite links for this game (v2 games only)
-- **Delete game** — two-stage confirmation; permanently removes the game and all its events
-
-**+ New Game for User** creates a v2 game under any user's account.
-
-### Users tab
-- **Create User** — email and password; the user can sign in immediately
-- Each user row expands to show their games
-- **Make admin / Revoke admin** — toggle admin privileges
-- **🗑** — delete a user account (two-stage confirmation)
-
-### Rosters tab
-All saved rosters across all users. Tap a roster to edit it inline, reassign the owner, manage sharing, or upload/remove a logo. **+ New Roster for User** creates a roster under any user's account.
-
-### Orgs tab
-All organizations. View members and manage org-level settings. Each org card includes a **Logo** section where admins can upload, replace, or remove the org's logo. Org team logos are managed from the org's Team Manager page.
-
-### Migration tab
-Informational only. All games now use the `game_events` / `game_meta_events` architecture — no migration tooling is needed or available.
-
----
-
-## 20. Stat Definitions
+## 19. Stat Definitions
 
 ### Scoring
 
