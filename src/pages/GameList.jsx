@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { qLabel } from "../utils/stats";
@@ -171,8 +171,7 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage, orgMemberships =
                 {moveOpen ? "Cancel" : "Move to org →"}
               </button>
             )}
-            <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
-              onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
+            <Link to={`/games/${game.id}/view`} style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555", textDecoration: "none" }}>View</Link>
             {!info?.gameOver && (
               <button style={{ padding: "7px 15px", fontSize: 13, fontWeight: 600, background: "#111", border: "none", borderRadius: 8, cursor: "pointer", color: "#fff" }}
                 onClick={() => navigate(`/games/${game.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
@@ -268,8 +267,7 @@ function LiveCard({ game, isOwner, hasPressbox }) {
             ● Live{info?.latestTime ? ` · ${info.latestTime} ${qLabel(info.currentQuarter)}` : ""}
           </span>
           <div style={{ display: "flex", gap: 7, alignItems: "center" }}>
-            <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
-              onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
+            <Link to={`/games/${game.id}/view`} style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555", textDecoration: "none" }}>View</Link>
             {hasPressbox && (
               <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
                 onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
@@ -439,8 +437,7 @@ function PublicCompletedSection() {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
                     <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "3px 9px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Final</span>
                     <div style={{ display: "flex", gap: 7 }}>
-                      <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
-                        onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
+                      <Link to={`/games/${game.id}/view`} style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555", textDecoration: "none" }}>View</Link>
                       <button style={{ padding: "7px 13px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" }}
                         onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
                     </div>
