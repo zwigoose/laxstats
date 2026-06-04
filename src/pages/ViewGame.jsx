@@ -351,6 +351,9 @@ useEffect(() => {
           </button>
         )}
         {gameOver && (
+          <button style={S.copyBtn} onClick={() => window.open(`/games/${id}/print`, "_blank")}>Export ↗</button>
+        )}
+        {gameOver && (
           <button style={S.copyBtn} onClick={() => setHeroCardOpen(true)}>Hero Card</button>
         )}
 <button style={copied ? S.copyBtnDone : S.copyBtn} onClick={copyUrl}>
