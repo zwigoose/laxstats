@@ -12,6 +12,7 @@ import OrgDashboard from "./pages/OrgDashboard";
 import SeasonView from "./pages/SeasonView";
 import TeamManager from "./pages/TeamManager";
 import CreateGame from "./pages/CreateGame";
+import PrintGame from "./pages/PrintGame";
 import Orgs from "./pages/Orgs";
 import Profile from "./pages/Profile";
 import Pricing from "./pages/Pricing";
@@ -22,7 +23,7 @@ const FOOTER_H = 36;
 const NAV_H    = 44;
 
 // Routes where the nav + its top padding should NOT appear (full-viewport experiences).
-const NO_NAV = /\/games\/[^/]+\/(score|pressbox)/;
+const NO_NAV = /\/games\/[^/]+\/(score|pressbox|print)/;
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -280,7 +281,7 @@ function AppRoutes() {
   return (
     <>
       <AppNav />
-      <div style={{ position: "fixed", top: showNav ? NAV_H : 0, bottom: FOOTER_H, left: 0, right: 0, overflowY: "auto" }}>
+      <div className="app-scroll-container" style={{ position: "fixed", top: showNav ? NAV_H : 0, bottom: FOOTER_H, left: 0, right: 0, overflowY: "auto" }}>
         <Routes>
           <Route path="/login"                    element={<Login />} />
           <Route path="/"                         element={<GameList />} />
@@ -288,6 +289,7 @@ function AppRoutes() {
           <Route path="/games/:id/score"          element={<Scorekeeper />} />
           <Route path="/games/:id/view"           element={<ViewGame />} />
           <Route path="/games/:id/pressbox"       element={<Pressbox />} />
+          <Route path="/games/:id/print"         element={<PrintGame />} />
           <Route path="/orgs"                     element={<PrivateRoute><Orgs /></PrivateRoute>} />
           <Route path="/orgs/new"                 element={<PrivateRoute><CreateOrg /></PrivateRoute>} />
           <Route path="/orgs/:slug"               element={<OrgDashboard />} />
