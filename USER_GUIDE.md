@@ -24,8 +24,7 @@ LaxStats is an electronic scorebook and league management platform for men's lac
 16. [Stats Views](#16-stats-views)
 17. [Live View](#17-live-view)
 18. [Press Box](#18-press-box)
-19. [Admin Panel](#19-admin-panel)
-20. [Stat Definitions](#20-stat-definitions)
+19. [Stat Definitions](#19-stat-definitions)
 
 ---
 
@@ -174,6 +173,9 @@ Saved rosters let you enter a team once and load it into any future personal gam
 ```
 The `#` is optional. Players must have unique numbers.
 
+### Adding a logo to a saved team
+Expand the team row and tap **Upload logo** in the Logo section. Choose a PNG or JPG; the logo is stored and will automatically appear on game cards and the scorekeeper when this roster is loaded. Tap **Remove** to clear it.
+
 ### Sharing a roster
 You can share a roster with another user so they can load it into their games.
 
@@ -209,8 +211,11 @@ On the home screen, tap **🗑** on any game card and confirm twice. Deletion is
 The left team card is always **Home**, the right is **Away**. Home team buttons are white with a colored border; away team buttons are solid color — matches jersey colors on the field.
 
 ### Loading a saved team or org team
-- **Personal games** — a **Load saved…** dropdown appears if you have saved rosters. Selecting one fills the name, color, and roster.
-- **Org games** — if home and away teams were set when the game was created, their registered rosters load automatically. You can still edit the roster before starting.
+- **Personal games** — a **Load saved…** dropdown appears if you have saved rosters. Selecting one fills the name, color, roster, and logo (if one is attached).
+- **Org games** — if home and away teams were set when the game was created, their registered rosters and logos load automatically. You can still edit the roster before starting.
+
+### Team logos
+Each team card in setup shows a logo area. If a logo was inherited from an org team or saved roster it is shown automatically. You can upload a different image for this game only — tap **Upload logo** and choose a file. The per-game logo takes precedence over any inherited logo throughout the app (game cards, Live View, Press Box, Hero Card).
 
 ### Roster entry
 Type players into the text area, one per line (`#number Name`). Validation rules:
@@ -222,9 +227,8 @@ You can also **Upload CSV** with one player per row.
 ### Starting tracking
 Once both rosters pass validation, tap **Start Tracking →**.
 
-### Import / Export
-- **Export game (JSON)** — copies the full game state to your clipboard
-- **Import game (JSON)** — paste exported JSON to restore a game's state
+### Export
+- **Export game (JSON)** — copies the full game state to your clipboard for external use or record-keeping
 
 ---
 
@@ -258,7 +262,9 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 ## 11. Event Reference
 
 ### Goal 🥍
-**Follow-ups:** Assist? → EMO? → Time remaining
+**Follow-ups:** Assist? → (if yes) Pick assister → Time remaining
+
+EMO is detected automatically: if the defending team is net shorthanded at the time of the goal, the goal is flagged as EMO with no extra input required.
 
 ### Shot 🎯
 **Follow-up:** Outcome — Missed / Saved (pick goalie) / Blocked (pick blocker) / Off the post
@@ -267,7 +273,7 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 Commits immediately after player selection.
 
 ### Faceoff Win 🔄
-Commits immediately.
+**Follow-up:** Ground ball? — options are: the faceoff winner got it / someone else on the team (pick from roster) / nobody (straight win, no GB). Selecting a player records the faceoff win and ground ball as one group.
 
 ### Turnover ↩️
 Unforced turnover. Commits immediately.
@@ -277,20 +283,20 @@ Unforced turnover. Commits immediately.
 
 ### Penalty 🟨
 **Follow-ups:**
-1. **Foul** — select from the list; tech vs. personal is inferred automatically
-   - *Technicals (30s):* Conduct, Holding, Illegal Procedure, Interference, Offsides, Pushing
+1. **Time remaining** — entered first, before player selection
+2. **Player** — select the penalized player from the number grid
+3. **Foul** — select from the list; tech vs. personal is inferred automatically
+   - *Technicals (30s):* Conduct, Delay of Game, Holding, Illegal Procedure, Interference, Offsides, Pushing
    - *Personals (1–3 min):* Cross Check, Illegal Body Check, Illegal Equipment, Slashing, Tripping, Unnecessary Roughness, Unsportsmanlike Conduct
-2. **Minutes** (personal only) — 1, 2, or 3
-3. **Releasable or non-releasable?** (personal only)
-4. **Time remaining**
+4. **Minutes** (personal only) — 1, 2, or 3
+5. **Releasable or non-releasable?** (personal only)
+
+Technical fouls commit immediately after foul selection — no minutes or NR step.
 
 The app automatically handles **consecutive fouls** (same player, same dead-ball cycle — served back-to-back) and **simultaneous fouls** (one per team, same dead-ball cycle — overlapping window forced NR for both).
 
 ### Penalty Box
 While any penalties are active, a **Penalty Box** table appears on the Track screen above the **End Q#** button. Each row shows the player's number, release time, NR badge, and a quarter label if the penalty carries across a quarter break.
-
-### MDD Stop 🛡️
-Team stat. Log when the defense kills a penalty without conceding. Automatically credits the opposing team with a Failed EMO.
 
 ### Timeout ⏸️
 Team stat. **Follow-up:** Time remaining (or tap **Log without time**).
@@ -387,6 +393,9 @@ Team totals for every tracked stat, side by side, organized into sections: Scori
 ### Players tab
 Sortable table of individual player stats. Tap any column header to sort. Players are grouped by team.
 
+### Map tab *(Scorekeeper only, when shot location is enabled)*
+Shot locations plotted on a half-field diagram. Visible only when a platform admin has enabled shot location tracking for the game. Supports a team filter (Both / Home / Away).
+
 ### Timeline tab
 Reverse-chronological list of goals, timeouts, and penalties, with time remaining, quarter, player, assist, and running score.
 
@@ -407,7 +416,12 @@ Open via **View** on any game card, or navigate to `/games/:id/view`.
 - **Shareable** — send the URL to anyone
 - **No account required**
 
-The header shows **● Live** or **Final**. For live games, the latest recorded time remaining is shown. A **Press Box ↗** button links to the press box for the same game. Game owners and admins see an **Invite scorer** button on live v2 games.
+The header shows **● Live** or **Final**. For live games, the latest recorded time remaining is shown. The header toolbar includes:
+
+- **Press Box ↗** — opens the press box for the same game in a new tab
+- **Follow** (live games) — subscribes to browser push notifications for goals; tap again to unfollow
+- **QR** — opens a modal with a scannable QR code for the game URL; tap **Save image** to download as PNG
+- **Hero Card** (final games) — generates a shareable PNG graphic with the final score, team colors, logos, and player of the game
 
 ---
 
@@ -430,42 +444,7 @@ Press Box access is controlled per-game. Personal games require a platform admin
 
 ---
 
-## 19. Admin Panel
-
-Admin accounts have access to `/admin`. An **Admin** link appears in the top nav for admin accounts.
-
-### All Games tab
-Every game across all users. Live games shown first; Pending and Final in collapsible sections.
-
-Each game row's **⚙** panel offers:
-- **Reassign owner** — transfer the game to a different user
-- **Press Box** toggle — enable the press box link for this game
-- **Multi-Scorekeeper** toggle — enable scorer invite links for this game (v2 games only)
-- **Delete game** — two-stage confirmation; permanently removes the game and all its events
-
-**+ New Game for User** creates a v2 game under any user's account.
-
-### Users tab
-- **Create User** — email and password; the user can sign in immediately
-- Each user row expands to show their games
-- **Make admin / Revoke admin** — toggle admin privileges
-- **🗑** — delete a user account (two-stage confirmation)
-
-### Rosters tab
-All saved rosters across all users. Tap a roster to edit it inline, reassign the owner, or manage sharing. **+ New Roster for User** creates a roster under any user's account.
-
-### Orgs tab
-All organizations. View members and manage org-level settings.
-
-### Migration tab
-Tools for converting v1 JSONB-log games into the v2 normalized format.
-
-- **Dry run** — shows what would migrate without making any changes
-- **Run migration** — converts all eligible v1 games; idempotent (safe to re-run); games that fail the goal-count verification gate stay as v1 and are logged to the error table
-
----
-
-## 20. Stat Definitions
+## 19. Stat Definitions
 
 ### Scoring
 
@@ -473,16 +452,16 @@ Tools for converting v1 JSONB-log games into the v2 normalized format.
 |---|---|---|
 | **G** | Goals | Goals scored |
 | **A** | Assists | Pass directly leading to a goal |
-| **EMO** | Successful EMO | Goals scored while on a man-up power play |
-| **FEMO** | Failed EMO | Man-up opportunities that ended without a goal; equals opponent's MDD stops |
+| **EMO** | Successful EMO | Goals scored while the opposing team was net shorthanded; auto-computed from penalty box state at the time of each goal |
+| **FEMO** | Failed EMO | Man-up opportunities that ended without a goal; auto-computed as opponent's successful MDD |
 | **EMO %** | EMO percentage | Successful EMO ÷ (Successful + Failed EMO) |
 
 ### Defense
 
 | Abbrev | Name | Description |
 |---|---|---|
-| **MDD** | Successful MDD | Man-down defensive stops |
-| **FMDD** | Failed MDD | Man-down situations that resulted in a goal; equals opponent's EMO goals |
+| **MDD** | Successful MDD | Penalty windows where the defense held without conceding; auto-computed from penalty and goal data |
+| **FMDD** | Failed MDD | Man-down situations that resulted in a goal; auto-computed as opponent's EMO goals |
 | **MDD %** | MDD percentage | Successful MDD ÷ (Successful + Failed MDD) |
 | **Sv** | Saves | Shots stopped by the goalie |
 | **Save %** | Save percentage | Saves ÷ Opponent's SOG |
@@ -531,8 +510,9 @@ Tools for converting v1 JSONB-log games into the v2 normalized format.
 - **Jersey colors guide your eye:** home team is the white-bordered button, away is solid color — same as what you see on the field.
 - **Time keypad:** type the time remaining as digits (e.g. `854` for 8:54) and confirm. Penalty time shows a **Same as latest** shortcut for fouls from the same dead-ball stop.
 - **Missed a stat?** Edit from the Event Log at any time, even from a completed quarter.
-- **MDD Stop:** log this every time the defense kills a penalty without conceding — it directly drives MDD % and EMO Fail for the opponent.
 - **Blocked shots:** pick the field player who made the block, not the goalie. Goalie stops go through Shot → Saved.
 - **Multi-scorer:** run the Scorekeeper on a phone at the table; send an invite link to a second device for backup coverage. Both feeds sync in real time.
 - **Guest link expires in 24h:** generate a new one from the scorekeeper header if you need to re-invite.
 - **Shared rosters:** appear in your **Load saved…** dropdown and under **Shared with me** in the Rosters tab.
+- **Hero Card:** once a game is final, tap **Hero Card** in the game header to generate a shareable PNG with the score, team colors, logos, and player of the game. Download it or close — the game data is unaffected.
+- **Logos:** attach a logo to a saved roster once and it will appear automatically on every game card and in the scorekeeper whenever that roster is loaded.

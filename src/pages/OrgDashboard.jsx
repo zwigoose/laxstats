@@ -6,7 +6,7 @@ import { useOrgRole } from "../hooks/useOrgRole";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { qLabel } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameEvents";
-import { TeamCard, TeamForm, ColorPicker, OrgColorSection, PRESET_COLORS } from "./TeamManager";
+import { TeamCard, TeamForm, ColorPicker, OrgColorSection, OrgLogoSection, PRESET_COLORS } from "./TeamManager";
 import { PLAN_COLOR } from "../constants/lacrosse";
 import { useOrgEntitlements } from "../hooks/useOrgEntitlements";
 import { entitlementMsg } from "../utils/entitlement";
@@ -606,7 +606,7 @@ function SeasonsTab({ org, slug, isOrgAdmin, entitlements }) {
 }
 
 // ── Teams tab ─────────────────────────────────────────────────────────────────
-function TeamsTab({ org, slug, isOrgAdmin, entitlements, onOrgColorChange }) {
+function TeamsTab({ org, slug, isOrgAdmin, entitlements, onOrgColorChange, onOrgLogoChange }) {
   const navigate = useNavigate();
   const canManage = isOrgAdmin;
 
@@ -690,6 +690,12 @@ function TeamsTab({ org, slug, isOrgAdmin, entitlements, onOrgColorChange }) {
           setTeams(prev => prev?.map(t => ({ ...t, color })));
           onOrgColorChange?.(color);
         }}
+      />
+      <OrgLogoSection
+        orgId={org.id}
+        initialLogoUrl={org.logo_url}
+        canManage={canManage}
+        onSaved={logoUrl => onOrgLogoChange?.(logoUrl)}
       />
 
       {/* New team form */}
@@ -1120,7 +1126,7 @@ export default function OrgDashboard() {
   useDocTitle(org?.name);
 
   useEffect(() => {
-    supabase.from("organizations").select("id, name, slug, plan, plan_status, cancel_at_period_end, current_period_end, color")
+    supabase.from("organizations").select("id, name, slug, plan, plan_status, cancel_at_period_end, current_period_end, color, logo_url")
       .eq("slug", slug).single()
       .then(({ data, error: err }) => {
         if (err) { setError("Organization not found."); setLoading(false); return; }
@@ -1217,7 +1223,7 @@ export default function OrgDashboard() {
       <div style={S.body}>
         {tab === "games"   && <GamesTab   org={org} canScore={canScore} orgMembership={orgMembership} />}
         {tab === "seasons" && <SeasonsTab org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
-        {tab === "teams"   && <TeamsTab   org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} onOrgColorChange={color => setOrg(prev => ({ ...prev, color }))} />}
+        {tab === "teams"   && <TeamsTab   org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} onOrgColorChange={color => setOrg(prev => ({ ...prev, color }))} onOrgLogoChange={logoUrl => setOrg(prev => ({ ...prev, logo_url: logoUrl }))} />}
         {tab === "players" && <PlayersTab org={org} isOrgAdmin={isOrgAdmin} />}
         {tab === "members" && <MembersTab org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
         {tab === "stats"   && <StatsTab   org={org} />}

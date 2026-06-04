@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../../lib/supabase";
 import RosterEditor from "../../components/RosterEditor";
+import { SavedTeamLogoSection } from "../GameList";
 import { displayName } from "./helpers";
 import AdminSharePanel from "./AdminSharePanel";
 import OwnerSelect from "./OwnerSelect";
@@ -141,6 +142,11 @@ export default function RostersAdminTab() {
                         {editing && (
                           <div style={{ padding: "0 12px 12px", borderTop: "1px solid #efefef" }}>
                             <RosterEditor initial={r} onSave={(fields) => handleUpdate(r.id, fields)} onCancel={() => setEditingRosterId(null)} />
+                            <SavedTeamLogoSection
+                              teamId={r.id}
+                              initialLogoUrl={r.logo_url}
+                              onSaved={url => setRosters(prev => prev.map(x => x.id === r.id ? { ...x, logo_url: url } : x))}
+                            />
                             <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e8e8e8" }}>
                               <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Owner</div>
                               <OwnerSelect currentUserId={r.user_id} users={users} onSave={(newUserId) => handleReassignRoster(r.id, newUserId)} />

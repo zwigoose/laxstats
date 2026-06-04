@@ -310,6 +310,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
         <div style={S.loading}>Loading events…</div>
       ) : (
         <LaxStats
+          gameId={id}
           initialState={initialState}
           createdAt={game?.created_at}
           onStateChange={handleStateChange}

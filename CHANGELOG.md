@@ -5,6 +5,18 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.15.0] — 2026-06-02
+
+### Added
+- **Team and game logos** — org teams, saved rosters, and individual games can now each carry a logo image; logos are uploaded to Supabase Storage (`org-logos` for org/team logos, `game-logos` for saved-roster and per-game overrides) and cascade through setup: org team logo → saved roster logo → per-game upload, with each level able to override the previous
+- **Logos shown throughout the app** — logos appear on game cards (home page, org games list), the live/final score header on the game view page, the Pressbox score banner, and the shareable Hero Card PNG
+- **Admin logo management** — platform admins can upload, change, or remove logos for any saved roster and any org directly from `/admin`
+
+### Removed
+- **JSON game import** — the "Import JSON" panel in the scorekeeper has been removed; the "Export JSON" option is retained for data extraction
+
+---
+
 ## [2.14.0] — 2026-06-01
 
 ### Added

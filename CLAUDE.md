@@ -50,6 +50,10 @@ The only distinction between game types is whether a game has an `org_id` (org-l
 
 All player/team stats are computed in `src/utils/stats.js` via `buildPlayerStats()`. This runs over the in-memory event list after every sync — there is no server-side aggregation. Stats include goals, assists, shots, ground balls, faceoffs, turnovers, forced TOs, penalties, clears, failed clears, rides, MDD (man-down defense), EMO%, save%, clearing%, and GB%.
 
+**Auto-derived stats — never manually entered:**
+- **EMO / FEMO** — detected automatically at goal time by checking whether the defending team is net shorthanded via `computePenaltyWindows()`; no scorer input required
+- **MDD / FMDD** — computed from penalty windows that expire without a goal scored against; auto-credited as the inverse of FEMO
+
 ### Auth & Roles
 
 `AuthContext` provides session, profile, and `getOrgRole(slug)` which returns the user's role per org (`org_admin`, `coach`, `scorekeeper`, `viewer`). `PrivateRoute` gates authenticated pages. Scorekeeper invite links (`claimScorekeeperInvite` RPC) grant temp scoring access without requiring accounts (24h expiry).
@@ -60,11 +64,22 @@ React Router v7. Scorekeeper (`/games/:id/score`) and Pressbox (`/games/:id/pres
 
 ## Database
 
-Supabase PostgreSQL with 69+ migrations in `supabase/migrations/`. Local dev uses:
+Supabase PostgreSQL with 80 migrations in `supabase/migrations/`. Local dev uses:
 - API: port 54321
 - DB: port 54322
 
 Key schema tables: `organizations`, `seasons`, `teams`, `org_members`, `games`, `game_events`, `game_meta_events`, `game_scorers`, `scorekeeper_invites`. RLS policies enforce org role checks on all sensitive tables. Admin/org management goes through RPCs rather than direct table writes.
+
+### Storage
+
+Two public Supabase Storage buckets. Both are public-read; writes require authentication and are enforced via RLS policies on `storage.objects`.
+
+| Bucket | Purpose | Path convention |
+|---|---|---|
+| `org-logos` | Org-level and org-team logos | `{orgId}/logo` · `{orgId}/teams/{teamId}/logo` |
+| `game-logos` | Per-game logo overrides and saved-team logos | `{gameId}/{teamIdx}/logo` · `saved/{teamId}/logo` |
+
+Logo URLs are stored in: `teams.logo_url` (org teams), `saved_teams.logo_url`, and `games.state.teams[i].logoUrl` (per-game cache). When rendering logos from Supabase storage in `html-to-image` contexts, `crossOrigin="anonymous"` is required on `<img>` elements.
 
 ## Environments
 
@@ -75,3 +90,11 @@ Key schema tables: `organizations`, `seasons`, `teams`, `org_members`, `games`, 
 | `.env.production` | Production Supabase |
 
 Both envs use `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. Deployed to Vercel (`vercel.json`).
+
+## Release Workflow
+
+When shipping a feature to staging:
+
+1. **Feature branch** — work on `feature/<name>` branched from `staging`; include `README.md` and `USER_GUIDE.md` updates in the branch so docs are reviewed alongside code in the PR
+2. **PR** — open into `staging`; review covers both code and documentation
+3. **After merge** — bump `"version"` in `package.json` and add a `CHANGELOG.md` entry (semver: minor for new features, patch for fixes); commit directly to `staging`

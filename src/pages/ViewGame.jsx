@@ -79,6 +79,7 @@ export default function ViewGame() {
   const [hasPressbox, setHasPressbox] = useState(false);
   const [derivedQuarterState, setDerivedQuarterState] = useState(null);
   const [heroCardOpen, setHeroCardOpen] = useState(false);
+  const [orgLogos, setOrgLogos] = useState([null, null]);
   const push = usePushNotifications(id, user?.id);
 
   // Away org "Add to my season" state
@@ -217,6 +218,15 @@ useEffect(() => {
       }
     }
 
+    // Fetch org logos for home and away
+    const orgIds = [data.org_id, data.away_org_id].filter(Boolean);
+    if (orgIds.length) {
+      const { data: orgs } = await supabase
+        .from("organizations").select("id, logo_url").in("id", orgIds);
+      const logoMap = Object.fromEntries((orgs || []).map(o => [o.id, o.logo_url]));
+      setOrgLogos([logoMap[data.org_id] ?? null, logoMap[data.away_org_id] ?? null]);
+    }
+
     // Pressbox: per-game override OR org feature flag
     if (data?.pressbox_enabled) {
       setHasPressbox(true);
@@ -256,6 +266,10 @@ useEffect(() => {
   const completedQuarters = derivedQuarterState?.completedQuarters ?? state?.completedQuarters ?? [];
   const gameOver          = derivedQuarterState?.gameOver          ?? state?.gameOver          ?? false;
   const teamColors = [teams[0]?.color || "#1a6bab", teams[1]?.color || "#b84e1a"];
+  const displayLogos = [
+    teams[0]?.logoUrl || orgLogos[0],
+    teams[1]?.logoUrl || orgLogos[1],
+  ];
 
   const totalScores = useMemo(() => [
     log.filter(e => e.event === "goal" && e.teamIdx === 0).length,
@@ -438,6 +452,7 @@ useEffect(() => {
           totalScores={totalScores}
           playerStats={playerStats}
           gameName={game?.name}
+          logos={displayLogos}
           onClose={() => setHeroCardOpen(false)}
         />
       )}
@@ -460,11 +475,21 @@ useEffect(() => {
             {/* Score / final banner */}
             {gameOver ? (
               <div style={S.finalBanner}>
-                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#aaa", marginBottom: 8 }}>Final</div>
-                <div style={{ fontSize: 42, fontWeight: 500, letterSpacing: 4, marginBottom: 6 }}>
-                  <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
-                  <span style={{ color: "#555", margin: "0 10px" }}>—</span>
-                  <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#aaa", marginBottom: 12 }}>Final</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    {displayLogos[0] && <img src={displayLogos[0]} alt="" style={{ height: 52, maxWidth: 96, objectFit: "contain" }} />}
+                    <div style={{ fontSize: 12, color: teamColors[0], fontWeight: 600 }}>{teams[0].name}</div>
+                  </div>
+                  <div style={{ fontSize: 42, fontWeight: 500, letterSpacing: 4 }}>
+                    <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
+                    <span style={{ color: "#555", margin: "0 10px" }}>—</span>
+                    <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    {displayLogos[1] && <img src={displayLogos[1]} alt="" style={{ height: 52, maxWidth: 96, objectFit: "contain" }} />}
+                    <div style={{ fontSize: 12, color: teamColors[1], fontWeight: 600 }}>{teams[1].name}</div>
+                  </div>
                 </div>
                 <div style={{ fontSize: 13, color: "#aaa" }}>
                   {totalScores[0] > totalScores[1] ? teams[0].name : teams[1].name} wins
@@ -473,13 +498,19 @@ useEffect(() => {
               </div>
             ) : (
               <div style={S.scoreHeader}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[0] }}>{teams[0].name}</div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+                  {displayLogos[0] && <img src={displayLogos[0]} alt="" style={{ height: 44, maxWidth: 80, objectFit: "contain" }} />}
+                  <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[0] }}>{teams[0].name}</div>
+                </div>
                 <div style={S.scoreBig}>
                   <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
                   <span style={{ color: "#ddd", margin: "0 8px" }}>—</span>
                   <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[1], textAlign: "right" }}>{teams[1].name}</div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                  {displayLogos[1] && <img src={displayLogos[1]} alt="" style={{ height: 44, maxWidth: 80, objectFit: "contain" }} />}
+                  <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[1], textAlign: "right" }}>{teams[1].name}</div>
+                </div>
               </div>
             )}
 
