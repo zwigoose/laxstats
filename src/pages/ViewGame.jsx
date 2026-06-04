@@ -36,6 +36,7 @@ const S = {
   headerTitle: { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" },
   liveBadge: { fontSize: 11, fontWeight: 600, color: "#fff", background: "#4caf50", borderRadius: 20, padding: "3px 9px" },
   finalBadge: { fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "3px 9px" },
+  pendingBadge: { fontSize: 11, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "3px 9px" },
   copyBtn: { fontSize: 12, fontWeight: 500, color: "#555", background: "#f5f5f5", border: "1px solid #e0e0e0", borderRadius: 20, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" },
   copyBtnDone: { fontSize: 12, fontWeight: 500, color: "#2a7a3b", background: "#e8f5e9", border: "1px solid #c8e6c9", borderRadius: 20, padding: "4px 10px", cursor: "default", whiteSpace: "nowrap" },
   body: { padding: "0 16px" },
@@ -334,7 +335,9 @@ useEffect(() => {
         <span style={S.headerTitle}>{game?.name || "Game"}</span>
         {gameOver
           ? <span style={S.finalBadge}>Final</span>
-          : <span style={S.liveBadge}>● Live</span>
+          : state?.trackingStarted
+            ? <span style={S.liveBadge}>● Live</span>
+            : <span style={S.pendingBadge}>● Pending</span>
         }
         {hasPressbox && (
           <button style={S.copyBtn} onClick={() => window.open(`/games/${id}/pressbox`, "_blank")}>Press Box ↗</button>
