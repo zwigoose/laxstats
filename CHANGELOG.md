@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.16.0] — 2026-06-04
+
+### Added
+- **Print / PDF export** — completed games now have an "Export ↗" button on the `/view` page that opens a print-optimised report at `/games/:id/print`; the report includes the final score with team logos, quarter-by-quarter scoring grid, full team stats (scoring, defense, shooting, possession, clearing, penalties), and per-team player stat tables; clicking "Print / Save as PDF" in the browser produces a clean multi-page PDF
+
+---
+
 ## [2.15.0] — 2026-06-02
 
 ### Added
