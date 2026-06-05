@@ -16,6 +16,7 @@ import PrintGame from "./pages/PrintGame";
 import Orgs from "./pages/Orgs";
 import Profile from "./pages/Profile";
 import Pricing from "./pages/Pricing";
+import HowTo from "./pages/HowTo";
 import { version } from "../package.json";
 
 // Single source of truth for layout heights — consumed here and via CSS variables.
@@ -156,6 +157,7 @@ function AppNav() {
         <NavItem label="Orgs"  active={path.startsWith("/orgs")} onClick={() => navigate("/orgs")} />
       )}
       <NavItem label="Pricing" active={path === "/pricing"}       onClick={() => navigate("/pricing")} />
+      <NavItem label="Guide"   active={path === "/guide"}         onClick={() => navigate("/guide")} />
       {isAdmin && (
         <NavItem label="Admin" active={path === "/admin"}         onClick={() => navigate("/admin")} />
       )}
@@ -298,6 +300,7 @@ function AppRoutes() {
           <Route path="/admin"                    element={<PrivateRoute><Admin /></PrivateRoute>} />
           <Route path="/profile"                  element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="/pricing"                  element={<Pricing />} />
+          <Route path="/guide"                    element={<HowTo />} />
         </Routes>
       </div>
     </>
