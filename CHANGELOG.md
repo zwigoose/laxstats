@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.17.0] — 2026-06-05
+
+### Added
+- **Guide page** — new `/guide` page (linked from the top nav) covering all major features: personal vs org game comparison, scorekeeper setup and tracking flow, all event types, quarters and overtime, editing entries, stats views, Live View, Press Box, multi-user scoring, saved rosters, organizations, plans, and full stat definitions; includes 18 in-app screenshots
+
+---
+
 ## [2.16.0] — 2026-06-04
 
 ### Added
