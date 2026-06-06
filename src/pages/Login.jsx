@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { useDocTitle } from "../hooks/useDocTitle";
+import SeoMeta from "../hooks/useSeoMeta";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const nextUrl  = new URLSearchParams(location.search).get("next") || "/";
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
-  useDocTitle(mode === "signup" ? "Create Account" : "Sign In");
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading]   = useState(false);
@@ -47,6 +46,11 @@ export default function Login() {
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <SeoMeta
+        title={mode === "signup" ? "Create Account" : "Sign In"}
+        description="Sign in to your LaxStats account to score lacrosse games, manage your roster, and share live stats."
+        url="https://laxstats.com/login"
+      />
       <div style={{ width: "100%", maxWidth: 380 }}>
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>

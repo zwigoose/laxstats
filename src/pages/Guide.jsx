@@ -1,5 +1,7 @@
 import { useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { useAuth } from "../contexts/AuthContext";
+import SeoMeta from "../hooks/useSeoMeta";
 
 const SECTIONS = [
   { id: "start",    label: "Getting Started" },
@@ -95,7 +97,70 @@ function Tip({ text }) {
   );
 }
 
-export default function HowTo() {
+const FAQ_JSON_LD = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is LaxStats?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LaxStats is a digital scorebook and live stats platform for men's lacrosse. Score games on your phone, share them live with anyone, and get a full box score the moment the final whistle blows.",
+      },
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need an account to view a game?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Live View and Press Box are public links — anyone with the link can watch a game in real time without signing up.",
+      },
+    },
+    {
+      "@type": "Question",
+      "name": "How do I share a live game?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "From the scorekeeper, tap the Share button to copy the Live View or Press Box link. Anyone who opens the link will see the score, play-by-play, and box score update in real time.",
+      },
+    },
+    {
+      "@type": "Question",
+      "name": "What stats does LaxStats track?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LaxStats tracks goals, assists, shots, ground balls, faceoffs, turnovers, forced turnovers, penalties, clears, failed clears, rides, man-down defense (MDD), extra-man offense (EMO), save percentage, and clearing percentage.",
+      },
+    },
+    {
+      "@type": "Question",
+      "name": "Can multiple people score the same game?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. The game owner can send a scorekeeper invite link to a second scorer. Both scorers work on the same game simultaneously, with changes syncing in real time.",
+      },
+    },
+    {
+      "@type": "Question",
+      "name": "How do organizations work in LaxStats?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Organizations let coaches, admins, and scorekeepers manage a full league or program together. Orgs have seasons, teams, roster management, season-level stats, and role-based access control.",
+      },
+    },
+    {
+      "@type": "Question",
+      "name": "Is LaxStats free to use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes — personal scoring is free to start. Paid plans unlock more games per month and organization features. See the pricing page for details.",
+      },
+    },
+  ],
+});
+
+export default function Guide() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -104,6 +169,15 @@ export default function HowTo() {
   };
 
   return (
+    <>
+      <SeoMeta
+        title="How to Use LaxStats — Complete Lacrosse Scorebook Guide"
+        description="Step-by-step guide to scoring lacrosse games, sharing live stats, managing rosters, and running a league with LaxStats."
+        url="https://laxstats.com/guide"
+      />
+      <Helmet>
+        <script type="application/ld+json">{FAQ_JSON_LD}</script>
+      </Helmet>
     <div style={S.page}>
 
       {/* ── Hero ── */}
@@ -733,5 +807,6 @@ export default function HowTo() {
       </section>
 
     </div>
+    </>
   );
 }

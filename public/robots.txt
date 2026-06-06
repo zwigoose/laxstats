@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /games/*/score
+
+Sitemap: https://laxstats.com/sitemap.xml
