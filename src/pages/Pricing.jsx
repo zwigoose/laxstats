@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useDocTitle } from "../hooks/useDocTitle";
+import SeoMeta from "../hooks/useSeoMeta";
 import { supabase } from "../lib/supabase";
 
 // Features to show in the org comparison table, in display order.
@@ -70,7 +70,6 @@ const S = {
 };
 
 export default function Pricing() {
-  useDocTitle("Plans & Pricing");
   const navigate      = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, orgMemberships } = useAuth();
@@ -170,6 +169,11 @@ export default function Pricing() {
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", background: "#f5f5f5", minHeight: "100%" }}>
+      <SeoMeta
+        title="Plans & Pricing"
+        description="Free personal scoring, or run a full organization. Simple, transparent pricing for lacrosse stats software. No hidden fees."
+        url="https://laxstats.com/pricing"
+      />
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "36px 20px 60px" }}>
 
         {/* Checkout success banner */}
