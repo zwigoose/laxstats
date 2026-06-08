@@ -16,7 +16,7 @@ import PrintGame from "./pages/PrintGame";
 import Orgs from "./pages/Orgs";
 import Profile from "./pages/Profile";
 import Pricing from "./pages/Pricing";
-import HowTo from "./pages/HowTo";
+import Guide from "./pages/Guide";
 import { version } from "../package.json";
 
 // Single source of truth for layout heights — consumed here and via CSS variables.
@@ -300,7 +300,7 @@ function AppRoutes() {
           <Route path="/admin"                    element={<PrivateRoute><Admin /></PrivateRoute>} />
           <Route path="/profile"                  element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="/pricing"                  element={<Pricing />} />
-          <Route path="/guide"                    element={<HowTo />} />
+          <Route path="/guide"                    element={<Guide />} />
         </Routes>
       </div>
     </>

@@ -9,7 +9,28 @@ import { getGameInfo, getLatestTime, formatDate, formatDateLong, formatDateTime 
 import RosterEditor from "../components/RosterEditor";
 import SharePanel from "../components/SharePanel";
 import { usePersonalGameUsage } from "../hooks/usePersonalGameUsage";
+import { Helmet } from "react-helmet-async";
+import SeoMeta from "../hooks/useSeoMeta";
 export { RosterEditor, SharePanel, SavedTeamLogoSection };
+
+const HOME_JSON_LD = JSON.stringify([
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "LaxStats",
+    "url": "https://laxstats.com",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "LaxStats",
+    "operatingSystem": "Web, iOS, Android",
+    "applicationCategory": "SportsApplication",
+    "description": "Digital scorebook and live stats platform for men's lacrosse.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "url": "https://laxstats.com",
+  },
+]);
 
 // ── Men's lacrosse field SVG (110yd × 60yd) ──────────────────────────────────
 // Scale: 820px / 110yd = 7.45 px/yd (H), 420px / 60yd = 7.0 px/yd (V)
@@ -886,7 +907,10 @@ function RostersTab({ showNewInit = false }) {
       <li style={{ border: "1px solid #e8e8e8", borderRadius: 14, marginBottom: 10, overflow: "hidden", background: "#fff", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer" }}
           onClick={() => setExpandedId(open ? null : team.id)}>
-          <div style={{ width: 32, height: 32, borderRadius: "50%", background: team.color, flexShrink: 0 }} />
+          {team.logo_url
+            ? <img src={team.logo_url} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+            : <div style={{ width: 32, height: 32, borderRadius: "50%", background: team.color, flexShrink: 0 }} />
+          }
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <span style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{team.name}</span>
@@ -988,6 +1012,14 @@ export default function GameList() {
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100%", background: "#f5f5f5" }}>
+      <SeoMeta
+        title="Digital Lacrosse Scorebook &amp; Live Stats"
+        description="Score lacrosse games on your phone, share live stats with anyone, and get a full box score instantly. Free to start."
+        url="https://laxstats.com"
+      />
+      <Helmet>
+        <script type="application/ld+json">{HOME_JSON_LD}</script>
+      </Helmet>
 
       {/* ── Hero ── */}
       <div style={{
@@ -1006,7 +1038,7 @@ export default function GameList() {
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4 }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
               <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, objectFit: "contain" }} />
-              <span style={{ fontSize: 36, fontWeight: 800, color: import.meta.env.VITE_IS_STAGING === "true" ? "#e53935" : "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>LaxStats</span>
+              <h1 style={{ fontSize: 36, fontWeight: 800, color: import.meta.env.VITE_IS_STAGING === "true" ? "#e53935" : "#fff", letterSpacing: "-0.02em", lineHeight: 1, margin: 0 }}>LaxStats</h1>
               {import.meta.env.VITE_IS_STAGING === "true" && (
                 <span style={{ fontSize: 11, fontWeight: 700, color: "#e53935", letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>v2.0.0 staging</span>
               )}
