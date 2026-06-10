@@ -5,6 +5,16 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.17.1] — 2026-06-10
+
+### Security
+- **RLS enabled on `personal_plan_limits`** — table previously had no row-level security, which meant any visitor with the anon key (shipped in the client bundle) could `UPDATE` plan caps and bypass billing enforcement; reads stay public, writes now flow only through the existing `admin_set_personal_plan_limit()` RPC
+
+### Removed
+- **v1 game migration tooling** — the v1 → v2 migration was retired in v2.12.0; dropped the `migration_errors` log table, the Migration admin tab, and the `migrate_v1_games` edge function
+
+---
+
 ## [2.17.0] — 2026-06-05
 
 ### Added
