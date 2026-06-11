@@ -949,7 +949,7 @@ function PlayersTab({ org, isOrgAdmin }) {
 }
 
 // ── Stats tab ─────────────────────────────────────────────────────────────────
-function StatLeaderList({ title, players, statKey, statLabel }) {
+function StatLeaderList({ title, players, statKey, statLabel, pct }) {
   if (!players.length) return null;
   return (
     <div style={{ flex: 1, minWidth: 200 }}>
@@ -958,7 +958,7 @@ function StatLeaderList({ title, players, statKey, statLabel }) {
         <div key={`${p.player_id}-${i}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
           <span style={{ fontSize: 12, color: "#bbb", width: 16, textAlign: "right" }}>{i + 1}</span>
           <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player_name}</span>
-          <span style={{ fontSize: 16, fontWeight: 700, color: "#111", fontVariantNumeric: "tabular-nums" }}>{p[statKey]}</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: "#111", fontVariantNumeric: "tabular-nums" }}>{pct ? `${p[statKey]}%` : p[statKey]}</span>
           <span style={{ fontSize: 11, color: "#aaa", width: 28 }}>{statLabel}</span>
         </div>
       ))}
@@ -972,7 +972,18 @@ function OrgStatLeaders({ playerStats }) {
       All-time leaders will appear once games are scored.
     </div>
   );
-  const top = (key, n = 5) => [...playerStats].sort((a, b) => b[key] - a[key]).slice(0, n).filter(p => p[key] > 0);
+  // Derived percentage stats (zeroed below 10 attempts so tiny samples don't lead)
+  const MIN_ATTEMPTS = 10;
+  const enriched = playerStats.map(p => {
+    const sv = Number(p.saves) || 0, ga = Number(p.goals_allowed) || 0;
+    const fw = Number(p.faceoff_wins) || 0, fl = Number(p.faceoff_losses) || 0;
+    return {
+      ...p,
+      sv_pct: (sv + ga) >= MIN_ATTEMPTS ? Math.round((sv / (sv + ga)) * 100) : 0,
+      fo_pct: (fw + fl) >= MIN_ATTEMPTS ? Math.round((fw / (fw + fl)) * 100) : 0,
+    };
+  });
+  const top = (key, n = 5) => [...enriched].sort((a, b) => b[key] - a[key]).slice(0, n).filter(p => p[key] > 0);
   const categories = [
     { title: "Goals",         key: "goals",        label: "G"   },
     { title: "Assists",       key: "assists",       label: "A"   },
@@ -980,14 +991,16 @@ function OrgStatLeaders({ playerStats }) {
     { title: "Shots on Goal", key: "sog",           label: "SOG" },
     { title: "Ground Balls",  key: "ground_balls",  label: "GB"  },
     { title: "Faceoff Wins",  key: "faceoff_wins",  label: "FO"  },
+    { title: "Faceoff %",     key: "fo_pct",        label: "FO%", pct: true },
     { title: "Saves",         key: "saves",         label: "SV"  },
+    { title: "Goalie Save %", key: "sv_pct",        label: "SV%", pct: true },
   ];
   return (
     <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-      {categories.map(({ title, key, label }) => {
+      {categories.map(({ title, key, label, pct }) => {
         const players = top(key);
         if (!players.length) return null;
-        return <StatLeaderList key={key} title={title} players={players} statKey={key} statLabel={label} />;
+        return <StatLeaderList key={key} title={title} players={players} statKey={key} statLabel={label} pct={pct} />;
       })}
     </div>
   );

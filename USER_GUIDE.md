@@ -421,7 +421,7 @@ Reverse-chronological list of goals, timeouts, and penalties, with time remainin
 Full reverse-chronological feed of every event with edit and delete controls. Quarter dividers appear in the All view.
 
 ### Season stats
-For org games linked to a season, per-season stats roll up automatically for registered players. View them from the season detail page in the org dashboard.
+For org games linked to a season, per-season stats roll up automatically for registered players — including goalie records (saves, goals allowed, save %) and faceoff records (wins, losses, faceoff %). Percentage leaderboards require at least 10 attempts so tiny samples don't top the list. View them from the season detail page in the org dashboard; all-time leaders appear on the org Stats tab.
 
 ---
 

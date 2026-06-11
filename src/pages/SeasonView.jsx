@@ -94,7 +94,18 @@ function StatLeaders({ playerStats }) {
     </div>
   );
 
-  const top = (key, n = 5) => [...playerStats].sort((a, b) => b[key] - a[key]).slice(0, n).filter(p => p[key] > 0);
+  // Derived percentage stats (zeroed below 10 attempts so tiny samples don't lead)
+  const MIN_ATTEMPTS = 10;
+  const enriched = playerStats.map(p => {
+    const sv = Number(p.saves) || 0, ga = Number(p.goals_allowed) || 0;
+    const fw = Number(p.faceoff_wins) || 0, fl = Number(p.faceoff_losses) || 0;
+    return {
+      ...p,
+      sv_pct: (sv + ga) >= MIN_ATTEMPTS ? Math.round((sv / (sv + ga)) * 100) : 0,
+      fo_pct: (fw + fl) >= MIN_ATTEMPTS ? Math.round((fw / (fw + fl)) * 100) : 0,
+    };
+  });
+  const top = (key, n = 5) => [...enriched].sort((a, b) => b[key] - a[key]).slice(0, n).filter(p => p[key] > 0);
 
   const categories = [
     { title: "Goals",         key: "goals",         label: "G"  },
@@ -103,10 +114,12 @@ function StatLeaders({ playerStats }) {
     { title: "Shots on Goal", key: "sog",            label: "SOG" },
     { title: "Ground Balls",  key: "ground_balls",   label: "GB" },
     { title: "Faceoff Wins",  key: "faceoff_wins",   label: "FO" },
+    { title: "Faceoff %",     key: "fo_pct",         label: "FO%", pct: true },
     { title: "Saves",         key: "saves",          label: "SV" },
+    { title: "Goalie Save %", key: "sv_pct",         label: "SV%", pct: true },
   ];
 
-  function LeaderList({ title, players, statKey, statLabel }) {
+  function LeaderList({ title, players, statKey, statLabel, pct }) {
     if (!players.length) return null;
     return (
       <div style={{ flex: 1, minWidth: 200 }}>
@@ -117,7 +130,7 @@ function StatLeaders({ playerStats }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player_name}</div>
               </div>
-              <span style={{ fontSize: 16, fontWeight: 700, color: "#111", fontVariantNumeric: "tabular-nums" }}>{p[statKey]}</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: "#111", fontVariantNumeric: "tabular-nums" }}>{pct ? `${p[statKey]}%` : p[statKey]}</span>
               <span style={{ fontSize: 11, color: "#aaa", width: 28 }}>{statLabel}</span>
             </div>
         ))}
@@ -127,10 +140,10 @@ function StatLeaders({ playerStats }) {
 
   return (
     <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-      {categories.map(({ title, key, label }) => {
+      {categories.map(({ title, key, label, pct }) => {
         const players = top(key);
         if (!players.length) return null;
-        return <LeaderList key={key} title={title} players={players} statKey={key} statLabel={label} />;
+        return <LeaderList key={key} title={title} players={players} statKey={key} statLabel={label} pct={pct} />;
       })}
     </div>
   );
