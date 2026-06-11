@@ -553,6 +553,8 @@ export default function Guide() {
           </div>
         </div>
 
+        <Screenshot label="MOMENTUM graph on a completed game — the full story of control across four quarters" file="momentum.png" full />
+
         <div style={S.card}>
           <p style={S.cardTitle}>Press Box</p>
           <div style={S.cardBody}>

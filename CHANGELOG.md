@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.21.2] — 2026-06-11
+
+### Changed
+- **Guide page** — added a screenshot of the MOMENTUM graph from a completed game below the MOMENTUM card
+
+---
+
 ## [2.21.1] — 2026-06-11
 
 ### Changed
