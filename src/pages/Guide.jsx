@@ -339,10 +339,10 @@ export default function Guide() {
         <p style={S.lead}>The Track tab walks you through every stat entry in a guided four-step flow. Nothing is saved until you complete the flow — tap Back at any step to cancel without recording anything.</p>
 
         <div style={S.steps}>
-          <Step num="1" title="Select the team" sub="Two large buttons show the current score. Tap whichever team the event belongs to." />
-          <Step num="2" title="Select the event type" sub="Goal, Shot, Ground Ball, Faceoff Win, Turnover, Forced TO, Penalty, Timeout, Clear, or Failed Clear." />
-          <Step num="3" title="Select the player" sub="A number grid shows the team's roster. Tap the player's number. Team stats (Timeout, Clear, Failed Clear) skip this step." />
-          <Step num="4" title="Answer follow-ups" sub="Assist, shot outcome, foul type, time remaining — varies by event type. Then confirm to save." />
+          <Step num="1" title="Select the team" sub="Two large buttons show the current score. Tap whichever team the event belongs to. Faceoffs involve both teams, so they start from their own button on this screen." />
+          <Step num="2" title="Select the event type" sub="Goal, Shot, Ground Ball, Turnover, Penalty, Timeout, or Clear." />
+          <Step num="3" title="Select the player" sub="A number grid shows the team's roster. Tap the player's number — or tap ＋ # to add a missing jersey number on the spot. Team stats (Timeout, Clear) skip this step." />
+          <Step num="4" title="Answer follow-ups" sub="Assist, shot outcome, who caused a turnover, clear result, foul type, time remaining — varies by event type. Then confirm to save." />
         </div>
 
         <Screenshot label="Step 1 — Team select buttons showing current score (e.g. Home 3, Away 2)" file="track-team-select.png" />
@@ -372,7 +372,7 @@ export default function Guide() {
       {/* ── Events ── */}
       <section style={S.section} id="events">
         <h2 style={S.h2}>Event Types</h2>
-        <p style={S.lead}>LaxStats tracks 11 event types. Several stats (EMO, MDD, rides) are computed automatically from other events — you never need to enter them manually.</p>
+        <p style={S.lead}>LaxStats tracks the following event types. Several stats (EMO, MDD, rides) are computed automatically from other events — you never need to enter them manually.</p>
 
         <div style={S.card}>
           <table style={S.table}>
@@ -385,15 +385,13 @@ export default function Guide() {
             <tbody>
               {[
                 ["Goal",        "Assist? (optional) · Time remaining · EMO auto-detected from penalty box"],
-                ["Shot",        "Outcome: Missed / Saved (pick goalie) / Blocked (pick blocker) / Off the post"],
+                ["Shot",        "Outcome: Missed / Saved — auto-attributed to the active goalie when one is set, otherwise pick from the grid"],
                 ["Ground Ball", "None — commits immediately after player selection"],
-                ["Faceoff Win", "Ground ball? (winner got it / teammate / nobody)"],
-                ["Turnover",    "None — commits immediately"],
-                ["Forced TO",   "Pick the opposing player who turned it over"],
+                ["Faceoff",     "Started from the team screen: pick both faceoff players, then the winner, then the ground ball (winner / teammate / nobody)"],
+                ["Turnover",    "Who caused it? (opposing player, or Skip — unforced) · Ground ball? (optional)"],
                 ["Penalty",     "Time remaining · Player · Foul type · Minutes (personal fouls) · Releasable?"],
                 ["Timeout",     "Time remaining (or tap Log without time)"],
-                ["Clear",       "None — team stat; auto-credits opponent with a Failed Ride"],
-                ["Failed Clear","None — team stat; auto-credits opponent with a Successful Ride"],
+                ["Clear",       "Successful / Failed — a failed clear can chain straight into the turnover flow"],
               ].map(([event, followups]) => (
                 <tr key={event}>
                   <td style={{ ...S.td, fontWeight: 600 }}>{event}</td>
@@ -409,11 +407,12 @@ export default function Guide() {
           <div style={S.cardBody}>
             <strong>EMO</strong> — automatically flagged on any goal when the defending team is net shorthanded at that moment. No scorer input needed.<br /><br />
             <strong>MDD</strong> — automatically credited to the defense when a penalty window expires without a goal. No scorer input needed.<br /><br />
-            <strong>Rides / Failed Rides</strong> — the inverse of the opposing team's Clears and Failed Clears, computed in real time.
+            <strong>Rides / Failed Rides</strong> — the inverse of the opposing team's Clears and Failed Clears, computed in real time.<br /><br />
+            <strong>Active goalies</strong> — set each team's goalie via the 🧤 chips at the top of the Track screen. Saves then attribute automatically and every goal records a Goal Allowed against the goalie in net at the time. Tap a chip mid-game to substitute.
           </div>
         </div>
 
-        <Screenshot label="Event type selection screen — step 2, showing all 11 event buttons" file="track-event-types.png" />
+        <Screenshot label="Event type selection screen — step 2" file="track-event-types.png" />
 
         <div style={S.card}>
           <p style={S.cardTitle}>Penalty details</p>
@@ -443,7 +442,7 @@ export default function Guide() {
         <div style={S.card}>
           <p style={S.cardTitle}>Overtime</p>
           <div style={S.cardBody}>
-            After Q4, if the game is tied, overtime begins. Overtime is sudden death — the game finalizes automatically on the first goal. Multiple OT periods are supported.
+            After Q4, if the game is tied, overtime begins. Overtime is sudden death — the first goal opens the game finalization review. Multiple OT periods are supported. When a game ends (Q4 with a winner, or an OT goal), a short finalization wizard runs: fix any players added mid-game, pick the winning and losing goalies, and confirm the final summary. Nothing is committed until you tap Finalize Game.
           </div>
         </div>
 
@@ -755,6 +754,8 @@ export default function Guide() {
             ["FMDD",   "Failed MDD",        "Man-down situations that resulted in a goal — auto-computed"],
             ["MDD %",  "MDD percentage",    "Successful MDD ÷ (Successful + Failed MDD)"],
             ["Sv",     "Saves",             "Shots stopped by the goalie"],
+            ["GA",     "Goals allowed",     "Goals charged to the active goalie at entry time"],
+            ["Sv%",    "Goalie save %",     "Saves ÷ (Saves + GA) per goalie"],
             ["Save %", "Save percentage",   "Saves ÷ Opponent's shots on goal"],
             ["FTO",    "Forced turnovers",  "Turnovers caused by applied pressure"],
           ]},
@@ -763,11 +764,12 @@ export default function Guide() {
             ["Shot %", "Shot percentage",   "Goals ÷ Total shots"],
             ["SOG",    "Shots on goal",     "Goals + saves + post/crossbar hits"],
             ["SOG %",  "SOG percentage",    "Goals ÷ SOG"],
-            ["Blk",    "Blocked shots",     "Shots blocked by a field player (not the goalie)"],
           ]},
           { group: "Possession", rows: [
             ["GB",     "Ground balls",      "Loose ball pickups"],
             ["FW",     "Faceoff wins",      "Faceoffs won"],
+            ["FL",     "Faceoff losses",    "Faceoffs lost — recorded per player as the other side of every faceoff win"],
+            ["FO %",   "Faceoff percentage","Faceoff wins ÷ (wins + losses); older games recorded wins only, so no percentage is shown"],
             ["TO",     "Turnovers",         "Turnovers committed"],
           ]},
           { group: "Clearing & Riding", rows: [

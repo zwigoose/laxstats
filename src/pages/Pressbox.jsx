@@ -50,12 +50,18 @@ const STAT_SECTIONS = [
     { label: "Shot %",         pct: (tot) => tot.shot ? `${Math.round((tot.goal/tot.shot)*100)}%` : "—" },
     { label: "SOG",            key: "sog" },
     { label: "SOG %",          pct: (tot) => tot.sog  ? `${Math.round((tot.goal/tot.sog )*100)}%` : "—" },
-    { label: "Blocked",        key: "shot_blocked" },
   ]},
   { heading: "Possession", rows: [
     { label: "Ground Balls",   key: "ground_ball" },
-    { label: "Faceoffs Won",   key: "faceoff_win" },
     { label: "Turnovers",      key: "turnover" },
+    { label: "Faceoffs Won",   key: "faceoff_win" },
+    { label: "Faceoffs Lost",  key: "faceoff_loss" },
+    // Legacy games only recorded faceoff wins — losses unknown, so no percentage
+    { label: "Faceoff %",      pct: (tot, ti, totals) => {
+      const lossesKnown = totals[0].faceoff_loss + totals[1].faceoff_loss > 0;
+      const w = tot.faceoff_win, l = tot.faceoff_loss;
+      return lossesKnown && (w + l) ? `${Math.round((w/(w+l))*100)}%` : "—";
+    } },
   ]},
   { heading: "Clearing", rows: [
     { label: "Clears",         key: "clear" },
@@ -314,6 +320,9 @@ export default function Dashboard() {
                 {teams[0]?.logoUrl && <img src={teams[0].logoUrl} alt="" style={{ height: 48, maxWidth: 80, objectFit: "contain", display: "block", margin: "0 auto 4px", opacity: 0.9 }} />}
                 <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[0]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[0].name}</div>
                 <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[0]), lineHeight: 1.1 }}>{totalScores[0]}</div>
+                {!gameOver && state?.activeGoalies?.[0] && (
+                  <div style={{ fontSize: 10, color: "#999" }}>GK: #{state.activeGoalies[0].num} {state.activeGoalies[0].name}</div>
+                )}
               </div>
               <div style={{ textAlign: "center" }}>
                 <span style={{ fontSize: 26, color: "#555" }}>—</span>
@@ -324,6 +333,9 @@ export default function Dashboard() {
                 {teams[1]?.logoUrl && <img src={teams[1].logoUrl} alt="" style={{ height: 48, maxWidth: 80, objectFit: "contain", display: "block", margin: "0 auto 4px", opacity: 0.9 }} />}
                 <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[1]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[1].name}</div>
                 <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[1]), lineHeight: 1.1 }}>{totalScores[1]}</div>
+                {!gameOver && state?.activeGoalies?.[1] && (
+                  <div style={{ fontSize: 10, color: "#999" }}>GK: #{state.activeGoalies[1].num} {state.activeGoalies[1].name}</div>
+                )}
               </div>
             </div>
 
@@ -430,6 +442,7 @@ export default function Dashboard() {
                       statKeys={PRESSBOX_STAT_KEYS}
                       teamIdx={playerTeam}
                       compact
+                      goalieDecisions={game?.state?.goalieDecisions || null}
                     />
                   )}
                 </div>
@@ -466,8 +479,10 @@ export default function Dashboard() {
                           group.forEach(e => {
                             if (e.event === "shot_saved")   subItems.push({ text: `🧤 #${e.player?.num} ${e.player?.name}` });
                             if (e.event === "assist")       subItems.push({ text: `🤝 #${e.player?.num} ${e.player?.name}` });
-                            if (e.event === "turnover" && group.some(x => x.event === "forced_to")) subItems.push({ text: `↩️ #${e.player?.num} ${e.player?.name}` });
-                            if (e.event === "shot_blocked") subItems.push({ text: `🛡 #${e.player?.num} ${e.player?.name}` });
+                            if (e.event === "turnover" && e !== primary) subItems.push({ text: `↩️ #${e.player?.num} ${e.player?.name}` });
+                            if (e.event === "forced_to" && e !== primary) subItems.push({ text: `🥊 #${e.player?.num} ${e.player?.name}` });
+                            if (e.event === "faceoff_loss") subItems.push({ text: `🔄 L: #${e.player?.num} ${e.player?.name}` });
+                            if (e.event === "ground_ball" && e !== primary && group.some(x => x.event === "faceoff_win" || x.event === "turnover")) subItems.push({ text: `🪣 #${e.player?.num} ${e.player?.name}` });
                           });
                           if (primary.event === "goal" && primary.goalTime)  subItems.push({ text: `⏱ ${primary.goalTime}` });
                           if (primary.event === "goal" && primary.emo)       subItems.push({ text: "⚡ EMO" });

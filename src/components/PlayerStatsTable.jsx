@@ -3,8 +3,8 @@ import { parseRoster } from "../utils/stats";
 import { STAT_LABELS } from "../constants/lacrosse";
 
 const SHARED_STAT_KEYS = [
-  "goal", "assist", "shot", "sog", "shot_saved", "shot_blocked",
-  "ground_ball", "faceoff_win", "turnover", "forced_to",
+  "goal", "assist", "shot", "sog", "shot_saved", "goal_allowed", "sv_pct",
+  "ground_ball", "faceoff_win", "faceoff_loss", "fo_pct", "turnover", "forced_to",
   "penalty_tech", "penalty_min",
 ];
 
@@ -27,6 +27,7 @@ export const PRESSBOX_STAT_KEYS = SHARED_STAT_KEYS;
  *   statKeys     string[]  — ordered columns to display; use PLAYER_STAT_KEYS or PRESSBOX_STAT_KEYS
  *   teamIdx      0 | 1 | null  — null = show both teams (default); 0|1 = single-team view (Pressbox)
  *   compact      boolean  — tighter fonts/padding for the Pressbox panel
+ *   goalieDecisions  { win: {teamIdx,num}, loss: {teamIdx,num} } | null — shows W/L on the goalie's line
  */
 export default function PlayerStatsTable({
   teams,
@@ -35,8 +36,20 @@ export default function PlayerStatsTable({
   statKeys,
   teamIdx = null,
   compact = false,
+  goalieDecisions = null,
 }) {
   const [sortKey, setSortKey] = useState("num");
+
+  // Legacy games recorded only faceoff wins — losses unknown, so the FL and
+  // FO% columns are hidden unless this game has paired loss entries.
+  const hasFaceoffLosses = useMemo(
+    () => playerStats.some(p => (p.faceoff_loss || 0) > 0),
+    [playerStats]
+  );
+  const visibleKeys = useMemo(
+    () => statKeys.filter(k => (k !== "faceoff_loss" && k !== "fo_pct") || hasFaceoffLosses),
+    [statKeys, hasFaceoffLosses]
+  );
 
   const allRosterPlayers = useMemo(
     () => [0, 1].map(ti => parseRoster(teams[ti]?.roster || "")),
@@ -44,11 +57,19 @@ export default function PlayerStatsTable({
   );
 
   const sortedPlayers = useMemo(() => {
-    const base = [...playerStats];
+    const base = playerStats.map(r => {
+      const fw = r.faceoff_win || 0, fl = r.faceoff_loss || 0;
+      const sv = r.shot_saved || 0, ga = r.goal_allowed || 0;
+      return {
+        ...r,
+        fo_pct: (fw + fl) > 0 ? Math.round((fw / (fw + fl)) * 100) : 0,
+        sv_pct: (sv + ga) > 0 ? Math.round((sv / (sv + ga)) * 100) : 0,
+      };
+    });
     [0, 1].forEach(ti => {
       allRosterPlayers[ti].forEach(p => {
         if (!base.some(r => r.teamIdx === ti && r.player.num === p.num)) {
-          base.push({ teamIdx: ti, player: p, ...Object.fromEntries(statKeys.map(k => [k, 0])) });
+          base.push({ teamIdx: ti, player: p, ...Object.fromEntries(visibleKeys.map(k => [k, 0])) });
         }
       });
     });
@@ -58,7 +79,7 @@ export default function PlayerStatsTable({
       const diff = b[sortKey] - a[sortKey];
       return diff !== 0 ? diff : parseInt(a.player.num || 0) - parseInt(b.player.num || 0);
     });
-  }, [playerStats, allRosterPlayers, statKeys, sortKey]);
+  }, [playerStats, allRosterPlayers, visibleKeys, sortKey]);
 
   const teamsToShow = teamIdx !== null ? [teamIdx] : [0, 1];
   const hasRows = teamsToShow.some(ti => sortedPlayers.some(p => p.teamIdx === ti));
@@ -119,7 +140,7 @@ export default function PlayerStatsTable({
             <thead>
               <tr>
                 <th style={thL}>Player</th>
-                {statKeys.map(k => (
+                {visibleKeys.map(k => (
                   <th key={k} style={th(sortKey === k)} onClick={() => setSortKey(k)}>
                     {STAT_LABELS[k]}{sortKey === k ? " ▾" : ""}
                   </th>
@@ -134,26 +155,44 @@ export default function PlayerStatsTable({
                   teamIdx === null && (
                     <tr key={`h-${ti}`}>
                       <td
-                        colSpan={statKeys.length + 1}
+                        colSpan={visibleKeys.length + 1}
                         style={{ padding: compact ? "4px 10px 2px" : "8px 14px 4px", fontSize: compact ? 10 : 11, fontWeight: 600, color: teamColors[ti], background: "#fafafa" }}
                       >
                         {teams[ti].name.toUpperCase()}
                       </td>
                     </tr>
                   ),
-                  ...rows.map((row, i) => (
-                    <tr key={`${ti}-${i}`}>
-                      <td style={tdL}>
-                        <span style={badge}>#{row.player.num}</span>
-                        {row.player.name}
-                      </td>
-                      {statKeys.map(k => (
-                        <td key={k} style={{ ...td(sortKey === k), opacity: row[k] === 0 ? 0.3 : 1 }}>
-                          {k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}
+                  ...rows.map((row, i) => {
+                    const decision = goalieDecisions?.win?.teamIdx === ti && String(goalieDecisions.win.num) === String(row.player.num)
+                      ? "W"
+                      : goalieDecisions?.loss?.teamIdx === ti && String(goalieDecisions.loss.num) === String(row.player.num)
+                        ? "L"
+                        : null;
+                    return (
+                      <tr key={`${ti}-${i}`}>
+                        <td style={tdL}>
+                          <span style={badge}>#{row.player.num}</span>
+                          {row.player.name}
+                          {decision && (
+                            <span style={{
+                              marginLeft: 6, fontSize: compact ? 9 : 10, fontWeight: 700,
+                              color: decision === "W" ? "#2a7a3b" : "#c0392b",
+                              background: decision === "W" ? "#eaf6ec" : "#fff0ee",
+                              borderRadius: 4, padding: "1px 5px",
+                            }}>{decision}</span>
+                          )}
                         </td>
-                      ))}
-                    </tr>
-                  )),
+                        {visibleKeys.map(k => (
+                          <td key={k} style={{ ...td(sortKey === k), opacity: row[k] === 0 ? 0.3 : 1 }}>
+                            {k === "penalty_min" && row[k] > 0 ? `${row[k]}m`
+                              : k === "fo_pct" && row[k] > 0 ? `${row[k]}%`
+                              : k === "sv_pct" ? ((row.shot_saved || 0) + (row.goal_allowed || 0) > 0 ? `${row[k]}%` : "—")
+                              : row[k]}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  }),
                 ].filter(Boolean);
               })}
             </tbody>

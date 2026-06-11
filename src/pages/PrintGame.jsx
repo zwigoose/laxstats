@@ -238,7 +238,17 @@ function PlayerTable({ teamName, teamColor, teams, playerStats, teamIdx }) {
         base.push({ teamIdx, player: p, ...Object.fromEntries(PLAYER_STAT_KEYS.map(k => [k, 0])) });
       }
     });
-    return base.sort((a, b) => parseInt(a.player.num || 0) - parseInt(b.player.num || 0));
+    return base
+      .map(r => {
+        const fw = r.faceoff_win || 0, fl = r.faceoff_loss || 0;
+        const sv = r.shot_saved || 0, ga = r.goal_allowed || 0;
+        return {
+          ...r,
+          fo_pct: (fw + fl) > 0 ? Math.round((fw / (fw + fl)) * 100) : 0,
+          sv_pct: (sv + ga) > 0 ? Math.round((sv / (sv + ga)) * 100) : 0,
+        };
+      })
+      .sort((a, b) => parseInt(a.player.num || 0) - parseInt(b.player.num || 0));
   }, [playerStats, rosterPlayers, teamIdx]);
 
   if (!rows.length) return null;
@@ -263,7 +273,10 @@ function PlayerTable({ teamName, teamColor, teams, playerStats, teamIdx }) {
                 </td>
                 {PLAYER_STAT_KEYS.map(k => (
                   <td key={k} style={{ ...css.td, opacity: row[k] === 0 ? 0.3 : 1 }}>
-                    {k === "penalty_min" && row[k] > 0 ? `${row[k]}m` : row[k]}
+                    {k === "penalty_min" && row[k] > 0 ? `${row[k]}m`
+                      : k === "fo_pct" && row[k] > 0 ? `${row[k]}%`
+                      : k === "sv_pct" ? ((row.shot_saved || 0) + (row.goal_allowed || 0) > 0 ? `${row[k]}%` : "—")
+                      : row[k]}
                   </td>
                 ))}
               </tr>
@@ -294,10 +307,10 @@ const TEAM_STAT_ROWS = [
   { label: "Shot %",          custom: "shotPct" },
   { label: "Shots on Goal",   key: "sog" },
   { label: "SOG %",           custom: "sogPct" },
-  { label: "Blocked Shots",   key: "shot_blocked" },
   { heading: "Possession" },
   { label: "Ground Balls",    key: "ground_ball" },
   { label: "Faceoffs Won",    key: "faceoff_win" },
+  { label: "Faceoffs Lost",   key: "faceoff_loss" },
   { label: "Turnovers",       key: "turnover" },
   { heading: "Clearing" },
   { label: "Successful Clears", key: "clear" },

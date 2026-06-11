@@ -26,6 +26,18 @@ export async function dismissDuplicateFlag(gameId, groupId, db = _supabase) {
   return db.rpc("dismiss_duplicate_flag", { p_game_id: gameId, p_group_id: groupId });
 }
 
+// Rewrite a player's {num, name} snapshot on all of a game's live events —
+// used by the finalization wizard's roster-correction step.
+export async function updateGameEventsPlayer(gameId, teamIdx, fromNum, toNum, toName, db = _supabase) {
+  return db
+    .from("game_events")
+    .update({ player_num: toNum, player_name: toName })
+    .eq("game_id", gameId)
+    .eq("team_idx", teamIdx)
+    .eq("player_num", fromNum)
+    .is("deleted_at", null);
+}
+
 // ── game_meta_events ──────────────────────────────────────────────────────────
 
 export async function fetchMetaEvents(gameId, db = _supabase) {

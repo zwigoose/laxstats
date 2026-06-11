@@ -86,16 +86,14 @@ describe("dbRowToEntry", () => {
     expect(entry.penaltyMin).toBe(2);
   });
 
-  it("maps shot_x and shot_y when present", () => {
-    const entry = dbRowToEntry({ ...base, shot_x: 0.42, shot_y: 0.77 });
-    expect(entry.shotX).toBe(0.42);
-    expect(entry.shotY).toBe(0.77);
+  it("maps shot_zone when present", () => {
+    const entry = dbRowToEntry({ ...base, shot_zone: "C1" });
+    expect(entry.zone).toBe("C1");
   });
 
-  it("leaves shotX/shotY undefined when shot_x/shot_y are null", () => {
-    const entry = dbRowToEntry({ ...base, shot_x: null, shot_y: null });
-    expect(entry.shotX).toBeUndefined();
-    expect(entry.shotY).toBeUndefined();
+  it("leaves zone undefined when shot_zone is null", () => {
+    const entry = dbRowToEntry({ ...base, shot_zone: null });
+    expect(entry.zone).toBeUndefined();
   });
 
   it("maps is_emo flag when true", () => {
@@ -177,16 +175,14 @@ describe("entryToDbRow", () => {
     expect(row.foul_name).toBe("Holding");
   });
 
-  it("maps shot_x and shot_y for shot location entries", () => {
-    const row = entryToDbRow({ ...baseEntry, event: "shot", shotX: 0.55, shotY: 0.32 }, GAME_ID, USER_ID);
-    expect(row.shot_x).toBe(0.55);
-    expect(row.shot_y).toBe(0.32);
+  it("maps shot_zone for shot location entries", () => {
+    const row = entryToDbRow({ ...baseEntry, event: "shot", zone: "R2" }, GAME_ID, USER_ID);
+    expect(row.shot_zone).toBe("R2");
   });
 
-  it("sets shot_x and shot_y to null when not present", () => {
+  it("sets shot_zone to null when not present", () => {
     const row = entryToDbRow(baseEntry, GAME_ID, USER_ID);
-    expect(row.shot_x).toBeNull();
-    expect(row.shot_y).toBeNull();
+    expect(row.shot_zone).toBeNull();
   });
 
   it("maps is_emo true when emo flag set", () => {
