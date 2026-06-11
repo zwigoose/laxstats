@@ -266,8 +266,13 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 
 EMO is detected automatically: if the defending team is net shorthanded at the time of the goal, the goal is flagged as EMO with no extra input required.
 
+If the defending team's active goalie is set, a **Goal Allowed (GA)** entry is recorded against them in the same group — deleting the goal removes it too. GA is charged to whoever was the active goalie when the goal was entered; later goalie changes are never retroactive. No active goalie set → no GA entry.
+
+### Active goalies 🧤
+Two GK chips sit at the top of the Track screen, one per team. Tap a chip to set or substitute that team's active goalie from the roster grid (the ＋ # tile works here too for an unrostered backup). Setting the goalie is a state change, not a log entry — it can be done mid-flow without losing an in-progress entry. Substituting mid-game adds a "Goalie Change" marker to the Event Log; all subsequent saves and goals-allowed credit the new goalie. After the first event is committed, a one-time dismissible reminder appears if either goalie is unset. The current goalies are also shown on the Live View and Press Box near the team names.
+
 ### Shot 🎯
-**Follow-up:** Outcome — Missed / Saved (pick goalie)
+**Follow-up:** Outcome — Missed / Saved. If the defending team's active goalie is set, a save attributes to them automatically with no extra tap; otherwise pick the goalie from the grid. Editing the entry from the Event Log always shows the full grid, so auto-attribution can be corrected.
 
 ### Ground Ball 🪣
 Commits immediately after player selection.
@@ -344,7 +349,7 @@ Sudden death. The first OT goal opens the finalization review.
 When a game ends (Q4 with a winner, or an OT goal), a short wizard runs before anything is committed:
 
 1. **Roster corrections** — every player added or edited during the game is listed per team. Enter or fix names and numbers, or delete a player who has no recorded events. For org-roster teams, a per-player **Update org roster** toggle (on by default) propagates accepted changes to the stored org roster.
-2. **Goalie decisions** — pick the winning team's goalie credited with the **W**, then the losing team's goalie charged with the **L**. The decisions appear next to each goalie in the player stats.
+2. **Goalie decisions** — pick the winning team's goalie credited with the **W**, then the losing team's goalie charged with the **L**. The winning side pre-selects the goalie with the most saves and the losing side the goalie with the highest GA (ties fall back to the active goalie); the pre-selection is just the featured tile — tap any other player to override. The decisions appear next to each goalie in the player stats.
 3. **Final summary** — score by quarter, team stat lines, the roster changes about to be applied, and the goalie decisions. Only tapping **Finalize Game ✓** commits anything; **Not yet — keep scoring** is available at every step in case of a mis-tap.
 
 ---
@@ -477,6 +482,8 @@ Press Box access is controlled per-game. Personal games require a platform admin
 | **FMDD** | Failed MDD | Man-down situations that resulted in a goal; auto-computed as opponent's EMO goals |
 | **MDD %** | MDD percentage | Successful MDD ÷ (Successful + Failed MDD) |
 | **Sv** | Saves | Shots stopped by the goalie |
+| **GA** | Goals allowed | Goals charged to the active goalie at entry time (blank for older games) |
+| **Sv%** | Goalie save percentage | Saves ÷ (Saves + GA) per goalie; — when no data |
 | **Save %** | Save percentage | Saves ÷ Opponent's SOG |
 | **FTO** | Forced turnovers | Turnovers caused by applied pressure |
 

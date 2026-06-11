@@ -230,6 +230,8 @@ const EXTRA_DISPLAY_INFO = {
   forced_to:    { icon: "🥊", label: "Caused TO" },
   faceoff_win:  { icon: "🔄", label: "Faceoff W" },
   faceoff_loss: { icon: "🔄", label: "Faceoff L" },
+  goal_allowed: { icon: "🥅", label: "Goal Allowed" },
+  goalie_change:{ icon: "🧤", label: "Goalie Change" },
 };
 
 export function entryDisplayInfo(entry) {

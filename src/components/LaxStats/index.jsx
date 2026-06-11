@@ -79,6 +79,15 @@ export default function LaxStats({
   const [penaltyTime, setPenaltyTime] = useState(null);
 
   const [lastGoalie, setLastGoalie] = useState([null, null]);
+  // Active goalie per team — persisted in games.state; saves auto-attribute to
+  // this GK and goals append a goal_allowed entry against them.
+  const [activeGoalies, setActiveGoalies] = useState([null, null]);
+  // GK picker overlay: null | teamIdx — independent of the step machine so it
+  // can't disturb an in-flight event entry.
+  const [gkPicker, setGkPicker] = useState(null);
+  // One-time "set your goalies" nudge after the first committed event
+  const [showGkNudge, setShowGkNudge] = useState(false);
+  const gkNudgeDismissedRef = useRef(false);
   // Last faceoff player used per team (winner or loser) — quick-pick for the FO flow
   const [lastFaceoffWinner, setLastFaceoffWinner] = useState([null, null]);
   // Faceoff flow: both participants selected before the result [homePlayer, awayPlayer]
@@ -149,6 +158,7 @@ export default function LaxStats({
     if (initialState.weatherConditions) setWeatherConditions(initialState.weatherConditions);
     if (initialState.fieldLocation)     setFieldLocation(initialState.fieldLocation);
     if (initialState.goalieDecisions)   setGoalieDecisions(initialState.goalieDecisions);
+    if (initialState.activeGoalies)     setActiveGoalies(initialState.activeGoalies);
     if (initialState._nextId) _nextId = initialState._nextId;
     setScreen(initialState.gameOver ? "stats" : initialState.trackingStarted ? "track" : "setup");
     resetEntry();
@@ -172,9 +182,9 @@ export default function LaxStats({
   // Notify parent of state changes (for Supabase save)
   useEffect(() => {
     if (!onStateChange || !hydratedRef.current) return;
-    onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, refereeNames, weatherConditions, fieldLocation, goalieDecisions, _nextId });
+    onStateChange({ version: 1, teams, log, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, refereeNames, weatherConditions, fieldLocation, goalieDecisions, activeGoalies, _nextId });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, refereeNames, weatherConditions, fieldLocation, goalieDecisions]);
+  }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, refereeNames, weatherConditions, fieldLocation, goalieDecisions, activeGoalies]);
 
   // v2: authoritative quarter state from game_meta_events — takes priority over broadcast hint.
   // Only applied after hydration so we don't overwrite the initial DB-derived state that was
@@ -451,6 +461,8 @@ export default function LaxStats({
       stamped = entries.map(e => ({ ...e, groupId: gid }));
     }
 
+    const wasFirstEvent = !isEdit && log.length === 0;
+
     let newLog;
     if (isEdit) {
       const insertIdx = log.findIndex(e => e.groupId === editingGroupId);
@@ -474,6 +486,11 @@ export default function LaxStats({
     // Only update the "last entry" banner for NEW entries, not edits
     if (!isEdit) {
       setLastEntry({ text: flashText, count: stamped.length, groupId: gid });
+    }
+
+    // One-time nudge: first event committed with a GK slot still empty
+    if (wasFirstEvent && !gkNudgeDismissedRef.current && (!activeGoalies[0] || !activeGoalies[1])) {
+      setShowGkNudge(true);
     }
 
     // A new goal in OT (sudden victory) opens the finalization wizard instead of
@@ -749,6 +766,30 @@ export default function LaxStats({
     if (onSelect) onSelect(player, true);
   }
 
+  // ── Active goalie ────────────────────────────────────────────────
+  // Mid-game substitution marker — a non-stat log entry (not in STAT_KEYS) so
+  // the event log shows when the swap happened. Written directly (not via
+  // commitEntries) so it can't reset an in-flight event entry.
+  function logGoalieChange(teamIdx, player) {
+    const gid = onEventCommit ? crypto.randomUUID() : nextId();
+    const stamped = [{ ...mkEntry(teamIdx, "goalie_change", player), groupId: gid }];
+    setLog(prev => [...prev, ...stamped]);
+    if (onEventCommit) {
+      onEventCommit(stamped).catch(err => console.error("[LaxStats] onEventCommit:", err));
+    }
+  }
+
+  function handleSetActiveGoalie(teamIdx, player) {
+    const prev = activeGoalies[teamIdx];
+    const gk = { num: player.num, name: player.name };
+    setActiveGoalies(a => a.map((g, i) => i === teamIdx ? gk : g));
+    setGkPicker(null);
+    // Replacing an existing GK mid-game = substitution; initial set is silent
+    if (prev && (prev.num !== gk.num || prev.name !== gk.name) && trackingStarted && log.length > 0) {
+      logGoalieChange(teamIdx, gk);
+    }
+  }
+
   // ── Shared player grid ──────────────────────────────────────────
   // Renders the roster grid for a team with the in-flow "＋ #" add tile.
   // opts: featured (big top tile), isSelected(p) highlight predicate,
@@ -877,6 +918,16 @@ export default function LaxStats({
 
     const isEmo = defendingInBox > scoringInBox;
     const entries = pendingEntries.map(e => e.event === "goal" ? { ...e, goalTime: t, emo: isEmo || undefined } : e);
+    // Goal Allowed: charge the defending team's active GK in the same group.
+    // On edit, preserve the GA recorded at entry time — never re-look-up the
+    // current activeGoalies (GK changes are not retroactive).
+    if (editingGroupId) {
+      const prevGA = getGroupById(editingGroupId).find(e => e.event === "goal_allowed");
+      if (prevGA) entries.push(mkEntry(1 - selectedTeam, "goal_allowed", prevGA.player));
+    } else {
+      const gk = activeGoalies[1 - selectedTeam];
+      if (gk) entries.push(mkEntry(1 - selectedTeam, "goal_allowed", { num: gk.num, name: gk.name }));
+    }
     const assister = entries.find(e => e.event === "assist");
     setPendingEntries(entries);
     setPendingFlashText(`Goal${isEmo ? " (EMO)" : ""} — #${selectedPlayer.num} ${selectedPlayer.name}${assister ? ` (assist #${assister.player?.num})` : ""}`);
@@ -894,7 +945,13 @@ export default function LaxStats({
       setPendingFlashText(`Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
       if (shotLocationEnabled) setStep("ask_shot_location"); else commitEntries(pendingEntries, `Shot — #${selectedPlayer.num} ${selectedPlayer.name}`);
     } else if (outcome === "saved") {
-      setStep("save_player");
+      const gk = activeGoalies[1 - selectedTeam];
+      if (gk && !editingGroupId) {
+        // Active GK set — attribute the save directly, no grid step
+        handleSavePlayerSelected(gk);
+      } else {
+        setStep("save_player");
+      }
     }
   }
   function handleSavePlayerSelected(goalie) {
@@ -1161,6 +1218,12 @@ export default function LaxStats({
           rosterFixMap: fixMap,
         };
       }));
+      // Keep the active-goalie pointers in step with renamed numbers
+      setActiveGoalies(a => a.map((gk, ti) => {
+        if (!gk) return gk;
+        const r = renames.find(r => r.ti === ti && r.fromNum === gk.num);
+        return r ? { num: r.toNum, name: r.toName } : gk;
+      }));
       // Rewrite player snapshots on already-logged events (local log + game_events)
       setLog(prev => prev.map(e => {
         const r = renames.find(r => !e.teamStat && e.teamIdx === r.ti && e.player?.num === r.fromNum);
@@ -1209,6 +1272,26 @@ export default function LaxStats({
       });
     });
     return { orgChanges, rosterSummary };
+  }
+
+  // Finalization Step B pre-selection: winning goalie = most saves, losing
+  // goalie = highest GA. Ties / no data fall back to the active GK at game
+  // end, then lastGoalie, then no pre-selection.
+  function preselectGoalie(ti, isWin) {
+    const ev = isWin ? "shot_saved" : "goal_allowed";
+    const counts = new Map();
+    for (const e of log) {
+      if (e.event !== ev || e.teamIdx !== ti || !e.player) continue;
+      const key = `${e.player.num}__${e.player.name}`;
+      counts.set(key, { player: e.player, n: (counts.get(key)?.n || 0) + 1 });
+    }
+    let best = null, tied = false;
+    for (const v of counts.values()) {
+      if (!best || v.n > best.n) { best = v; tied = false; }
+      else if (v.n === best.n) tied = true;
+    }
+    if (best && !tied && best.n > 0) return best.player;
+    return activeGoalies[ti] || lastGoalie[ti] || null;
   }
 
   // Goalie step: a player just added via the dialpad has no name yet — apply
@@ -1781,6 +1864,71 @@ export default function LaxStats({
       {screen === "track" && (
         <div>
 
+          {/* Active goalie chips — persistent across all steps */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            {[0, 1].map(ti => {
+              const gk = activeGoalies[ti];
+              return (
+                <button
+                  key={ti}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    padding: "6px 10px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer",
+                    border: `1.5px solid ${teamColors[ti]}`,
+                    background: gk ? "transparent" : "#fafafa",
+                    color: teamColors[ti],
+                    opacity: gk ? 1 : 0.75,
+                    whiteSpace: "nowrap", overflow: "hidden",
+                  }}
+                  title={gk ? `Active goalie: #${gk.num} ${gk.name} — tap to substitute` : `Set ${teams[ti]?.name}'s active goalie`}
+                  onClick={() => setGkPicker(ti)}
+                >
+                  🧤 {gk ? `#${gk.num} ${gk.name}`.trim() : "Set GK"}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* One-time goalie nudge after the first committed event */}
+          {showGkNudge && (!activeGoalies[0] || !activeGoalies[1]) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f0f7ff", border: "1px solid #b3d4f0", borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
+              <span style={{ fontSize: 13, color: "#1a6bab", flex: 1 }}>
+                🧤 Set the active goalies — saves and goals-allowed will then attribute automatically.
+              </span>
+              <button
+                style={{ fontSize: 12, fontWeight: 600, color: "#fff", background: "#1a6bab", border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer", flexShrink: 0 }}
+                onClick={() => setGkPicker(!activeGoalies[0] ? 0 : 1)}
+              >
+                Set GK
+              </button>
+              <button
+                style={{ fontSize: 14, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}
+                title="Dismiss"
+                onClick={() => { gkNudgeDismissedRef.current = true; setShowGkNudge(false); }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* GK picker — fixed overlay so the in-flight step is untouched */}
+          {gkPicker != null && (
+            <div
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, overflowY: "auto" }}
+              onClick={e => { if (e.target === e.currentTarget) setGkPicker(null); }}
+            >
+              <div style={{ background: "#fff", borderRadius: 14, maxWidth: 600, margin: "32px auto", padding: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+                <div style={{ ...S.stepLabel, color: teamColors[gkPicker], marginBottom: 10 }}>
+                  {teams[gkPicker]?.name} — Active goalie
+                </div>
+                {renderPlayerGrid(gkPicker, p => handleSetActiveGoalie(gkPicker, p), {
+                  featured: activeGoalies[gkPicker] || lastGoalie[gkPicker],
+                })}
+                <button style={{ ...S.btnSecondary, marginTop: 12 }} onClick={() => setGkPicker(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
           {/* Desync reconciliation banner — blocks new entries until scorer acknowledges */}
           {desyncBanner && (
             <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
@@ -2323,7 +2471,7 @@ export default function LaxStats({
               {(() => {
                 const prevGoalie = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "shot_saved")?.player : null;
                 return renderPlayerGrid(1 - selectedTeam, handleSavePlayerSelected, {
-                  featured: prevGoalie || lastGoalie[1 - selectedTeam],
+                  featured: prevGoalie || activeGoalies[1 - selectedTeam] || lastGoalie[1 - selectedTeam],
                 });
               })()}
             </div>
@@ -2612,7 +2760,7 @@ export default function LaxStats({
                       ...(isWin ? {} : computeRosterChanges(parsedRosters)),
                     }));
                   }, {
-                    featured: (isWin ? finalize.goalieWin : finalize.goalieLoss) || lastGoalie[ti],
+                    featured: (isWin ? finalize.goalieWin : finalize.goalieLoss) || preselectGoalie(ti, isWin),
                   })}
                   {keepScoringBtn}
                 </div>
@@ -3017,6 +3165,7 @@ export default function LaxStats({
                         if (e.event === "turnover" && e !== primary) subItems.push(`↩️ TO by #${e.player?.num} ${e.player?.name}`);
                         if (e.event === "forced_to" && e !== primary) subItems.push(`🥊 Caused by #${e.player?.num} ${e.player?.name}`);
                         if (e.event === "faceoff_loss") subItems.push(`🔄 FO loss: #${e.player?.num} ${e.player?.name}`);
+                        if (e.event === "goal_allowed") subItems.push(`🥅 GA: #${e.player?.num} ${e.player?.name}`);
                         if (e.event === "ground_ball" && group.some(x => x.event === "faceoff_win" || x.event === "turnover")) subItems.push(`🪣 GB: #${e.player?.num} ${e.player?.name}`);
                       });
                       if (primary.event === "goal" && primary.goalTime) subItems.push(`⏱ ${primary.goalTime} remaining`);
@@ -3079,6 +3228,7 @@ export default function LaxStats({
                           if (e.event === "turnover" && e !== primary) subItems.push(`↩️ TO by #${e.player?.num} ${e.player?.name}`);
                           if (e.event === "forced_to" && e !== primary) subItems.push(`🥊 Caused by #${e.player?.num} ${e.player?.name}`);
                           if (e.event === "faceoff_loss") subItems.push(`🔄 FO loss: #${e.player?.num} ${e.player?.name}`);
+                          if (e.event === "goal_allowed") subItems.push(`🥅 GA: #${e.player?.num} ${e.player?.name}`);
                           if (e.event === "ground_ball" && group.some(x => x.event === "faceoff_win" || x.event === "turnover")) subItems.push(`🪣 GB: #${e.player?.num} ${e.player?.name}`);
                         });
                         if (primary.event === "goal" && primary.goalTime) subItems.push(`⏱ ${primary.goalTime} remaining`);

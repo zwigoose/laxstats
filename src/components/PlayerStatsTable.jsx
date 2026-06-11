@@ -3,7 +3,7 @@ import { parseRoster } from "../utils/stats";
 import { STAT_LABELS } from "../constants/lacrosse";
 
 const SHARED_STAT_KEYS = [
-  "goal", "assist", "shot", "sog", "shot_saved",
+  "goal", "assist", "shot", "sog", "shot_saved", "goal_allowed", "sv_pct",
   "ground_ball", "faceoff_win", "faceoff_loss", "fo_pct", "turnover", "forced_to",
   "penalty_tech", "penalty_min",
 ];
@@ -59,7 +59,12 @@ export default function PlayerStatsTable({
   const sortedPlayers = useMemo(() => {
     const base = playerStats.map(r => {
       const fw = r.faceoff_win || 0, fl = r.faceoff_loss || 0;
-      return { ...r, fo_pct: (fw + fl) > 0 ? Math.round((fw / (fw + fl)) * 100) : 0 };
+      const sv = r.shot_saved || 0, ga = r.goal_allowed || 0;
+      return {
+        ...r,
+        fo_pct: (fw + fl) > 0 ? Math.round((fw / (fw + fl)) * 100) : 0,
+        sv_pct: (sv + ga) > 0 ? Math.round((sv / (sv + ga)) * 100) : 0,
+      };
     });
     [0, 1].forEach(ti => {
       allRosterPlayers[ti].forEach(p => {
@@ -181,6 +186,7 @@ export default function PlayerStatsTable({
                           <td key={k} style={{ ...td(sortKey === k), opacity: row[k] === 0 ? 0.3 : 1 }}>
                             {k === "penalty_min" && row[k] > 0 ? `${row[k]}m`
                               : k === "fo_pct" && row[k] > 0 ? `${row[k]}%`
+                              : k === "sv_pct" ? ((row.shot_saved || 0) + (row.goal_allowed || 0) > 0 ? `${row[k]}%` : "—")
                               : row[k]}
                           </td>
                         ))}

@@ -320,6 +320,9 @@ export default function Dashboard() {
                 {teams[0]?.logoUrl && <img src={teams[0].logoUrl} alt="" style={{ height: 48, maxWidth: 80, objectFit: "contain", display: "block", margin: "0 auto 4px", opacity: 0.9 }} />}
                 <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[0]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[0].name}</div>
                 <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[0]), lineHeight: 1.1 }}>{totalScores[0]}</div>
+                {!gameOver && state?.activeGoalies?.[0] && (
+                  <div style={{ fontSize: 10, color: "#999" }}>GK: #{state.activeGoalies[0].num} {state.activeGoalies[0].name}</div>
+                )}
               </div>
               <div style={{ textAlign: "center" }}>
                 <span style={{ fontSize: 26, color: "#555" }}>—</span>
@@ -330,6 +333,9 @@ export default function Dashboard() {
                 {teams[1]?.logoUrl && <img src={teams[1].logoUrl} alt="" style={{ height: 48, maxWidth: 80, objectFit: "contain", display: "block", margin: "0 auto 4px", opacity: 0.9 }} />}
                 <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[1]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[1].name}</div>
                 <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[1]), lineHeight: 1.1 }}>{totalScores[1]}</div>
+                {!gameOver && state?.activeGoalies?.[1] && (
+                  <div style={{ fontSize: 10, color: "#999" }}>GK: #{state.activeGoalies[1].num} {state.activeGoalies[1].name}</div>
+                )}
               </div>
             </div>
 
