@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import MomentumTracker from "./MomentumTracker";
 
 const teams = [{ name: "Hawks" }, { name: "Owls" }];
@@ -10,7 +10,7 @@ describe("MomentumTracker", () => {
     const { container } = render(
       <MomentumTracker log={[]} teams={teams} teamColors={teamColors} currentQuarter={1} />
     );
-    expect(screen.getByText("Momentum")).toBeInTheDocument();
+    expect(screen.getByText("MOMENTUM")).toBeInTheDocument();
     expect(screen.getByText(/Builds as the game is scored/)).toBeInTheDocument();
     expect(container.querySelectorAll("path").length).toBeGreaterThan(0);
   });
@@ -24,6 +24,15 @@ describe("MomentumTracker", () => {
   it("shows quarter markers", () => {
     render(<MomentumTracker log={[]} teams={teams} teamColors={teamColors} />);
     ["Q1", "Q2", "Q3", "Q4"].forEach(q => expect(screen.getByText(q)).toBeInTheDocument());
+  });
+
+  it("toggles the info popover from the i icon", () => {
+    render(<MomentumTracker log={[]} teams={teams} teamColors={teamColors} />);
+    expect(screen.queryByText(/live read of game control/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("What is MOMENTUM?"));
+    expect(screen.getByText(/live read of game control/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("What is MOMENTUM?"));
+    expect(screen.queryByText(/live read of game control/)).not.toBeInTheDocument();
   });
 
   it("renders a series when events exist", () => {
