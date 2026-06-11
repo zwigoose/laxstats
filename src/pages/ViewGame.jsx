@@ -513,6 +513,9 @@ useEffect(() => {
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
                   {displayLogos[0] && <img src={displayLogos[0]} alt="" style={{ height: 44, maxWidth: 80, objectFit: "contain" }} />}
                   <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[0] }}>{teams[0].name}</div>
+                  {state?.activeGoalies?.[0] && (
+                    <div style={{ fontSize: 11, color: "#888" }}>GK: #{state.activeGoalies[0].num} {state.activeGoalies[0].name}</div>
+                  )}
                 </div>
                 <div style={S.scoreBig}>
                   <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
@@ -522,6 +525,9 @@ useEffect(() => {
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                   {displayLogos[1] && <img src={displayLogos[1]} alt="" style={{ height: 44, maxWidth: 80, objectFit: "contain" }} />}
                   <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[1], textAlign: "right" }}>{teams[1].name}</div>
+                  {state?.activeGoalies?.[1] && (
+                    <div style={{ fontSize: 11, color: "#888" }}>GK: #{state.activeGoalies[1].num} {state.activeGoalies[1].name}</div>
+                  )}
                 </div>
               </div>
             )}

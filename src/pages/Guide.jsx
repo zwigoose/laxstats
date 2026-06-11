@@ -385,7 +385,7 @@ export default function Guide() {
             <tbody>
               {[
                 ["Goal",        "Assist? (optional) · Time remaining · EMO auto-detected from penalty box"],
-                ["Shot",        "Outcome: Missed / Saved (pick goalie)"],
+                ["Shot",        "Outcome: Missed / Saved — auto-attributed to the active goalie when one is set, otherwise pick from the grid"],
                 ["Ground Ball", "None — commits immediately after player selection"],
                 ["Faceoff",     "Started from the team screen: pick both faceoff players, then the winner, then the ground ball (winner / teammate / nobody)"],
                 ["Turnover",    "Who caused it? (opposing player, or Skip — unforced) · Ground ball? (optional)"],
@@ -407,7 +407,8 @@ export default function Guide() {
           <div style={S.cardBody}>
             <strong>EMO</strong> — automatically flagged on any goal when the defending team is net shorthanded at that moment. No scorer input needed.<br /><br />
             <strong>MDD</strong> — automatically credited to the defense when a penalty window expires without a goal. No scorer input needed.<br /><br />
-            <strong>Rides / Failed Rides</strong> — the inverse of the opposing team's Clears and Failed Clears, computed in real time.
+            <strong>Rides / Failed Rides</strong> — the inverse of the opposing team's Clears and Failed Clears, computed in real time.<br /><br />
+            <strong>Active goalies</strong> — set each team's goalie via the 🧤 chips at the top of the Track screen. Saves then attribute automatically and every goal records a Goal Allowed against the goalie in net at the time. Tap a chip mid-game to substitute.
           </div>
         </div>
 
@@ -753,6 +754,8 @@ export default function Guide() {
             ["FMDD",   "Failed MDD",        "Man-down situations that resulted in a goal — auto-computed"],
             ["MDD %",  "MDD percentage",    "Successful MDD ÷ (Successful + Failed MDD)"],
             ["Sv",     "Saves",             "Shots stopped by the goalie"],
+            ["GA",     "Goals allowed",     "Goals charged to the active goalie at entry time"],
+            ["Sv%",    "Goalie save %",     "Saves ÷ (Saves + GA) per goalie"],
             ["Save %", "Save percentage",   "Saves ÷ Opponent's shots on goal"],
             ["FTO",    "Forced turnovers",  "Turnovers caused by applied pressure"],
           ]},

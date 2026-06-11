@@ -87,6 +87,8 @@ The **Track** tab is a guided step flow:
 3. **Select the player** — a number grid for the selected team, with a **＋ #** tile to add a missing jersey number on the spot
 4. **Answer follow-ups** — assist, shot outcome, who caused a turnover, clear result, foul type, minutes, NR, time remaining
 
+Per-team **active goalie** chips at the top of the Track screen drive automatic save attribution and per-goalie Goals Allowed (GA) — tap a chip to set or substitute the goalie at any time.
+
 Every entry is saved automatically. The **undo** button in the confirmation banner removes the last entry instantly. The **Event Log** tab lets you edit or delete any entry at any time.
 
 ### Penalties

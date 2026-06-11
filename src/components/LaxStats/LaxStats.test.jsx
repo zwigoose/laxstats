@@ -1033,3 +1033,264 @@ describe("LaxStats — finalization wizard: dialpad-added goalie", () => {
     await waitFor(() => expect(screen.getByText(/Losing goalie — Away/)).toBeInTheDocument());
   });
 });
+
+// ── Active goalie ─────────────────────────────────────────────────────────────
+
+describe("LaxStats — active goalie", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const pause = () => act(async () => { await new Promise(r => setTimeout(r, 550)); });
+
+  async function setAwayGK(num = "11") {
+    fireEvent.click(screen.getAllByText(/Set GK/)[1]); // away chip
+    await waitFor(() => screen.getByText(/Away — Active goalie/));
+    fireEvent.click(screen.getByText(`#${num}`));
+    await waitFor(() => expect(screen.queryByText(/Away — Active goalie/)).not.toBeInTheDocument());
+  }
+
+  it("set via chip → persists in state and chip shows the GK", async () => {
+    const onStateChange = vi.fn();
+    renderLaxStats({ onStateChange });
+    await waitFor(() => screen.getAllByPlaceholderText(/First Last/));
+    await act(async () => { await startTrackingDistinct(); });
+    await setAwayGK("11");
+    expect(screen.getByText(/🧤 #11 Player11/)).toBeInTheDocument();
+    await waitFor(() => {
+      const lastState = onStateChange.mock.calls.at(-1)[0];
+      expect(lastState.activeGoalies).toEqual([null, { num: "11", name: "Player11" }]);
+    });
+  });
+
+  it("hydrates activeGoalies from initialState", async () => {
+    const s = trackingInitialState([]);
+    s.activeGoalies = [{ num: "3", name: "Player3" }, null];
+    render(<LaxStats initialState={s} />);
+    await waitFor(() => screen.getByText(/Who scored \/ acted\?/));
+    expect(screen.getByText(/🧤 #3 Player3/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Set GK/)).toHaveLength(1); // away still unset
+  });
+
+  it("legacy game without activeGoalies renders clean with both chips unset", async () => {
+    render(<LaxStats initialState={trackingInitialState([])} />);
+    await waitFor(() => screen.getByText(/Who scored \/ acted\?/));
+    expect(screen.getAllByText(/Set GK/)).toHaveLength(2);
+  });
+
+  it("saved shot with GK set skips the save_player grid and attributes the GK", async () => {
+    const onStateChange = vi.fn();
+    renderLaxStats({ onStateChange });
+    await waitFor(() => screen.getAllByPlaceholderText(/First Last/));
+    await act(async () => { await startTrackingDistinct(); });
+    await setAwayGK("11");
+    fireEvent.click(screen.getByText("Home"));
+    fireEvent.click(screen.getByText("Shot"));
+    fireEvent.click(screen.getByText("#1"));
+    await act(async () => { fireEvent.click(screen.getByText(/Saved — by Away/)); });
+    // No goalie grid — committed directly
+    expect(screen.queryByText(/Who made the save\?/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/Last entry:/)).toBeInTheDocument());
+    const log = onStateChange.mock.calls.at(-1)[0].log;
+    expect(log.map(e => e.event)).toEqual(["shot", "shot_saved"]);
+    expect(log[1].teamIdx).toBe(1);
+    expect(log[1].player).toEqual({ num: "11", name: "Player11" });
+  });
+
+  it("saved shot with GK unset falls back to the goalie grid", async () => {
+    renderLaxStats();
+    await waitFor(() => screen.getAllByPlaceholderText(/First Last/));
+    await act(async () => { await startTrackingDistinct(); });
+    fireEvent.click(screen.getByText("Home"));
+    fireEvent.click(screen.getByText("Shot"));
+    fireEvent.click(screen.getByText("#1"));
+    fireEvent.click(screen.getByText(/Saved — by Away/));
+    expect(screen.getByText(/Who made the save\?/)).toBeInTheDocument();
+  });
+
+  it("goal with GK set appends goal_allowed to the same group; delete removes all", async () => {
+    const onStateChange = vi.fn();
+    const onEventSoftDelete = vi.fn().mockResolvedValue(undefined);
+    renderLaxStats({ onStateChange, onEventSoftDelete });
+    await waitFor(() => screen.getAllByPlaceholderText(/First Last/));
+    await act(async () => { await startTrackingDistinct(); });
+    await setAwayGK("11");
+    fireEvent.click(screen.getByText("Home"));
+    fireEvent.click(screen.getByText("Goal"));
+    fireEvent.click(screen.getByText("#1"));
+    fireEvent.click(screen.getByText(/No — unassisted/));
+    fireEvent.click(screen.getByText("1"));
+    fireEvent.click(screen.getAllByText("0")[0]);
+    fireEvent.click(screen.getAllByText("0")[0]);
+    await act(async () => { fireEvent.click(screen.getByText("Use")); });
+    await waitFor(() => expect(screen.getByText(/Last entry:/)).toBeInTheDocument());
+    const log = onStateChange.mock.calls.at(-1)[0].log;
+    expect(log.map(e => e.event)).toEqual(["shot", "goal", "goal_allowed"]);
+    expect(log[2].teamIdx).toBe(1);
+    expect(log[2].player).toEqual({ num: "11", name: "Player11" });
+    expect(new Set(log.map(e => e.groupId)).size).toBe(1);
+    // Group delete removes shot + goal + GA together
+    fireEvent.click(screen.getByText("undo"));
+    await waitFor(() => {
+      expect(onStateChange.mock.calls.at(-1)[0].log).toHaveLength(0);
+    });
+    expect(onEventSoftDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("goal with no GK set commits without a GA entry", async () => {
+    const onStateChange = vi.fn();
+    renderLaxStats({ onStateChange });
+    await waitFor(() => screen.getAllByPlaceholderText(/First Last/));
+    await act(async () => { await startTrackingDistinct(); });
+    fireEvent.click(screen.getByText("Home"));
+    fireEvent.click(screen.getByText("Goal"));
+    fireEvent.click(screen.getByText("#1"));
+    fireEvent.click(screen.getByText(/No — unassisted/));
+    fireEvent.click(screen.getByText("1"));
+    fireEvent.click(screen.getAllByText("0")[0]);
+    fireEvent.click(screen.getAllByText("0")[0]);
+    await act(async () => { fireEvent.click(screen.getByText("Use")); });
+    await waitFor(() => expect(screen.getByText(/Last entry:/)).toBeInTheDocument());
+    const log = onStateChange.mock.calls.at(-1)[0].log;
+    expect(log.map(e => e.event)).toEqual(["shot", "goal"]);
+  });
+
+  it("mid-game GK change: prior saves keep the old GK, new saves credit the new one, and a goalie_change marker is logged", async () => {
+    const onStateChange = vi.fn();
+    renderLaxStats({ onStateChange });
+    await waitFor(() => screen.getAllByPlaceholderText(/First Last/));
+    await act(async () => { await startTrackingDistinct(); });
+    await setAwayGK("11");
+
+    // Save #1 → credited to #11
+    fireEvent.click(screen.getByText("Home"));
+    fireEvent.click(screen.getByText("Shot"));
+    fireEvent.click(screen.getByText("#1"));
+    await act(async () => { fireEvent.click(screen.getByText(/Saved — by Away/)); });
+    await waitFor(() => screen.getByText(/Last entry:/));
+
+    // Substitute: #11 → #12 (chip now shows the GK)
+    fireEvent.click(screen.getByText(/🧤 #11 Player11/));
+    await waitFor(() => screen.getByText(/Away — Active goalie/));
+    fireEvent.click(screen.getAllByText("#12")[0]);
+    await waitFor(() => expect(screen.getByText(/🧤 #12 Player12/)).toBeInTheDocument());
+
+    // Save #2 → credited to #12
+    await pause();
+    fireEvent.click(screen.getByText("Home"));
+    fireEvent.click(screen.getByText("Shot"));
+    fireEvent.click(screen.getByText("#2"));
+    await act(async () => { fireEvent.click(screen.getByText(/Saved — by Away/)); });
+    await waitFor(() => screen.getByText(/Last entry:/));
+
+    const log = onStateChange.mock.calls.at(-1)[0].log;
+    const saves = log.filter(e => e.event === "shot_saved");
+    expect(saves.map(e => e.player.num)).toEqual(["11", "12"]);
+    const change = log.find(e => e.event === "goalie_change");
+    expect(change).toBeTruthy();
+    expect(change.player.num).toBe("12");
+    expect(change.teamIdx).toBe(1);
+  });
+
+  it("editing an auto-attributed shot group shows the full grid and allows changing the goalie", async () => {
+    const onStateChange = vi.fn();
+    renderLaxStats({ onStateChange });
+    await waitFor(() => screen.getAllByPlaceholderText(/First Last/));
+    await act(async () => { await startTrackingDistinct(); });
+    await setAwayGK("11");
+    fireEvent.click(screen.getByText("Home"));
+    fireEvent.click(screen.getByText("Shot"));
+    fireEvent.click(screen.getByText("#1"));
+    await act(async () => { fireEvent.click(screen.getByText(/Saved — by Away/)); });
+    await waitFor(() => screen.getByText(/Last entry:/));
+
+    // Edit from the log: grid must appear (override), not auto-attribute
+    fireEvent.click(screen.getByText("Event Log"));
+    fireEvent.click(screen.getByTitle("Edit"));
+    await waitFor(() => screen.getByText(/Shot — Which player\?/));
+    fireEvent.click(screen.getAllByText("#1")[0]);
+    fireEvent.click(screen.getByText(/Saved — by Away/));
+    await waitFor(() => expect(screen.getByText(/Who made the save\?/)).toBeInTheDocument());
+    await pause();
+    await act(async () => { fireEvent.click(screen.getByText("#13")); });
+    await waitFor(() => {
+      const log = onStateChange.mock.calls.at(-1)[0].log;
+      const save = log.find(e => e.event === "shot_saved");
+      expect(save.player.num).toBe("13");
+    });
+  });
+
+  it("nudges once after the first committed event when a GK slot is empty", async () => {
+    renderLaxStats();
+    await waitFor(() => screen.getAllByPlaceholderText(/First Last/));
+    await act(async () => { await startTrackingDistinct(); });
+    expect(screen.queryByText(/Set the active goalies/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Home"));
+    fireEvent.click(screen.getByText("Clear"));
+    await act(async () => { fireEvent.click(screen.getByText("Successful")); });
+    await waitFor(() => expect(screen.getByText(/Set the active goalies/)).toBeInTheDocument());
+    // Dismiss — never nags again
+    fireEvent.click(screen.getByTitle("Dismiss"));
+    expect(screen.queryByText(/Set the active goalies/)).not.toBeInTheDocument();
+    await pause();
+    fireEvent.click(screen.getByText("Home"));
+    fireEvent.click(screen.getByText("Clear"));
+    await act(async () => { fireEvent.click(screen.getByText("Successful")); });
+    await waitFor(() => screen.getByText(/Last entry:/));
+    expect(screen.queryByText(/Set the active goalies/)).not.toBeInTheDocument();
+  });
+});
+
+// ── Finalization goalie pre-selection ─────────────────────────────────────────
+
+describe("LaxStats — finalization goalie pre-selection", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function q4Entry(id, teamIdx, event, num, extra = {}) {
+    return {
+      id, seq: id, groupId: `g${id}`, teamIdx, event,
+      player: { num, name: `Player${num}` }, quarter: 4, teamStat: false, ...extra,
+    };
+  }
+
+  async function walkToGoalieStep(log, activeGoalies = [null, null]) {
+    const s = trackingInitialState(log);
+    s.currentQuarter = 4;
+    s.completedQuarters = [1, 2, 3];
+    s.activeGoalies = activeGoalies;
+    render(<LaxStats initialState={s} onMetaEvent={vi.fn().mockResolvedValue({})} />);
+    await waitFor(() => screen.getByText(/Who scored \/ acted\?/));
+    fireEvent.click(screen.getByText(/End Q4/));
+    fireEvent.click(screen.getByText(/Review & Finalize/));
+    await waitFor(() => screen.getByText("Roster corrections"));
+    fireEvent.click(screen.getByText("Continue →"));
+    await waitFor(() => screen.getByText(/Winning goalie — Home/));
+  }
+
+  it("pre-selects most-saves goalie for the win and highest-GA goalie for the loss", async () => {
+    const log = [
+      q4Entry(1, 0, "goal", "1"),                 // Home wins 1–0
+      q4Entry(2, 0, "shot_saved", "4"),
+      q4Entry(3, 0, "shot_saved", "4"),
+      q4Entry(4, 0, "shot_saved", "5"),
+      q4Entry(5, 1, "goal_allowed", "14"),
+      q4Entry(6, 1, "goal_allowed", "14"),
+      q4Entry(7, 1, "goal_allowed", "15"),
+    ];
+    await walkToGoalieStep(log);
+    // Featured tile (the big pre-selected one) is #4 — most saves
+    expect(screen.getByText("#4").closest("button")).toHaveStyle({ minHeight: "120px" });
+    // Pre-selection is overridable: pick someone else entirely
+    fireEvent.click(screen.getByText("#5"));
+    await waitFor(() => screen.getByText(/Losing goalie — Away/));
+    expect(screen.getByText("#14").closest("button")).toHaveStyle({ minHeight: "120px" });
+  });
+
+  it("falls back to the active GK on a tie", async () => {
+    const log = [
+      q4Entry(1, 0, "goal", "1"),
+      q4Entry(2, 0, "shot_saved", "4"),
+      q4Entry(3, 0, "shot_saved", "5"), // tied 1–1
+    ];
+    await walkToGoalieStep(log, [{ num: "6", name: "Player6" }, null]);
+    expect(screen.getByText("#6").closest("button")).toHaveStyle({ minHeight: "120px" });
+  });
+});
