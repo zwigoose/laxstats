@@ -5,6 +5,19 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.19.0] — 2026-06-11
+
+### Added
+- **Active goalies** — per-team 🧤 GK chips at the top of the scorekeeper Track screen set each team's goalie in net; the choice persists with the game, syncs live to viewers, and can be changed mid-game as the substitution mechanism (a Goalie Change marker appears in the event log); a one-time reminder appears after the first event if either goalie is unset; the current goalies show near the team names on Live View and Press Box
+- **Automatic save attribution** — with the defending team's active goalie set, Shot → Saved commits immediately with no goalie-grid step; editing the entry still offers the full grid as the correction path
+- **Goals Allowed (GA)** — every goal records a GA against the goalie in net at entry time (in the same entry group, never retroactive); new GA and per-goalie Sv% columns in player stat tables on the scorekeeper, Live View, Press Box, and print report; legacy games show GA as zero, never inferred
+- **Smarter finalization goalie pre-selection** — the wizard pre-selects the most-saves goalie for the win and the highest-GA goalie for the loss (ties fall back to the active goalie), still fully overridable
+
+### Fixed
+- **Print report FO% column** — rendered blank cells for players with recorded stats
+
+---
+
 ## [2.18.0] — 2026-06-10
 
 ### Added
