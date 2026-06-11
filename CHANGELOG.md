@@ -5,6 +5,28 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.18.0] — 2026-06-10
+
+### Added
+- **New turnover flow** — turnovers are entered as a chain: the player who committed it, who caused it on the opposing team (skippable when unforced), and an optional ground ball for the opposing team; all entries share one group so deleting removes the whole chain
+- **New clear flow** — a single Clear event with a Successful/Failed result prompt; failed clears can chain directly into the turnover flow as one grouped action
+- **New faceoff flow** — started from its own button on the team select screen; captures both faceoff players, then the winner, then the existing ground-ball follow-up; records paired faceoff win/loss entries so per-player FO W-L records and FO% build automatically (legacy games show wins only)
+- **Add a missing jersey number mid-flow** — every player grid has a ＋ # dialpad tile that adds the number to the roster and immediately selects it for the in-flight entry; duplicates are rejected
+- **Game finalization wizard** — ending Q4 with a winner (or a sudden-death OT goal) opens a review before anything is committed: roster corrections for players added/edited during the game (with optional propagation to the org roster), winning and losing goalie decisions (shown as W/L in player stats), and an explicit final summary; "Not yet — keep scoring" escape at every step
+- **Combine players merge tool** — org team management can merge two roster entries that are the same player (jersey change or in-game placeholder); a transactional RPC rewrites historical game events and box scores to the chosen final number/name
+- **Six-zone shot map** — shot location is now captured by tapping one of six field zones (left/center/right × close/far); shot maps display per-zone shots-goals and shooting % with volume-scaled shading; the area behind the goal line is not a valid shot origin; legacy x/y points are bucketed into zones automatically
+
+### Removed
+- **Blocked shot tracking** — the Blocked outcome, Blk stat, and all blocked-shot displays are gone; historical blocked-shot rows are deleted and legacy games load cleanly
+- **Standalone Caused TO and Faceoff W events** — both are now recorded through the new turnover and faceoff flows; the caused-TO stat itself is unchanged
+
+### Fixed
+- **Follow status on game view** — the Follow button no longer shows "Following" for games this browser never followed, and unfollowing one game no longer breaks push notifications for other followed games; duplicate follow rows (duplicate notifications) can no longer accumulate
+- **Shot map double-counting** — a scored goal counted as two shots in its zone (its paired shot + goal entries); zone aggregates now count one attempt per entry group
+- **Header layout shift on mobile** — the scorekeeper and game view headers no longer change height (shifting the whole UI) when the "Saving…" status appears; long game names truncate with an ellipsis instead of wrapping
+
+---
+
 ## [2.17.1] — 2026-06-10
 
 ### Security
