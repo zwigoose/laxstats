@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.21.0] — 2026-06-11
+
+### Added
+- **Momentum tracker** — the game view (`/view`) now shows a live line graph below the score visualizing which team is controlling the game; goals, shots, faceoff wins, clears, caused turnovers, and penalties (credited to the man-up team) push the line toward that team's side, momentum decays toward neutral during quiet stretches, and hovering a point reveals the event behind it; computed entirely client-side from the existing event log (no schema change), updating in real time
+
+---
+
 ## [2.20.0] — 2026-06-11
 
 ### Added
