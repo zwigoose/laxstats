@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.20.0] — 2026-06-11
+
+### Added
+- **Goalie and faceoff records in season & org stats** — goals allowed and faceoff losses now roll up through the season and all-time stat views; season Stat Leaders and org All-Time Leaders add **Faceoff %** and **Goalie Save %** leaderboards (minimum 10 attempts to qualify, so tiny samples can't top a percentage list)
+
+---
+
 ## [2.19.0] — 2026-06-11
 
 ### Added
