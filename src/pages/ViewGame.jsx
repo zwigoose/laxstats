@@ -12,6 +12,7 @@ import { useDocTitle } from "../hooks/useDocTitle";
 import { dbRowToEntry } from "../hooks/useGameEvents";
 import { deriveQuarterState } from "../services/gameEvents";
 import GameTimeline from "../components/GameTimeline";
+import MomentumTracker from "../components/analytics/MomentumTracker";
 import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
 import ShotMap from "../components/ShotMap";
 import HeroCard from "../components/HeroCard";
@@ -531,6 +532,15 @@ useEffect(() => {
                 </div>
               </div>
             )}
+
+            {/* Momentum tracker — fan view, directly below the score banner */}
+            <MomentumTracker
+              log={log}
+              teams={teams}
+              teamColors={teamColors}
+              currentQuarter={currentQuarter}
+              gameOver={gameOver}
+            />
 
             {/* Game logistics */}
             {(() => {

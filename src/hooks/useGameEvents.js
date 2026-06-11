@@ -39,6 +39,7 @@ export function dbRowToEntry(row) {
     shotOutcome:   row.shot_outcome     ?? undefined,
     zone:          row.shot_zone        ?? undefined,
     foulName:           row.foul_name            ?? undefined,
+    createdAt:          row.client_created_at    ?? undefined,
     isPossibleDuplicate: row.is_possible_duplicate ?? false,
     emo:                row.is_emo || undefined,
     seq:                row.seq,

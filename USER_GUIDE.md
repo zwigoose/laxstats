@@ -434,6 +434,9 @@ Open via **View** on any game card, or navigate to `/games/:id/view`.
 - **Shareable** — send the URL to anyone
 - **No account required**
 
+### Momentum tracker
+A live line graph below the score shows which team is controlling the game. Goals, shots, faceoff wins, clears, caused turnovers, and penalties (credited to the man-up team) each push the line toward that team's side, and momentum fades back toward neutral when nothing happens. The axis is labeled by team — no raw numbers — and hovering a point shows the event behind it. Before any events are scored the line sits flat at neutral.
+
 The header shows **● Live** or **Final**. For live games, the latest recorded time remaining is shown. The header toolbar includes:
 
 - **Press Box ↗** — opens the press box for the same game in a new tab
