@@ -399,6 +399,9 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [playerError, setPlayerError] = useState(null);
   const [importingRoster, setImportingRoster] = useState(false);
+  // Combine-players merge tool: null | { step: "pick"|"confirm", selected: [player, player?],
+  //   finalIdx, finalName, impact, error, saving }
+  const [combining, setCombining] = useState(null);
 
   async function loadPlayers() {
     if (players !== null) return;
@@ -431,6 +434,7 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
     setEditingPlayerId(null);
     setConfirmDelete(false);
     setImportingRoster(false);
+    setCombining(null);
   }
 
   async function loadOrgPlayers() {
@@ -512,6 +516,77 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
       .delete().eq("team_id", team.id).eq("player_id", id);
     if (err) { setPlayerError(err.message); return; }
     setPlayers(prev => prev.filter(p => p.id !== id));
+  }
+
+  // ── Combine players (merge two roster entries) ──────────────────
+  const effNum = (p) => p.jersey_num ?? p.number;
+
+  function toggleCombineSelect(p) {
+    setCombining(prev => {
+      const selected = prev.selected.some(s => s.id === p.id)
+        ? prev.selected.filter(s => s.id !== p.id)
+        : prev.selected.length < 2 ? [...prev.selected, p] : prev.selected;
+      return { ...prev, selected, finalIdx: 0, finalName: selected[0]?.name ?? "", error: null };
+    });
+  }
+
+  // Count recorded events per merged number across this team's games — shown
+  // on the confirm screen so the stat impact of the merge is explicit.
+  async function loadCombineImpact(selected) {
+    const { data: teamGames } = await supabase
+      .from("games")
+      .select("id, home_team_id")
+      .or(`home_team_id.eq.${team.id},away_team_id.eq.${team.id}`);
+    const ids = (teamGames || []).map(g => g.id);
+    const counts = { [selected[0].id]: 0, [selected[1].id]: 0 };
+    if (ids.length) {
+      const nums = selected.map(p => String(effNum(p)));
+      const { data: events } = await supabase
+        .from("game_events")
+        .select("game_id, team_idx, player_num")
+        .in("game_id", ids)
+        .in("player_num", nums)
+        .is("deleted_at", null);
+      const homeIds = new Set((teamGames || []).filter(g => g.home_team_id === team.id).map(g => g.id));
+      for (const e of events || []) {
+        const ourSlot = homeIds.has(e.game_id) ? 0 : 1;
+        if (e.team_idx !== ourSlot) continue;
+        const match = selected.find(p => String(effNum(p)) === e.player_num);
+        if (match) counts[match.id]++;
+      }
+    }
+    return counts;
+  }
+
+  async function handleCombineReview() {
+    if (combining.selected.length !== 2) return;
+    if (!combining.finalName.trim()) { setCombining(prev => ({ ...prev, error: "Final name is required" })); return; }
+    setCombining(prev => ({ ...prev, step: "confirm", impact: null, error: null }));
+    try {
+      const impact = await loadCombineImpact(combining.selected);
+      setCombining(prev => prev && prev.step === "confirm" ? { ...prev, impact } : prev);
+    } catch {
+      setCombining(prev => prev && prev.step === "confirm" ? { ...prev, impact: {} } : prev);
+    }
+  }
+
+  async function handleCombineMerge() {
+    const { selected, finalIdx, finalName } = combining;
+    const keep = selected[finalIdx];
+    const remove = selected[1 - finalIdx];
+    setCombining(prev => ({ ...prev, saving: true, error: null }));
+    const { error: err } = await supabase.rpc("merge_team_players", {
+      p_team_id: team.id,
+      p_keep_player_id: keep.id,
+      p_remove_player_id: remove.id,
+      p_final_num: String(effNum(keep)),
+      p_final_name: finalName.trim(),
+    });
+    if (err) { setCombining(prev => ({ ...prev, saving: false, error: err.message })); return; }
+    setPlayers(prev => prev
+      .filter(p => p.id !== remove.id)
+      .map(p => p.id === keep.id ? { ...p, name: finalName.trim() } : p));
+    setCombining(null);
   }
 
   return (
@@ -596,11 +671,113 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
                 <div style={{ fontSize: 13, color: "#aaa", marginBottom: 10 }}>No players yet.</div>
               )}
 
-              {canManage && addMode === null && !importingRoster && (
+              {canManage && addMode === null && !importingRoster && !combining && (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => { setAddMode("pick"); loadOrgPlayers(); }}>+ Add existing</button>
                   <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => setAddMode("new")}>+ Create new</button>
                   <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => { setImportingRoster(true); }}>Import roster</button>
+                  {(players?.length ?? 0) >= 2 && (
+                    <button style={{ ...S.btnOut, fontSize: 12 }} onClick={() => setCombining({ step: "pick", selected: [], finalIdx: 0, finalName: "", impact: null, error: null, saving: false })}>
+                      ⇄ Combine players
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Combine players — merge two roster entries into one */}
+              {canManage && combining && (
+                <div style={{ background: "#f7f8fa", border: "1px solid #e0e0e0", borderRadius: 12, padding: 12, marginTop: 4 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Combine players</div>
+                    <button style={S.btnOut} onClick={() => setCombining(null)}>Cancel</button>
+                  </div>
+
+                  {combining.step === "pick" && (
+                    <>
+                      <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
+                        Select the two entries that are the same player (e.g. a jersey change or an in-game placeholder).
+                      </div>
+                      <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #e5e5e5", borderRadius: 8, background: "#fff", marginBottom: 10 }}>
+                        {players.map(p => {
+                          const sel = combining.selected.some(s => s.id === p.id);
+                          return (
+                            <div key={p.id}
+                              style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderBottom: "1px solid #f5f5f5", cursor: "pointer", background: sel ? "#eef4fb" : "transparent" }}
+                              onClick={() => toggleCombineSelect(p)}>
+                              <input type="checkbox" readOnly checked={sel} />
+                              <span style={{ fontSize: 12, color: "#bbb", width: 28, textAlign: "right", fontFamily: "monospace", flexShrink: 0 }}>
+                                {effNum(p) != null ? `#${effNum(p)}` : "—"}
+                              </span>
+                              <span style={{ flex: 1, fontSize: 13, color: "#111" }}>{p.name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {combining.selected.length === 2 && (
+                        <>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 6 }}>Final jersey number</div>
+                          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                            {combining.selected.map((p, i) => (
+                              <button key={p.id}
+                                style={{ ...S.btnOut, fontSize: 12, ...(combining.finalIdx === i ? { background: "#111", color: "#fff", borderColor: "#111" } : {}) }}
+                                onClick={() => setCombining(prev => ({ ...prev, finalIdx: i }))}>
+                                #{effNum(p)}
+                              </button>
+                            ))}
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 6 }}>Final name</div>
+                          <input
+                            style={{ ...S.input, fontSize: 13, padding: "7px 10px", marginBottom: 10 }}
+                            value={combining.finalName}
+                            onChange={e => setCombining(prev => ({ ...prev, finalName: e.target.value, error: null }))}
+                            placeholder="Player name"
+                          />
+                          {combining.error && <div style={{ fontSize: 12, color: "#c0392b", marginBottom: 8 }}>{combining.error}</div>}
+                          <button style={S.btnSm} onClick={handleCombineReview}>Review merge →</button>
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {combining.step === "confirm" && (() => {
+                    const keep = combining.selected[combining.finalIdx];
+                    const remove = combining.selected[1 - combining.finalIdx];
+                    return (
+                      <>
+                        <div style={{ fontSize: 13, color: "#111", marginBottom: 8 }}>
+                          Merging <strong>#{effNum(remove)} {remove.name}</strong> into{" "}
+                          <strong>#{effNum(keep)} {combining.finalName}</strong>
+                        </div>
+                        <div style={{ fontSize: 12, color: "#555", background: "#fff", border: "1px solid #e5e5e5", borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>
+                          {combining.impact === null
+                            ? "Calculating stat impact…"
+                            : <>
+                                <div>#{effNum(keep)} {keep.name}: <strong>{combining.impact[keep.id] ?? 0}</strong> recorded events</div>
+                                <div>#{effNum(remove)} {remove.name}: <strong>{combining.impact[remove.id] ?? 0}</strong> recorded events</div>
+                                <div style={{ marginTop: 4 }}>
+                                  After the merge, all <strong>{(combining.impact[keep.id] ?? 0) + (combining.impact[remove.id] ?? 0)}</strong> events
+                                  count for <strong>#{effNum(keep)} {combining.finalName}</strong> in season and career stats.
+                                </div>
+                              </>
+                          }
+                        </div>
+                        <div style={{ fontSize: 12, color: "#c0392b", marginBottom: 10 }}>
+                          This rewrites this team's historical games — finalized box scores will show
+                          #{effNum(keep)} retroactively. <strong>This cannot be undone.</strong>
+                        </div>
+                        {combining.error && <div style={{ fontSize: 12, color: "#c0392b", marginBottom: 8 }}>{combining.error}</div>}
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button style={S.btnOut} onClick={() => setCombining(prev => ({ ...prev, step: "pick", impact: null, error: null }))}>← Back</button>
+                          <button
+                            style={{ ...S.btnSm, background: "#c0392b", opacity: combining.saving ? 0.6 : 1 }}
+                            disabled={combining.saving}
+                            onClick={handleCombineMerge}>
+                            {combining.saving ? "Merging…" : "Merge players ✓"}
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 

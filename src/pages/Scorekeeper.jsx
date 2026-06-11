@@ -10,18 +10,22 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import LaxStats from "../components/LaxStats";
 import { useGameEvents } from "../hooks/useGameEvents";
+import { updateGameEventsPlayer } from "../services/gameEvents";
 
 const S = {
   header:        { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10, fontFamily: "system-ui, sans-serif" },
   backBtn:       { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
-  headerTitle:   { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" },
+  // minWidth 0 + ellipsis: when status text ("Saving…") appears, the title
+  // truncates instead of wrapping — keeps the sticky header a constant height
+  // so the UI below never shifts (most visible on narrow mobile screens).
+  headerTitle:   { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   saveStatus:    { fontSize: 12, color: "#aaa" },
   viewBtn:       { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" },
   loading:       { fontFamily: "system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#888", fontSize: 14 },
   error:         { fontFamily: "system-ui, sans-serif", maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14 },
-  secondaryBadge: { fontSize: 11, fontWeight: 700, color: "#1a6bab", background: "#eef4fb", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
-  primaryBadge:   { fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #b5e0c0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
-  offlineBadge:   { fontSize: 11, fontWeight: 700, color: "#9a4800", background: "#fff3e0", border: "1px solid #ffd08a", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
+  secondaryBadge: { whiteSpace: "nowrap", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#1a6bab", background: "#eef4fb", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
+  primaryBadge:   { whiteSpace: "nowrap", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #b5e0c0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
+  offlineBadge:   { whiteSpace: "nowrap", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#9a4800", background: "#fff3e0", border: "1px solid #ffd08a", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
   syncingStatus:  { fontSize: 12, color: "#1a6bab" },
   syncedStatus:   { fontSize: 12, color: "#2a7a3b" },
   syncErrStatus:  { fontSize: 12, color: "#c0392b" },
@@ -274,7 +278,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
             Offline{pendingCount > 0 ? ` · ${pendingCount} queued` : ""}
           </span>
         )}
-        {status && <span style={status.style}>{status.text}</span>}
+        {status && <span style={{ ...status.style, whiteSpace: "nowrap", flexShrink: 0 }}>{status.text}</span>}
         {game?.multi_scorer_enabled && !isAnonymous && (
           <button style={S.viewBtn} onClick={() => {
             if (inviteLink || inviteState === "error") { setInviteLink(null); setInviteState("idle"); setInviteError(null); }
@@ -327,6 +331,9 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
           onOrgTeamSelected={async (teamIdx, teamId) => {
             const col = teamIdx === 0 ? "home_team_id" : "away_team_id";
             await updateGame(id, { [col]: teamId });
+          }}
+          onPlayerFix={async (teamIdx, fromNum, toNum, toName) => {
+            await updateGameEventsPlayer(id, teamIdx, fromNum, toNum, toName);
           }}
           onCancel={async () => {
             await deleteAllGameEvents(id, userId);

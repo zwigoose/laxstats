@@ -10,12 +10,26 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
+// The browser push subscription is one-per-origin and shared by every game
+// this browser follows. Which games are followed is tracked per game in
+// game_subscriptions rows (server side, for delivery) and mirrored in
+// localStorage (client side, for UI status) — anonymous rows have no SELECT
+// policy, so the followed-game list can't be read back from the DB for guests.
+const FOLLOWS_KEY = "laxstats:push-follows";
+
+function getFollows() {
+  try { return JSON.parse(localStorage.getItem(FOLLOWS_KEY)) || []; } catch { return []; }
+}
+
+function setFollows(ids) {
+  try { localStorage.setItem(FOLLOWS_KEY, JSON.stringify(ids)); } catch { /* ignore */ }
+}
+
 export function usePushNotifications(gameId, userId) {
   const [isSupported, setIsSupported]   = useState(false);
   const [permission, setPermission]     = useState("default");
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading]           = useState(false);
-  const [endpoint, setEndpoint]         = useState(null);
 
   useEffect(() => {
     setIsSupported("serviceWorker" in navigator && "PushManager" in window && !!VAPID_PUBLIC_KEY);
@@ -25,6 +39,7 @@ export function usePushNotifications(gameId, userId) {
   useEffect(() => {
     if (!isSupported || !gameId) return;
     checkExistingSubscription();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSupported, gameId]);
 
   async function checkExistingSubscription() {
@@ -32,10 +47,28 @@ export function usePushNotifications(gameId, userId) {
       await navigator.serviceWorker.register("/sw.js");
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
-      if (!sub) return;
-      setEndpoint(sub.endpoint);
-      // Trust browser state — avoids RLS issues for anonymous users
-      setIsSubscribed(true);
+      if (!sub) return; // browser isn't subscribed to anything
+
+      // Following is per game, not per browser — check the local follow list
+      if (getFollows().includes(gameId)) {
+        setIsSubscribed(true);
+        return;
+      }
+
+      // Authenticated users can read their own rows back (e.g. localStorage was
+      // cleared) — resync the local list from the DB.
+      if (userId) {
+        const { data } = await supabase
+          .from("game_subscriptions")
+          .select("id")
+          .eq("game_id", gameId)
+          .contains("push_subscription", { endpoint: sub.endpoint })
+          .maybeSingle();
+        if (data) {
+          setFollows([...new Set([...getFollows(), gameId])]);
+          setIsSubscribed(true);
+        }
+      }
     } catch {
       // ignore — browser may not have an active SW yet
     }
@@ -60,25 +93,22 @@ export function usePushNotifications(gameId, userId) {
         });
       }
 
-      setEndpoint(sub.endpoint);
-
-      // Check if this browser+game combo is already stored before inserting
-      const { data: existing } = await supabase
+      // Delete-then-insert instead of select-then-insert: anonymous rows can't
+      // be SELECTed under RLS, but they can be deleted by endpoint — this keeps
+      // re-follows from piling up duplicate rows (= duplicate notifications).
+      await supabase
         .from("game_subscriptions")
-        .select("id")
+        .delete()
         .eq("game_id", gameId)
-        .contains("push_subscription", { endpoint: sub.endpoint })
-        .maybeSingle();
+        .contains("push_subscription", { endpoint: sub.endpoint });
+      const { error: insertErr } = await supabase.from("game_subscriptions").insert({
+        game_id:           gameId,
+        user_id:           userId ?? null,
+        push_subscription: sub.toJSON(),
+      });
+      if (insertErr) { console.error("Push subscription save failed:", insertErr); return; }
 
-      if (!existing) {
-        const { error: insertErr } = await supabase.from("game_subscriptions").insert({
-          game_id:           gameId,
-          user_id:           userId ?? null,
-          push_subscription: sub.toJSON(),
-        });
-        if (insertErr) { console.error("Push subscription save failed:", insertErr); return; }
-      }
-
+      setFollows([...new Set([...getFollows(), gameId])]);
       setIsSubscribed(true);
     } catch (err) {
       console.error("Push subscribe failed:", err);
@@ -99,7 +129,11 @@ export function usePushNotifications(gameId, userId) {
           .delete()
           .eq("game_id", gameId)
           .contains("push_subscription", { endpoint: sub.endpoint });
-        await sub.unsubscribe();
+        const remaining = getFollows().filter(id => id !== gameId);
+        setFollows(remaining);
+        // The browser-level subscription is shared by every followed game —
+        // only tear it down once nothing follows it anymore.
+        if (remaining.length === 0) await sub.unsubscribe();
       }
       setIsSubscribed(false);
     } catch (err) {
