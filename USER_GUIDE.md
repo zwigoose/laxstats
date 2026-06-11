@@ -267,19 +267,22 @@ The header shows **Saving…** while writing to the database and **Saved ✓** o
 EMO is detected automatically: if the defending team is net shorthanded at the time of the goal, the goal is flagged as EMO with no extra input required.
 
 ### Shot 🎯
-**Follow-up:** Outcome — Missed / Saved (pick goalie) / Blocked (pick blocker) / Off the post
+**Follow-up:** Outcome — Missed / Saved (pick goalie)
 
 ### Ground Ball 🪣
 Commits immediately after player selection.
 
-### Faceoff Win 🔄
-**Follow-up:** Ground ball? — options are: the faceoff winner got it / someone else on the team (pick from roster) / nobody (straight win, no GB). Selecting a player records the faceoff win and ground ball as one group.
+### Faceoff 🔄
+Faceoffs involve both teams, so they start from their own **🔄 Faceoff** button on the team select screen (not from a single team's event grid).
+
+**Flow:** Pick the home team's faceoff player → pick the away team's faceoff player → tap who won → Ground ball? (the winner got it / someone else on the winning team / nobody). The faceoff win, the paired faceoff loss, and any ground ball are recorded as one group, so per-player faceoff W-L records build automatically. Each team's last-used faceoff player is featured as a quick pick.
+
+Older games recorded only faceoff wins; their losses are unknown, so FO% is not shown for them.
 
 ### Turnover ↩️
-Unforced turnover. Commits immediately.
+**Flow:** Pick the player who turned it over → **Who caused it?** shows the opposing roster with a **Skip — unforced** button across the top of the grid → **Ground ball?** offers the opposing roster with a **Skip GB** button (asked whether or not a causing player was picked — the other team usually comes up with the loose ball either way). All entries (turnover, caused TO, ground ball) share one group, so deleting the entry removes the whole chain.
 
-### Forced TO 🥊
-**Follow-up:** Pick the opposing player who turned it over. Both the forced TO and the turnover are recorded in one group.
+Caused turnovers are no longer entered standalone — they're always recorded as part of a turnover.
 
 ### Penalty 🟨
 **Follow-ups:**
@@ -303,11 +306,14 @@ Team stat. **Follow-up:** Time remaining (or tap **Log without time**).
 
 See [Timeouts](#12-timeouts) for allowances per period.
 
-### Successful Clear ⬆️
-Team stat. Automatically credits the opposing team with a Failed Ride.
+### Clear ⬆️
+Team stat with a result prompt: **Successful** or **Failed**.
 
-### Failed Clear ⬇️
-Team stat. Automatically credits the opposing team with a Successful Ride.
+- **Successful** → recorded immediately; automatically credits the opposing team with a Failed Ride.
+- **Failed** → asks *Did the failed clear result in a turnover?* **No** records the failed clear (crediting the opponent with a Successful Ride). **Yes** chains straight into the turnover flow — pick the clearing team's player who turned it over, optionally who caused it and the ground ball — and everything is saved as one group.
+
+### Adding a missing jersey number ＋#
+Every player grid has a **＋ #** tile. If a number appears in the game that isn't on the roster, tap it, dial the number, and the player is added to the roster and immediately selected for the in-flight entry. Duplicate numbers are rejected (the existing tile is highlighted instead). Players added this way are flagged for name cleanup in the finalization review.
 
 ---
 
@@ -328,11 +334,18 @@ Remaining counts are shown on the team select buttons. Unused first-half timeout
 Tap **End Q# →** at the bottom of the Track screen. A confirmation screen shows a stat summary. Tap the confirm button to lock the quarter.
 
 ### Quarter 4 — Final or Overtime
-- **Not tied** → game is finalized
+- **Not tied** → the finalization review opens (see below)
 - **Tied** → overtime begins (OT1, OT2, etc.)
 
 ### Overtime
-Sudden death. The game auto-finalizes on the first OT goal.
+Sudden death. The first OT goal opens the finalization review.
+
+### Finalizing a game
+When a game ends (Q4 with a winner, or an OT goal), a short wizard runs before anything is committed:
+
+1. **Roster corrections** — every player added or edited during the game is listed per team. Enter or fix names and numbers, or delete a player who has no recorded events. For org-roster teams, a per-player **Update org roster** toggle (on by default) propagates accepted changes to the stored org roster.
+2. **Goalie decisions** — pick the winning team's goalie credited with the **W**, then the losing team's goalie charged with the **L**. The decisions appear next to each goalie in the player stats.
+3. **Final summary** — score by quarter, team stat lines, the roster changes about to be applied, and the goalie decisions. Only tapping **Finalize Game ✓** commits anything; **Not yet — keep scoring** is available at every step in case of a mis-tap.
 
 ---
 
@@ -394,7 +407,7 @@ Team totals for every tracked stat, side by side, organized into sections: Scori
 Sortable table of individual player stats. Tap any column header to sort. Players are grouped by team.
 
 ### Map tab *(Scorekeeper only, when shot location is enabled)*
-Shot locations plotted on a half-field diagram. Visible only when a platform admin has enabled shot location tracking for the game. Supports a team filter (Both / Home / Away).
+Shot locations aggregated into six field zones (left/center/right × close/far). Each zone shows shots-goals and shooting % (e.g. `7-2 · 29%`), with shading scaled by shot volume. When entering a shot the scorekeeper taps one of the six zones — the area behind the goal line is not a valid shot origin and can't be selected. Visible only when a platform admin has enabled shot location tracking for the game. Supports a team filter (Both / Home / Away).
 
 ### Timeline tab
 Reverse-chronological list of goals, timeouts, and penalties, with time remaining, quarter, player, assist, and running score.
@@ -475,7 +488,6 @@ Press Box access is controlled per-game. Personal games require a platform admin
 | **Shot %** | Shot percentage | Goals ÷ Total shots |
 | **SOG** | Shots on goal | Goals + saves + post/crossbar hits |
 | **SOG %** | SOG percentage | Goals ÷ SOG |
-| **Blk** | Blocked shots | Shots blocked by a field player |
 
 ### Possession
 
@@ -483,6 +495,8 @@ Press Box access is controlled per-game. Personal games require a platform admin
 |---|---|---|
 | **GB** | Ground balls | Loose ball pickups |
 | **FW** | Faceoff wins | Faceoffs won |
+| **FL** | Faceoff losses | Faceoffs lost — the paired other side of every faceoff win |
+| **FO %** | Faceoff percentage | Wins ÷ (wins + losses); hidden for older games that only recorded wins |
 | **TO** | Turnovers | Turnovers committed |
 
 ### Clearing & Riding
@@ -510,7 +524,6 @@ Press Box access is controlled per-game. Personal games require a platform admin
 - **Jersey colors guide your eye:** home team is the white-bordered button, away is solid color — same as what you see on the field.
 - **Time keypad:** type the time remaining as digits (e.g. `854` for 8:54) and confirm. Penalty time shows a **Same as latest** shortcut for fouls from the same dead-ball stop.
 - **Missed a stat?** Edit from the Event Log at any time, even from a completed quarter.
-- **Blocked shots:** pick the field player who made the block, not the goalie. Goalie stops go through Shot → Saved.
 - **Multi-scorer:** run the Scorekeeper on a phone at the table; send an invite link to a second device for backup coverage. Both feeds sync in real time.
 - **Guest link expires in 24h:** generate a new one from the scorekeeper header if you need to re-invite.
 - **Shared rosters:** appear in your **Load saved…** dropdown and under **Shared with me** in the Rosters tab.

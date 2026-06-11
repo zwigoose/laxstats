@@ -33,7 +33,7 @@ const S = {
   page: { fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto", padding: "0 0 40px" },
   header: { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10, fontFamily: "system-ui, sans-serif" },
   backBtn: { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
-  headerTitle: { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" },
+  headerTitle: { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   liveBadge: { fontSize: 11, fontWeight: 600, color: "#fff", background: "#4caf50", borderRadius: 20, padding: "3px 9px" },
   finalBadge: { fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "3px 9px" },
   pendingBadge: { fontSize: 11, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "3px 9px" },
@@ -308,6 +308,12 @@ useEffect(() => {
     const sogFaced = teamTotals[1 - ti].sog;
     const saves = teamTotals[ti].shot_saved;
     return sogFaced ? `${Math.round((saves / sogFaced) * 100)}%` : "—";
+  };
+  const foPct = (ti) => {
+    // Legacy games only recorded faceoff wins — losses unknown, so no percentage
+    const lossesKnown = teamTotals[0].faceoff_loss + teamTotals[1].faceoff_loss > 0;
+    const w = teamTotals[ti].faceoff_win, l = teamTotals[ti].faceoff_loss;
+    return lossesKnown && (w + l) ? `${Math.round((w / (w + l)) * 100)}%` : "—";
   };
 
   const scoringTimeline = useMemo(() => buildScoringTimeline(filteredLog), [filteredLog]);
@@ -600,10 +606,10 @@ useEffect(() => {
                   { heading: "Shooting" },
                   { label: "Total Shots", key: "shot" }, { label: "Shot %", custom: shotPct },
                   { label: "Shots on Goal", key: "sog" }, { label: "SOG %", custom: sogPct },
-                  { label: "Blocked Shots", key: "shot_blocked" },
                   { heading: "Possession" },
-                  { label: "Ground Balls", key: "ground_ball" }, { label: "Faceoffs Won", key: "faceoff_win" },
-                  { label: "Turnovers", key: "turnover" },
+                  { label: "Ground Balls", key: "ground_ball" }, { label: "Turnovers", key: "turnover" },
+                  { label: "Faceoffs Won", key: "faceoff_win" }, { label: "Faceoffs Lost", key: "faceoff_loss" },
+                  { label: "Faceoff %", custom: foPct },
                   { heading: "Clearing" },
                   { label: "Successful Clears", key: "clear" }, { label: "Failed Clears", key: "failed_clear" },
                   { label: "Clearing %", custom: clearPct },
@@ -641,6 +647,7 @@ useEffect(() => {
                   teamColors={teamColors}
                   playerStats={playerStats}
                   statKeys={PLAYER_STAT_KEYS}
+                  goalieDecisions={state?.goalieDecisions || null}
                 />
               </div>
             )}

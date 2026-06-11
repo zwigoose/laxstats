@@ -82,10 +82,10 @@ Set up your two teams on the setup screen. Load registered org teams or enter ro
 
 The **Track** tab is a guided step flow:
 
-1. **Select the team** — two large buttons show the current score
-2. **Select the event** — Goal, Shot, Ground Ball, Faceoff Win, Turnover, Forced TO, Penalty, MDD Stop, Timeout, Clear, or Failed Clear
-3. **Select the player** — a number grid for the selected team
-4. **Answer follow-ups** — assist, shot outcome, foul type, minutes, NR, time remaining
+1. **Select the team** — two large buttons show the current score; faceoffs start from their own **🔄 Faceoff** button here since they involve both teams
+2. **Select the event** — Goal, Shot, Ground Ball, Turnover, Penalty, Timeout, or Clear
+3. **Select the player** — a number grid for the selected team, with a **＋ #** tile to add a missing jersey number on the spot
+4. **Answer follow-ups** — assist, shot outcome, who caused a turnover, clear result, foul type, minutes, NR, time remaining
 
 Every entry is saved automatically. The **undo** button in the confirmation banner removes the last entry instantly. The **Event Log** tab lets you edit or delete any entry at any time.
 
@@ -95,7 +95,7 @@ Select the specific foul from a list (Pushing, Slashing, Cross Check, etc.) — 
 
 ### Ending quarters
 
-Tap **End Q# →** at the bottom of the Track screen. After Q4 the app finalizes the game or starts overtime. Overtime is sudden death.
+Tap **End Q# →** at the bottom of the Track screen. After Q4 the app starts overtime if tied; otherwise (or on a sudden-death OT goal) a finalization wizard reviews game-day roster fixes and goalie win/loss decisions before the game is committed as final.
 
 ---
 

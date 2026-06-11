@@ -1,27 +1,25 @@
 export const EVENTS = [
-  { id: "goal",        label: "Goal",              icon: "🥍" },
-  { id: "shot",        label: "Shot",              icon: "🎯" },
-  { id: "ground_ball", label: "Ground Ball",       icon: "🪣" },
-  { id: "faceoff_win", label: "Faceoff W",         icon: "🔄" },
-  { id: "turnover",    label: "Turnover",          icon: "↩️" },
-  { id: "forced_to",   label: "Caused TO",         icon: "🥊" },
-  { id: "penalty",     label: "Penalty",           icon: "🟨" },
-  { id: "timeout",     label: "Timeout",           icon: "⏸️" },
-  { id: "clear",       label: "Successful Clear",  icon: "⬆️", teamStat: true },
-  { id: "failed_clear",label: "Failed Clear",      icon: "⬇️", teamStat: true },
+  { id: "goal",         label: "Goal",        icon: "🥍" },
+  { id: "shot",         label: "Shot",        icon: "🎯" },
+  { id: "ground_ball",  label: "Ground Ball", icon: "🪣" },
+  { id: "turnover",     label: "Turnover",    icon: "↩️" },
+  { id: "penalty",      label: "Penalty",     icon: "🟨" },
+  { id: "timeout",      label: "Timeout",     icon: "⏸️" },
+  { id: "clear_attempt",label: "Clear",       icon: "⬆️", teamStat: true },
 ];
 
 export const STAT_KEYS = [
   "goal","emo_goal","emo_fail","mdd_success","mdd_fail","shot","sog",
-  "shot_saved","shot_blocked","ground_ball","faceoff_win",
+  "shot_saved","ground_ball","faceoff_win","faceoff_loss",
   "turnover","forced_to","penalty_tech","penalty_min","assist",
   "clear","failed_clear","successful_ride","failed_ride",
 ];
 
 export const STAT_LABELS = {
   goal:"G", emo_goal:"EMO", emo_fail:"FEMO", mdd_success:"MDD", mdd_fail:"FMDD",
-  shot:"Sh", sog:"SOG", shot_saved:"Sv", shot_blocked:"Blk",
-  ground_ball:"GB", faceoff_win:"FW", turnover:"TO", forced_to:"CTO",
+  shot:"Sh", sog:"SOG", shot_saved:"Sv",
+  ground_ball:"GB", faceoff_win:"FW", faceoff_loss:"FL", fo_pct:"FO%",
+  turnover:"TO", forced_to:"CTO",
   penalty_tech:"Tech", penalty_min:"PF Min", assist:"A",
   clear:"Clr", failed_clear:"FCl", successful_ride:"SRide", failed_ride:"FRide",
 };

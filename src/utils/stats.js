@@ -222,9 +222,20 @@ export function buildScoringTimeline(entries) {
     });
 }
 
+// Entry/stat types that are no longer (or never were) in the EVENTS grid but
+// still appear in logs — both new compound-flow entries and legacy data.
+const EXTRA_DISPLAY_INFO = {
+  clear:        { icon: "⬆️", label: "Successful Clear" },
+  failed_clear: { icon: "⬇️", label: "Failed Clear" },
+  forced_to:    { icon: "🥊", label: "Caused TO" },
+  faceoff_win:  { icon: "🔄", label: "Faceoff W" },
+  faceoff_loss: { icon: "🔄", label: "Faceoff L" },
+};
+
 export function entryDisplayInfo(entry) {
-  let icon = EVENTS.find(e => e.id === entry.event)?.icon || "•";
-  let label = EVENTS.find(e => e.id === entry.event)?.label || entry.event;
+  const ev = EVENTS.find(e => e.id === entry.event) || EXTRA_DISPLAY_INFO[entry.event];
+  let icon = ev?.icon || "•";
+  let label = ev?.label || entry.event;
   if (entry.event === "shot_saved")   { icon = "🧤"; label = "Save"; }
   if (entry.event === "penalty_tech") { icon = "🟨"; label = entry.foulName ? `${entry.foulName} (Technical)` : "Technical foul"; }
   if (entry.event === "penalty_min")  { icon = "🟥"; label = entry.foulName ? `${entry.foulName} (${entry.penaltyMin}min)` : `Personal foul (${entry.penaltyMin}min)`; }

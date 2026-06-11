@@ -5,7 +5,6 @@ const EVENT_LABELS = {
   goal:           "Goal",
   shot:           "Shot",
   shot_saved:     "Save",
-  shot_blocked:   "Shot Blocked",
   ground_ball:    "Ground Ball",
   faceoff_win:    "Faceoff Win",
   turnover:       "Turnover",
