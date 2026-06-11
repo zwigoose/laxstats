@@ -545,6 +545,15 @@ export default function Guide() {
         <Screenshot label="Live View — live score header with Follow, QR, and Press Box buttons" file="live-view-header.png" />
 
         <div style={S.card}>
+          <p style={S.cardTitle}>MOMENTUM 📈</p>
+          <div style={S.cardBody}>
+            MOMENTUM is LaxStats' live view of game control — a single line below the Live View score showing which team is dictating play. The line rises toward whichever team is in control; the dashed center line is neutral.<br /><br />
+            Every recorded play moves the line, weighted by impact: <strong>goals</strong> swing it most, then <strong>faceoff wins</strong>, <strong>shots</strong>, and <strong>clears / caused turnovers</strong>. <strong>Penalties</strong> swing MOMENTUM toward the opposing (man-up) team. During quiet stretches the line drifts back toward neutral, so it always reflects who is controlling the game <em>now</em>.<br /><br />
+            There are no numbers to interpret — the axis is labeled with the team names, and distance from center means firmer control. Hover or tap any point to see the play behind it (e.g. <em>Q3 8:12 · Goal — #4 Smith</em>). On finished games, MOMENTUM is a one-glance story of how the game unfolded.
+          </div>
+        </div>
+
+        <div style={S.card}>
           <p style={S.cardTitle}>Press Box</p>
           <div style={S.cardBody}>
             Full-screen two-column layout designed for a tablet or laptop at the press table. Shows everything at once — score by quarter, team stats, player stats, event log, and timeline — no tabs needed.
