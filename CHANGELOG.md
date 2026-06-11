@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.21.1] — 2026-06-11
+
+### Changed
+- **MOMENTUM branding** — the momentum tracker is now presented as MOMENTUM, LaxStats' live view of game control; the chart header gains an ⓘ tooltip with a quick explanation, and the Guide page and user guide document how the line works
+
+---
+
 ## [2.21.0] — 2026-06-11
 
 ### Added

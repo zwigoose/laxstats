@@ -434,8 +434,27 @@ Open via **View** on any game card, or navigate to `/games/:id/view`.
 - **Shareable** — send the URL to anyone
 - **No account required**
 
-### Momentum tracker
-A live line graph below the score shows which team is controlling the game. Goals, shots, faceoff wins, clears, caused turnovers, and penalties (credited to the man-up team) each push the line toward that team's side, and momentum fades back toward neutral when nothing happens. The axis is labeled by team — no raw numbers — and hovering a point shows the event behind it. Before any events are scored the line sits flat at neutral.
+### MOMENTUM 📈
+MOMENTUM is LaxStats' live view of game control. It appears on every game's Live View, directly below the score: a single line that shows which team is dictating play. When the line rises toward a team's name, that team is controlling the game; the dashed center line is neutral.
+
+**What moves the line.** Every play the scorekeeper records adjusts MOMENTUM toward the team that made it, weighted by impact:
+
+- **Goals** — the biggest swing
+- **Faceoff wins** — controlling the next possession
+- **Shots** — sustained pressure counts, even on a miss
+- **Clears and caused turnovers** — possession plays
+- **Penalties** — swing MOMENTUM *toward the opposing team*, who go man-up
+
+Quiet stretches matter too: when nothing happens, the line gradually drifts back toward neutral. MOMENTUM always reflects who is controlling the game *now*, not a run from two quarters ago.
+
+**Reading the graph.**
+
+- The X-axis runs by quarter (Q1–Q4, plus OT when it happens)
+- The top and bottom of the graph are labeled with the team names — there are no numbers to interpret; distance from center simply means firmer control
+- **Hover or tap any point** to see the play behind it — quarter, clock, and player (e.g. `Q3 8:12 · Goal — #4 Smith`)
+- Before any events are recorded, the line sits flat at neutral
+
+MOMENTUM updates in real time as plays are entered, and works on any game scored in LaxStats — including finished games, where it serves as a one-glance story of how the game unfolded.
 
 The header shows **● Live** or **Final**. For live games, the latest recorded time remaining is shown. The header toolbar includes:
 

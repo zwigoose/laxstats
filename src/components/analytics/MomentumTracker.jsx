@@ -17,6 +17,7 @@ const PLOT_H = H - PAD.top - PAD.bottom;
 export default function MomentumTracker({ log, teams, teamColors, currentQuarter = 1, gameOver = false }) {
   const clipId = useId();
   const [hover, setHover] = useState(null); // { px, py, point }
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const points = useMemo(() => buildMomentumSeries(log || []), [log]);
 
@@ -51,11 +52,40 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
   return (
     <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: "12px 12px 8px", marginBottom: 20, background: "#fff", position: "relative" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888" }}>Momentum</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", color: "#888" }}>MOMENTUM</span>
+          <button
+            aria-label="What is MOMENTUM?"
+            onClick={() => setInfoOpen(v => !v)}
+            onBlur={() => setInfoOpen(false)}
+            style={{
+              width: 15, height: 15, borderRadius: "50%", border: "1px solid #ccc",
+              background: infoOpen ? "#888" : "transparent", color: infoOpen ? "#fff" : "#aaa",
+              fontSize: 10, fontWeight: 700, lineHeight: 1, cursor: "pointer", padding: 0,
+              fontFamily: "Georgia, serif", fontStyle: "italic", flexShrink: 0,
+            }}
+          >
+            i
+          </button>
+        </span>
         {!points.length && (
           <span style={{ fontSize: 11, color: "#bbb" }}>Builds as the game is scored</span>
         )}
       </div>
+
+      {/* MOMENTUM info popover */}
+      {infoOpen && (
+        <div style={{
+          position: "absolute", top: 34, left: 12, right: 12, zIndex: 6,
+          background: "#1a1a1a", color: "#fff", borderRadius: 10, padding: "10px 14px",
+          fontSize: 12, lineHeight: 1.55, boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+        }}>
+          <strong>MOMENTUM</strong> is LaxStats' live read of game control. Goals, faceoff wins,
+          shots, clears, and caused turnovers push the line toward the team making the plays
+          (penalties push it toward the man-up team), and it drifts back to neutral during quiet
+          stretches. Tap any point to see the play behind it.
+        </div>
+      )}
 
       <svg
         viewBox={`0 0 ${W} ${H}`}
