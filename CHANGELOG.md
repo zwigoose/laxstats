@@ -5,6 +5,16 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.21.3] — 2026-06-17
+
+### Fixed
+- **MOMENTUM graph** — the line no longer runs backward ("goes back in time") when a play was entered into an earlier quarter late or after a quarter override; the series is now built in game-time order so the x-axis stays monotonic
+
+### Added
+- **MOMENTUM graph** — tap-and-drag scrubbing on touch devices, matching the existing mouse hover
+
+---
+
 ## [2.21.2] — 2026-06-11
 
 ### Changed
