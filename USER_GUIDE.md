@@ -505,8 +505,8 @@ Press Box access is controlled per-game. Personal games require a platform admin
 | **MDD %** | MDD percentage | Successful MDD ÷ (Successful + Failed MDD) |
 | **Sv** | Saves | Shots stopped by the goalie |
 | **GA** | Goals allowed | Goals charged to the active goalie at entry time (blank for older games) |
-| **Sv%** | Goalie save percentage | Saves ÷ (Saves + GA) per goalie; — when no data |
-| **Save %** | Save percentage | Saves ÷ Opponent's SOG |
+| **Sv%** | Goalie save % | A single goalie's saves ÷ (their saves + goals allowed while in net); one line per goalie; — when no data |
+| **Save %** | Team save % | The team's combined save rate: total saves ÷ opponent's SOG (all goalies aggregated) |
 | **FTO** | Forced turnovers | Turnovers caused by applied pressure |
 
 ### Shooting
