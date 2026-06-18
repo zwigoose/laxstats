@@ -37,16 +37,27 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
   }
   const path = linePts.map((p, i) => `${i === 0 ? "M" : "L"}${p.px.toFixed(1)},${p.py.toFixed(1)}`).join(" ");
 
-  function handleMove(evt) {
-    const svg = evt.currentTarget;
+  // Resolve the nearest plotted point to a viewport x and surface it as hover.
+  // Shared by mouse move and touch (tap + drag scrub).
+  function resolveHover(clientX, svg) {
     const rect = svg.getBoundingClientRect();
-    const mx = ((evt.clientX - rect.left) / rect.width) * W;
+    const mx = ((clientX - rect.left) / rect.width) * W;
     let best = null;
     for (const lp of linePts) {
       if (!lp.point) continue;
       if (!best || Math.abs(lp.px - mx) < Math.abs(best.px - mx)) best = lp;
     }
     setHover(best ? { px: best.px, py: best.py, point: best.point } : null);
+  }
+
+  function handleMouseMove(evt) {
+    resolveHover(evt.clientX, evt.currentTarget);
+  }
+
+  function handleTouch(evt) {
+    const t = evt.touches[0];
+    if (!t) return;
+    resolveHover(t.clientX, evt.currentTarget);
   }
 
   return (
@@ -90,8 +101,10 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
       <svg
         viewBox={`0 0 ${W} ${H}`}
         style={{ width: "100%", display: "block", touchAction: "pan-y" }}
-        onMouseMove={points.length ? handleMove : undefined}
+        onMouseMove={points.length ? handleMouseMove : undefined}
         onMouseLeave={() => setHover(null)}
+        onTouchStart={points.length ? handleTouch : undefined}
+        onTouchMove={points.length ? handleTouch : undefined}
       >
         <defs>
           {/* Split the line at the zero axis: home color above, away below */}
