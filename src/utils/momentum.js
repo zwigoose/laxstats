@@ -35,11 +35,30 @@ export function buildMomentumSeries(log) {
   // momentum, otherwise every goal would also count as a shot.
   const goalGroups = new Set(log.filter(e => e.event === "goal").map(e => e.groupId));
 
+  // The x-axis is game time laid out in quarter bands, so the series must be
+  // built in game-time order: quarter first, then seq within the quarter.
+  // seq (logging order) usually matches, but diverges when the scorer backs up
+  // the period (quarter_override) or enters a play into an earlier quarter late
+  // — those events get a higher seq but an earlier quarter. Iterating raw seq
+  // order then places an earlier-band point after a later-band one, and the
+  // line drawn through them runs leftward (the "goes back in time" jag). A
+  // stable sort by (quarter, seq) keeps normal games untouched and re-seats the
+  // out-of-order events into their correct band.
+  const ordered = log
+    .map((e, i) => [e, i])
+    .sort(([a, ai], [b, bi]) => {
+      const q = (a.quarter ?? 1) - (b.quarter ?? 1);
+      if (q !== 0) return q;
+      const s = (a.seq ?? ai) - (b.seq ?? bi);
+      return s !== 0 ? s : ai - bi;
+    })
+    .map(([e]) => e);
+
   const points = [];
   let score = 0;
   let lastTime = null;
 
-  for (const e of log) {
+  for (const e of ordered) {
     let weight = 0;
     let teamIdx = e.teamIdx;
 

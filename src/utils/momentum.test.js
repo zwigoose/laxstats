@@ -99,6 +99,23 @@ describe("buildMomentumSeries", () => {
     expect(pts[1].x).toBeGreaterThan(pts[0].x); expect(pts[1].x).toBeLessThan(1);
     expect(pts[2].x).toBeGreaterThan(2); expect(pts[2].x).toBeLessThan(3);
   });
+
+  it("keeps x monotonic when seq order diverges from quarter order", () => {
+    // A play entered into Q1 after Q2 was already scored (e.g. quarter_override
+    // or a late correction) gets a higher seq but an earlier quarter. The series
+    // must re-seat it into the Q1 band so the line never runs backward.
+    const pts = buildMomentumSeries([
+      ev(0, "goal", { quarter: 1 }),
+      ev(0, "goal", { quarter: 2 }),
+      ev(1, "goal", { quarter: 1 }), // later seq, earlier quarter
+    ]);
+    for (let i = 1; i < pts.length; i++) {
+      expect(pts[i].x).toBeGreaterThanOrEqual(pts[i - 1].x);
+    }
+    // The two Q1 goals sit in band [0,1); the Q2 goal in [1,2).
+    expect(pts.filter(p => p.quarter === 1).every(p => p.x < 1)).toBe(true);
+    expect(pts.find(p => p.quarter === 2).x).toBeGreaterThan(1);
+  });
 });
 
 describe("momentumPointLabel", () => {
