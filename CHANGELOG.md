@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.21.4] — 2026-06-17
+
+### Changed
+- **Guide / user guide** — clarified the save % stat definitions so the per-goalie **Sv%** ("Goalie save %") is clearly distinct from the team aggregate, now labeled **"Team save %"**
+
+---
+
 ## [2.21.3] — 2026-06-17
 
 ### Fixed
