@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 
-const AuthContext = createContext(null);
+// Exported so non-app renderers (component previews, design tools) can
+// provide a fixture auth value without mounting AuthProvider's data loading.
+export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [session, setSession]           = useState(undefined); // undefined = still initializing

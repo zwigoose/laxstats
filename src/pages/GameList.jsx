@@ -12,7 +12,9 @@ import { usePersonalGameUsage } from "../hooks/usePersonalGameUsage";
 import { Helmet } from "react-helmet-async";
 import SeoMeta from "../hooks/useSeoMeta";
 import { C, F, SH } from "../styles/tokens";
-export { RosterEditor, SharePanel, SavedTeamLogoSection };
+export { RosterEditor, SharePanel, SavedTeamLogoSection, GameCard, LiveCard, PersonalUsageMeter };
+
+const IS_STAGING = (import.meta.env ?? {}).VITE_IS_STAGING === "true";
 
 const HOME_JSON_LD = JSON.stringify([
   {
@@ -1039,8 +1041,8 @@ export default function GameList() {
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4 }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
               <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, objectFit: "contain" }} />
-              <h1 style={{ fontSize: 36, fontWeight: 800, color: import.meta.env.VITE_IS_STAGING === "true" ? C.red500 : C.white, letterSpacing: "-0.02em", lineHeight: 1, margin: 0 }}>LaxStats</h1>
-              {import.meta.env.VITE_IS_STAGING === "true" && (
+              <h1 style={{ fontSize: 36, fontWeight: 800, color: IS_STAGING ? C.red500 : C.white, letterSpacing: "-0.02em", lineHeight: 1, margin: 0 }}>LaxStats</h1>
+              {IS_STAGING && (
                 <span style={{ fontSize: 11, fontWeight: 700, color: C.red500, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.85 }}>v2.0.0 staging</span>
               )}
             </div>

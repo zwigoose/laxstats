@@ -6,8 +6,8 @@ export function displayName(email) {
 
 export function makeTempClient() {
   return createClient(
-    import.meta.env.VITE_SUPABASE_URL,
-    import.meta.env.VITE_SUPABASE_ANON_KEY,
+    (import.meta.env ?? {}).VITE_SUPABASE_URL ?? "https://placeholder.invalid",
+    (import.meta.env ?? {}).VITE_SUPABASE_ANON_KEY ?? "placeholder-anon-key",
     { auth: { persistSession: false, autoRefreshToken: false } }
   );
 }
