@@ -4,6 +4,8 @@ import { supabase } from "../lib/supabase";
 import SeoMeta from "../hooks/useSeoMeta";
 import { C, F, SH } from "../styles/tokens";
 
+const IS_STAGING = (import.meta.env ?? {}).VITE_IS_STAGING === "true";
+
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -56,8 +58,8 @@ export default function Login() {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, objectFit: "contain", marginBottom: 8 }} />
-          <div style={{ fontSize: 30, fontWeight: 800, color: import.meta.env.VITE_IS_STAGING === "true" ? C.red500 : C.gray900, letterSpacing: "-0.02em" }}>LaxStats</div>
-          {import.meta.env.VITE_IS_STAGING === "true" && (
+          <div style={{ fontSize: 30, fontWeight: 800, color: IS_STAGING ? C.red500 : C.gray900, letterSpacing: "-0.02em" }}>LaxStats</div>
+          {IS_STAGING && (
             <div style={{ fontSize: 11, fontWeight: 700, color: C.red500, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 4, opacity: 0.85 }}>v2.0.0 staging</div>
           )}
         </div>

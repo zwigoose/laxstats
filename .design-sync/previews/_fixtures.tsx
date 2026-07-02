@@ -183,3 +183,69 @@ export const LIVE_QUARTER = 2;
 export const PLAYER_STATS = buildPlayerStats(LOG);
 export const SCORING_TIMELINE = buildScoringTimeline(LOG);
 export const LIVE_SCORING_TIMELINE = buildScoringTimeline(LIVE_LOG);
+
+// ── games table rows (state = the denormalized display cache the game list reads) ──
+const gameRow = (id, name, state, extra = {}) => ({
+  id,
+  name,
+  org_id: null,
+  user_id: "user-fixture-1",
+  created_at: "2026-06-20T17:30:00Z",
+  pressbox_enabled: true,
+  multi_scorer_enabled: false,
+  shot_location_enabled: true,
+  schema_ver: 2,
+  state,
+  ...extra,
+});
+
+export const GAME_LIVE = gameRow("game-live-1", "NDP vs Malvern Prep", {
+  teams: TEAMS,
+  trackingStarted: true,
+  gameOver: false,
+  currentQuarter: 3,
+  score0: 6,
+  score1: 4,
+  gameDate: "2026-06-20",
+  log: [{ quarter: 3, event: "goal", teamIdx: 0, goalTime: "8:47" }],
+});
+
+export const GAME_FINAL = gameRow("game-final-1", "NDP vs Malvern Prep", {
+  teams: TEAMS,
+  trackingStarted: true,
+  gameOver: true,
+  currentQuarter: 4,
+  score0: 8,
+  score1: 6,
+  gameDate: "2026-06-13",
+});
+
+export const GAME_PENDING = gameRow("game-pending-1", "NDP vs Haverford School", null, {
+  created_at: "2026-06-28T15:00:00Z",
+});
+
+// ── admin fixtures ──
+export const ADMIN_USERS = [
+  { id: "user-fixture-1", email: "coach@ndprep.org" },
+  { id: "user-2", email: "scorekeeper@ndprep.org" },
+  { id: "user-3", email: "athletics@malvernprep.org" },
+];
+export const ADMIN_USER_MAP = Object.fromEntries(ADMIN_USERS.map((u) => [u.id, u]));
+
+export const ADMIN_ORG = {
+  id: "org-ndp",
+  name: "Notre Dame Prep",
+  slug: "notre-dame-prep",
+  plan: "pro",
+  plan_status: "active",
+  color: "#1a6bab",
+  logo_url: null,
+  member_count: 6,
+  team_count: 4,
+  season_count: 2,
+  game_count: 38,
+};
+
+// ── personal usage meter ──
+export const USAGE = { current_count: 7, game_limit: 10, at_limit: false };
+export const USAGE_AT_LIMIT = { current_count: 10, game_limit: 10, at_limit: true };

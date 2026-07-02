@@ -5,11 +5,17 @@
   "globalName": "LaxStats",
   "entry": ".design-sync/entry.mjs",
   "cssEntry": ".design-sync/base.css",
+  "provider": { "component": "DesignPreviewShell" },
   "srcDir": "src",
   "overrides": {
     "HeroCard": { "cardMode": "single", "viewport": "540x590" },
     "PlayerStatsTable": { "viewport": "1000x1500" },
-    "ShotMap": { "viewport": "800x950" }
+    "ShotMap": { "viewport": "800x950" },
+    "GameList": { "cardMode": "single", "viewport": "760x1150" },
+    "Login": { "cardMode": "single", "viewport": "640x760" },
+    "Guide": { "cardMode": "single", "viewport": "820x1100" },
+    "Pricing": { "cardMode": "single", "viewport": "900x1150" },
+    "Profile": { "cardMode": "single", "viewport": "680x950" }
   },
   "componentSrcMap": {
     "GameLiveStream": "src/components/GameLiveStream.jsx",
@@ -22,7 +28,28 @@
     "FieldMapInput": "src/components/LaxStats/FieldMapInput.jsx",
     "NumberKeypad": "src/components/LaxStats/NumberKeypad.jsx",
     "TimeKeypad": "src/components/LaxStats/TimeKeypad.jsx",
-    "SharePanel": null,
-    "LaxStats": null
+    "SharePanel": "src/components/SharePanel.jsx",
+    "LaxStats": null,
+    "AppNav": "src/components/AppNav.jsx",
+    "Login": "src/pages/Login.jsx",
+    "Guide": "src/pages/Guide.jsx",
+    "Pricing": "src/pages/Pricing.jsx",
+    "Profile": "src/pages/Profile.jsx",
+    "GameList": "src/pages/GameList.jsx",
+    "GameCard": "src/pages/GameList.jsx",
+    "LiveCard": "src/pages/GameList.jsx",
+    "PersonalUsageMeter": "src/pages/GameList.jsx",
+    "Admin": "src/pages/Admin/index.jsx",
+    "AllGamesTab": "src/pages/Admin/AllGamesTab.jsx",
+    "OrgsTab": "src/pages/Admin/OrgsTab.jsx",
+    "PlanLimitsTab": "src/pages/Admin/PlanLimitsTab.jsx",
+    "RostersAdminTab": "src/pages/Admin/RostersAdminTab.jsx",
+    "UsersTab": "src/pages/Admin/UsersTab.jsx",
+    "OrgCard": "src/pages/Admin/OrgCard.jsx",
+    "AdminGameRow": "src/pages/Admin/AdminGameRow.jsx",
+    "AdminSharePanel": "src/pages/Admin/AdminSharePanel.jsx",
+    "OwnerSelect": "src/pages/Admin/OwnerSelect.jsx",
+    "SectionToggle": "src/pages/Admin/SectionToggle.jsx",
+    "OrgGameGroup": "src/pages/Admin/OrgGameGroup.jsx"
   }
 }
