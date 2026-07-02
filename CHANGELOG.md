@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.21.7] — 2026-07-02
+
+### Changed
+- **Internal** — extended the Claude Design sync to app views (nav menu, home/game list, Login/Guide/Pricing/Profile, admin console; 32 components total): hardened all `import.meta.env` reads and the Supabase client init so components render outside Vite builds; exported `AuthContext`; extracted `AppNav` from `App.jsx` into `src/components/AppNav.jsx`; `GameList` now also exports `GameCard`, `LiveCard`, and `PersonalUsageMeter`; zero visual change
+
+---
+
 ## [2.21.6] — 2026-07-01
 
 ### Changed
