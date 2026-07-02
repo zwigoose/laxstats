@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import SeoMeta from "../hooks/useSeoMeta";
 import { supabase } from "../lib/supabase";
+import { C, F, SH } from "../styles/tokens";
 
 // Features to show in the org comparison table, in display order.
 const ORG_FEATURE_ORDER = [
@@ -33,22 +34,22 @@ const BOOLEAN_FEATURES = new Set(["pressbox", "season_stats", "multi_scorekeeper
 function fmtLimit(val, isBool) {
   if (val === null || val === undefined) return "∞";
   if (isBool) return val > 0
-    ? <span style={{ color: "#2a7a3b", fontSize: 17, lineHeight: 1 }}>✓</span>
-    : <span style={{ color: "#ddd", fontSize: 17, lineHeight: 1 }}>—</span>;
-  if (val === 0) return <span style={{ color: "#ddd", fontSize: 17, lineHeight: 1 }}>—</span>;
+    ? <span style={{ color: C.green600, fontSize: 17, lineHeight: 1 }}>✓</span>
+    : <span style={{ color: C.gray250, fontSize: 17, lineHeight: 1 }}>—</span>;
+  if (val === 0) return <span style={{ color: C.gray250, fontSize: 17, lineHeight: 1 }}>—</span>;
   return String(val);
 }
 
 const S = {
   sectionLabel: {
-    fontSize: 11, fontWeight: 700, color: "#aaa",
+    fontSize: 11, fontWeight: 700, color: C.gray400,
     textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 14,
   },
   card: (accent, recommended) => ({
-    background: "#fff",
-    border: recommended ? `2px solid ${accent}` : "1px solid #e8e8e8",
+    background: C.white,
+    border: recommended ? `2px solid ${accent}` : `1px solid ${C.gray100}`,
     borderRadius: 16, padding: "22px 20px", position: "relative", flex: 1,
-    boxShadow: recommended ? `0 4px 20px ${accent}22` : "0 1px 6px rgba(0,0,0,0.05)",
+    boxShadow: recommended ? `0 4px 20px ${accent}22` : SH.subtle,
   }),
   badge: (color, bg) => ({
     position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)",
@@ -60,12 +61,12 @@ const S = {
     fontSize: 11, fontWeight: 700, color,
     textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6,
   }),
-  price: { fontSize: 26, fontWeight: 800, color: "#111", letterSpacing: "-0.02em" },
-  period: { fontSize: 12, color: "#aaa", marginLeft: 2 },
-  tagline: { fontSize: 12, color: "#888", marginBottom: 18, marginTop: 2 },
+  price: { fontSize: 26, fontWeight: 800, color: C.gray900, letterSpacing: "-0.02em" },
+  period: { fontSize: 12, color: C.gray400, marginLeft: 2 },
+  tagline: { fontSize: 12, color: C.gray500, marginBottom: 18, marginTop: 2 },
   btn: (bg) => ({
     width: "100%", padding: "9px", fontSize: 13, fontWeight: 700,
-    background: bg, color: "#fff", border: "none", borderRadius: 9, cursor: "pointer", marginTop: 4,
+    background: bg, color: C.white, border: "none", borderRadius: 9, cursor: "pointer", marginTop: 4,
   }),
 };
 
@@ -168,7 +169,7 @@ export default function Pricing() {
   const example = capExample();
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", background: "#f5f5f5", minHeight: "100%" }}>
+    <div style={{ fontFamily: F.ui, background: C.gray50, minHeight: "100%" }}>
       <SeoMeta
         title="Plans & Pricing"
         description="Free personal scoring, or run a full organization. Simple, transparent pricing for lacrosse stats software. No hidden fees."
@@ -178,24 +179,24 @@ export default function Pricing() {
 
         {/* Checkout success banner */}
         {checkoutSuccess && (
-          <div style={{ background: "#eaf6ec", border: "1px solid #b2dfb8", borderRadius: 10, padding: "12px 18px", marginBottom: 24, fontSize: 14, color: "#1a5c2a", fontWeight: 600 }}>
+          <div style={{ background: C.green50, border: `1px solid ${C.green220}`, borderRadius: 10, padding: "12px 18px", marginBottom: 24, fontSize: 14, color: C.green800, fontWeight: 600 }}>
             Payment successful — your plan has been updated. It may take a moment to reflect.
           </div>
         )}
 
         {/* Checkout error banner */}
         {checkoutError && (
-          <div style={{ background: "#fff0f0", border: "1px solid #fcc", borderRadius: 10, padding: "12px 18px", marginBottom: 24, fontSize: 13, color: "#c00" }}>
+          <div style={{ background: C.red55, border: `1px solid ${C.red150}`, borderRadius: 10, padding: "12px 18px", marginBottom: 24, fontSize: 13, color: C.red700 }}>
             {checkoutError}
           </div>
         )}
 
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 44 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#111", letterSpacing: "-0.02em", margin: "0 0 8px" }}>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: C.gray900, letterSpacing: "-0.02em", margin: "0 0 8px" }}>
             Simple, honest pricing
           </h1>
-          <p style={{ fontSize: 15, color: "#666", margin: 0, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 15, color: C.gray600, margin: 0, lineHeight: 1.6 }}>
             Score on your own for free, or run a full organization.<br />No hidden fees.
           </p>
         </div>
@@ -206,62 +207,62 @@ export default function Pricing() {
 
           <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
             {/* Free */}
-            <div style={S.card("#888", false)}>
-              <div style={S.planName("#888")}>Free</div>
+            <div style={S.card(C.gray500, false)}>
+              <div style={S.planName(C.gray500)}>Free</div>
               <div style={{ display: "flex", alignItems: "baseline" }}>
                 <span style={S.price}>$0</span>
                 <span style={S.period}>/ mo</span>
               </div>
               <div style={S.tagline}>Included with every account</div>
-              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.65 }}>
+              <div style={{ fontSize: 12, color: C.gray650, lineHeight: 1.65 }}>
                 Up to <strong>{freeGames} personal games</strong><br />
                 Full stats
               </div>
               {!user && (
-                <button onClick={() => navigate("/login")} style={S.btn("#555")}>
+                <button onClick={() => navigate("/login")} style={S.btn(C.gray650)}>
                   Sign up free
                 </button>
               )}
             </div>
 
             {/* Basic */}
-            <div style={S.card("#1a6bab", false)}>
-              <div style={S.planName("#1a6bab")}>Basic</div>
+            <div style={S.card(C.blue600, false)}>
+              <div style={S.planName(C.blue600)}>Basic</div>
               <div style={{ display: "flex", alignItems: "baseline" }}>
                 <span style={S.price}>$5</span>
                 <span style={S.period}>/ mo</span>
               </div>
               <div style={S.tagline}>For regular scorers</div>
-              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.65 }}>
+              <div style={{ fontSize: 12, color: C.gray650, lineHeight: 1.65 }}>
                 Up to <strong>{basicGames} personal games</strong><br />
                 Full stats
               </div>
               <button
                 onClick={() => handleCheckout("basic")}
                 disabled={loadingPlan === "basic"}
-                style={S.btn("#1a6bab")}
+                style={S.btn(C.blue600)}
               >
                 {loadingPlan === "basic" ? "Redirecting…" : "Get Basic"}
               </button>
             </div>
 
             {/* Plus */}
-            <div style={S.card("#2a7a3b", true)}>
-              <div style={S.badge("#2a7a3b", "#eaf6ec")}>Best value</div>
-              <div style={S.planName("#2a7a3b")}>Plus</div>
+            <div style={S.card(C.green600, true)}>
+              <div style={S.badge(C.green600, C.green50)}>Best value</div>
+              <div style={S.planName(C.green600)}>Plus</div>
               <div style={{ display: "flex", alignItems: "baseline" }}>
                 <span style={S.price}>$10</span>
                 <span style={S.period}>/ mo</span>
               </div>
               <div style={S.tagline}>For power users & coaches</div>
-              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.65 }}>
+              <div style={{ fontSize: 12, color: C.gray650, lineHeight: 1.65 }}>
                 Up to <strong>{plusGames} personal games</strong><br />
                 Full stats
               </div>
               <button
                 onClick={() => handleCheckout("plus")}
                 disabled={loadingPlan === "plus"}
-                style={S.btn("#2a7a3b")}
+                style={S.btn(C.green600)}
               >
                 {loadingPlan === "plus" ? "Redirecting…" : "Get Plus"}
               </button>
@@ -269,8 +270,8 @@ export default function Pricing() {
           </div>
 
           {/* Personal game cap explainer */}
-          <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 12, padding: "14px 18px", fontSize: 13, color: "#555", lineHeight: 1.7 }}>
-            <span style={{ fontWeight: 700, color: "#111" }}>How the personal game cap works: </span>
+          <div style={{ background: C.white, border: `1px solid ${C.gray100}`, borderRadius: 12, padding: "14px 18px", fontSize: 13, color: C.gray650, lineHeight: 1.7 }}>
+            <span style={{ fontWeight: 700, color: C.gray900 }}>How the personal game cap works: </span>
             Personal games are private scorebook entries you create outside of any organization. Your cap is <strong>cumulative</strong> — it combines your personal plan allowance with a bonus from your org&apos;s plan.
             {example && (
               <> For example, a Basic subscriber in a Max org can have up to <strong>{example}</strong> personal games.</>
@@ -286,27 +287,27 @@ export default function Pricing() {
           {/* New org name — shown when user has no orgs yet */}
           {isNewOrgFlow && (
             <div style={{ marginBottom: 14 }}>
-              <label style={{ display: "block", fontSize: 13, color: "#555", fontWeight: 600, marginBottom: 6 }}>
+              <label style={{ display: "block", fontSize: 13, color: C.gray650, fontWeight: 600, marginBottom: 6 }}>
                 Organization name
               </label>
               <input
                 value={newOrgName}
                 onChange={e => setNewOrgName(e.target.value)}
                 placeholder="School/Organization Name"
-                style={{ width: "100%", fontSize: 14, padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 9, background: "#fff", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" }}
+                style={{ width: "100%", fontSize: 14, padding: "9px 12px", border: `1px solid ${C.gray200}`, borderRadius: 9, background: C.white, boxSizing: "border-box", fontFamily: F.ui }}
               />
-              <div style={{ fontSize: 12, color: "#aaa", marginTop: 5 }}>We&apos;ll create your organization when your subscription activates.</div>
+              <div style={{ fontSize: 12, color: C.gray400, marginTop: 5 }}>We&apos;ll create your organization when your subscription activates.</div>
             </div>
           )}
 
           {/* Org selector — shown only when the user is admin of 2+ active orgs */}
           {user && activeAdminOrgs.length > 1 && (
             <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
-              <label style={{ fontSize: 13, color: "#555", fontWeight: 600 }}>Purchasing for:</label>
+              <label style={{ fontSize: 13, color: C.gray650, fontWeight: 600 }}>Purchasing for:</label>
               <select
                 value={selectedOrgId ?? ""}
                 onChange={e => setSelectedOrgId(e.target.value || null)}
-                style={{ fontSize: 13, padding: "5px 10px", borderRadius: 7, border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}
+                style={{ fontSize: 13, padding: "5px 10px", borderRadius: 7, border: `1px solid ${C.gray300}`, background: C.white, cursor: "pointer" }}
               >
                 <option value="">— select an org —</option>
                 {activeAdminOrgs.map(m => (
@@ -318,14 +319,14 @@ export default function Pricing() {
 
           <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
             {/* Pro */}
-            <div style={S.card("#1a6bab", false)}>
-              <div style={S.planName("#1a6bab")}>Pro</div>
+            <div style={S.card(C.blue600, false)}>
+              <div style={S.planName(C.blue600)}>Pro</div>
               <div style={{ display: "flex", alignItems: "baseline" }}>
                 <span style={S.price}>$10</span>
                 <span style={S.period}>/ mo</span>
               </div>
               <div style={S.tagline}>For a single team or small club</div>
-              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.7 }}>
+              <div style={{ fontSize: 12, color: C.gray650, lineHeight: 1.7 }}>
                 {fmtLimit(orgFeatures?.org_active_seasons?.pro_limit)} active season{orgFeatures?.org_active_seasons?.pro_limit !== 1 ? "s" : ""}<br />
                 {fmtLimit(orgFeatures?.org_active_teams?.pro_limit)} teams · {fmtLimit(orgFeatures?.org_members?.pro_limit)} members<br />
                 {fmtLimit(orgFeatures?.org_games_per_season?.pro_limit)} games / season<br />
@@ -333,12 +334,12 @@ export default function Pricing() {
                 Press Box · Season stats
               </div>
               {user && activeAdminOrgs.length > 1 && !resolvedOrgId ? (
-                <p style={{ fontSize: 12, color: "#aaa", marginTop: 8, textAlign: "center" }}>Select an org above to continue</p>
+                <p style={{ fontSize: 12, color: C.gray400, marginTop: 8, textAlign: "center" }}>Select an org above to continue</p>
               ) : (
                 <button
                   onClick={() => handleCheckout("pro", resolvedOrgId)}
                   disabled={loadingPlan === "pro" || (user && activeAdminOrgs.length > 0 && !resolvedOrgId) || (isNewOrgFlow && !newOrgName.trim())}
-                  style={S.btn("#111")}
+                  style={S.btn(C.gray900)}
                 >
                   {loadingPlan === "pro" ? "Redirecting…" : "Get Pro"}
                 </button>
@@ -346,15 +347,15 @@ export default function Pricing() {
             </div>
 
             {/* Max */}
-            <div style={S.card("#2a7a3b", true)}>
-              <div style={S.badge("#2a7a3b", "#eaf6ec")}>Most popular</div>
-              <div style={S.planName("#2a7a3b")}>Max</div>
+            <div style={S.card(C.green600, true)}>
+              <div style={S.badge(C.green600, C.green50)}>Most popular</div>
+              <div style={S.planName(C.green600)}>Max</div>
               <div style={{ display: "flex", alignItems: "baseline" }}>
                 <span style={S.price}>$20</span>
                 <span style={S.period}>/ mo</span>
               </div>
               <div style={S.tagline}>For leagues and multi-team programs</div>
-              <div style={{ fontSize: 12, color: "#555", lineHeight: 1.7 }}>
+              <div style={{ fontSize: 12, color: C.gray650, lineHeight: 1.7 }}>
                 {fmtLimit(orgFeatures?.org_active_seasons?.max_limit)} active seasons<br />
                 {fmtLimit(orgFeatures?.org_active_teams?.max_limit)} teams · {fmtLimit(orgFeatures?.org_members?.max_limit)} members<br />
                 {fmtLimit(orgFeatures?.org_games_per_season?.max_limit)} games / season<br />
@@ -362,12 +363,12 @@ export default function Pricing() {
                 Press Box · Season stats · Multi-scorer
               </div>
               {user && activeAdminOrgs.length > 1 && !resolvedOrgId ? (
-                <p style={{ fontSize: 12, color: "#aaa", marginTop: 8, textAlign: "center" }}>Select an org above to continue</p>
+                <p style={{ fontSize: 12, color: C.gray400, marginTop: 8, textAlign: "center" }}>Select an org above to continue</p>
               ) : (
                 <button
                   onClick={() => handleCheckout("max", resolvedOrgId)}
                   disabled={loadingPlan === "max" || (user && activeAdminOrgs.length > 0 && !resolvedOrgId) || (isNewOrgFlow && !newOrgName.trim())}
-                  style={S.btn("#2a7a3b")}
+                  style={S.btn(C.green600)}
                 >
                   {loadingPlan === "max" ? "Redirecting…" : "Get Max"}
                 </button>
@@ -376,11 +377,11 @@ export default function Pricing() {
           </div>
 
           {/* Org feature comparison table */}
-          <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, overflow: "hidden" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px", borderBottom: "2px solid #f0f0f0" }}>
-              <div style={{ padding: "13px 20px", fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em" }}>Feature</div>
-              <div style={{ padding: "13px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#1a6bab", textTransform: "uppercase", letterSpacing: "0.07em" }}>Pro</div>
-              <div style={{ padding: "13px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#2a7a3b", textTransform: "uppercase", letterSpacing: "0.07em" }}>Max</div>
+          <div style={{ background: C.white, border: `1px solid ${C.gray100}`, borderRadius: 14, overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px", borderBottom: `2px solid ${C.gray75}` }}>
+              <div style={{ padding: "13px 20px", fontSize: 11, fontWeight: 700, color: C.gray400, textTransform: "uppercase", letterSpacing: "0.07em" }}>Feature</div>
+              <div style={{ padding: "13px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: C.blue600, textTransform: "uppercase", letterSpacing: "0.07em" }}>Pro</div>
+              <div style={{ padding: "13px 8px", textAlign: "center", fontSize: 11, fontWeight: 700, color: C.green600, textTransform: "uppercase", letterSpacing: "0.07em" }}>Max</div>
             </div>
             {ORG_FEATURE_ORDER.filter(id => orgFeatures?.[id] !== undefined || orgFeatures === null).map((id, i, arr) => {
               const feature = orgFeatures?.[id];
@@ -388,14 +389,14 @@ export default function Pricing() {
               return (
                 <div key={id} style={{
                   display: "grid", gridTemplateColumns: "1fr 100px 100px",
-                  borderBottom: i < arr.length - 1 ? "1px solid #f5f5f5" : "none",
-                  background: i % 2 === 0 ? "#fff" : "#fafafa",
+                  borderBottom: i < arr.length - 1 ? `1px solid ${C.gray50}` : "none",
+                  background: i % 2 === 0 ? C.white : C.gray25,
                 }}>
-                  <div style={{ padding: "12px 20px", fontSize: 13, color: "#333" }}>{ORG_FEATURE_LABELS[id] ?? id}</div>
-                  <div style={{ padding: "12px 8px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#111" }}>
+                  <div style={{ padding: "12px 20px", fontSize: 13, color: C.gray750 }}>{ORG_FEATURE_LABELS[id] ?? id}</div>
+                  <div style={{ padding: "12px 8px", textAlign: "center", fontSize: 13, fontWeight: 600, color: C.gray900 }}>
                     {feature ? fmtLimit(feature.pro_limit, isBool) : "—"}
                   </div>
-                  <div style={{ padding: "12px 8px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#111" }}>
+                  <div style={{ padding: "12px 8px", textAlign: "center", fontSize: 13, fontWeight: 600, color: C.gray900 }}>
                     {feature ? fmtLimit(feature.max_limit, isBool) : "—"}
                   </div>
                 </div>
@@ -403,18 +404,18 @@ export default function Pricing() {
             })}
           </div>
 
-          <div style={{ marginTop: 10, fontSize: 12, color: "#bbb", textAlign: "center" }}>
+          <div style={{ marginTop: 10, fontSize: 12, color: C.gray350, textAlign: "center" }}>
             Org plans are billed per organization.
           </div>
         </div>
 
         {/* Footer CTA */}
-        <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ background: C.white, border: `1px solid ${C.gray100}`, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 3 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.gray900, marginBottom: 3 }}>
               {user ? "Manage your plan" : "Start for free"}
             </div>
-            <div style={{ fontSize: 13, color: "#666" }}>
+            <div style={{ fontSize: 13, color: C.gray600 }}>
               {user
                 ? "View your current personal plan and org memberships."
                 : "Create an account and score your first games at no cost."}
@@ -422,18 +423,18 @@ export default function Pricing() {
           </div>
           {user ? (
             <button onClick={() => navigate("/profile")}
-              style={{ fontSize: 13, fontWeight: 600, color: "#1a6bab", background: "none", border: "1px solid #c0d8f0", borderRadius: 8, padding: "7px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>
+              style={{ fontSize: 13, fontWeight: 600, color: C.blue600, background: "none", border: `1px solid ${C.blue200}`, borderRadius: 8, padding: "7px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>
               View profile →
             </button>
           ) : (
             <button onClick={() => navigate("/login")}
-              style={{ fontSize: 13, fontWeight: 600, color: "#fff", background: "#111", border: "none", borderRadius: 8, padding: "8px 16px", cursor: "pointer", whiteSpace: "nowrap" }}>
+              style={{ fontSize: 13, fontWeight: 600, color: C.white, background: C.gray900, border: "none", borderRadius: 8, padding: "8px 16px", cursor: "pointer", whiteSpace: "nowrap" }}>
               Sign up free →
             </button>
           )}
         </div>
 
-        <div style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: "#ccc" }}>
+        <div style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: C.gray300 }}>
           Questions? Email us at hello@laxstats.app
         </div>
 

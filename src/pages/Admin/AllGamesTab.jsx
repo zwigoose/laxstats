@@ -6,6 +6,7 @@ import { displayName } from "./helpers";
 import AdminGameRow from "./AdminGameRow";
 import OrgGameGroup from "./OrgGameGroup";
 import SectionToggle from "./SectionToggle";
+import { C } from "../../styles/tokens";
 
 export default function AllGamesTab() {
   const navigate = useNavigate();
@@ -90,32 +91,32 @@ export default function AllGamesTab() {
     setGames(prev => prev.filter(g => g.id !== gameId));
   }
 
-  if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
-  if (error)   return <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "12px 16px", color: "#c0392b", fontSize: 13, marginBottom: 16 }}>{error}</div>;
+  if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: C.gray400, fontSize: 14 }}>Loading…</div>;
+  if (error)   return <div style={{ background: C.red50, border: `1px solid ${C.red100}`, borderRadius: 10, padding: "12px 16px", color: C.red600, fontSize: 13, marginBottom: 16 }}>{error}</div>;
 
   return (
     <div>
       <div style={{ marginBottom: 14 }}>
         {!showCreateGame ? (
           <button onClick={() => setShowCreateGame(true)}
-            style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer" }}>
+            style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 9, cursor: "pointer" }}>
             + New Game for User
           </button>
         ) : (
-          <div style={{ border: "1px solid #e0e0e0", borderRadius: 14, padding: 16, background: "#fafafa" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>New Game</div>
+          <div style={{ border: `1px solid ${C.gray200}`, borderRadius: 14, padding: 16, background: C.gray25 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>New Game</div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <select value={createForUserId} onChange={e => setCreateForUserId(e.target.value)}
-                style={{ flex: 1, padding: "8px 10px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff" }}>
+                style={{ flex: 1, padding: "8px 10px", fontSize: 13, border: `1px solid ${C.gray200}`, borderRadius: 8, background: C.white }}>
                 <option value="">Select user…</option>
                 {users.map(u => <option key={u.id} value={u.id}>{displayName(u.email)}</option>)}
               </select>
               <button onClick={handleCreateGame} disabled={!createForUserId || creating}
-                style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, background: createForUserId && !creating ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
+                style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, background: createForUserId && !creating ? C.gray900 : C.gray300, color: C.white, border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
                 {creating ? "Creating…" : "Create"}
               </button>
               <button onClick={() => { setShowCreateGame(false); setCreateForUserId(""); }}
-                style={{ padding: "8px 12px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555", flexShrink: 0 }}>
+                style={{ padding: "8px 12px", fontSize: 13, background: "transparent", border: `1px solid ${C.gray200}`, borderRadius: 8, cursor: "pointer", color: C.gray650, flexShrink: 0 }}>
                 Cancel
               </button>
             </div>
@@ -123,7 +124,7 @@ export default function AllGamesTab() {
         )}
       </div>
 
-      {games.length === 0 && <div style={{ textAlign: "center", padding: "24px 0 12px", color: "#aaa", fontSize: 14 }}>No games yet.</div>}
+      {games.length === 0 && <div style={{ textAlign: "center", padding: "24px 0 12px", color: C.gray400, fontSize: 14 }}>No games yet.</div>}
 
       {orgGroups.map(({ org, games: orgGames }) => (
         <OrgGameGroup
@@ -140,7 +141,7 @@ export default function AllGamesTab() {
 
       {personalGames.length > 0 && (
         <div style={{ marginTop: orgGroups.length > 0 ? 16 : 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.gray400, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
             Personal Games
           </div>
           {personalLive.map(g => <AdminGameRow key={g.id} game={g} userMap={userMap} users={users} onReassigned={handleGameReassigned} onDeleted={handleGameDeleted} />)}

@@ -1,17 +1,18 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import { C, F } from "../../styles/tokens";
 
 const PLANS = ["pro", "max", "giga"];
 const PLAN_LABELS = { pro: "Pro", max: "Max", giga: "Giga" };
 const PLAN_COLORS = {
-  pro:  "#1a6bab",
-  max:  "#2a7a3b",
-  giga: "#d4820a",
+  pro:  C.blue600,
+  max:  C.green600,
+  giga: C.orange600,
 };
 
 const PERSONAL_PLANS = ["free", "basic", "plus"];
 const PERSONAL_PLAN_LABELS = { free: "Free", basic: "Basic", plus: "Plus" };
-const PERSONAL_PLAN_COLORS = { free: "#888", basic: "#1a6bab", plus: "#2a7a3b" };
+const PERSONAL_PLAN_COLORS = { free: C.gray500, basic: C.blue600, plus: C.green600 };
 
 function limitDisplay(val) {
   if (val === null || val === undefined) return "∞";
@@ -75,13 +76,13 @@ function LimitCell({ featureId, plan, value, onSave }) {
           placeholder="∞"
           style={{
             width: 52, padding: "3px 6px", fontSize: 13, fontWeight: 600,
-            border: `1px solid ${error ? "#c0392b" : "#1a6bab"}`,
+            border: `1px solid ${error ? C.red600 : C.blue600}`,
             borderRadius: 6, textAlign: "center", outline: "none",
-            fontFamily: "system-ui, sans-serif",
+            fontFamily: F.ui,
             opacity: saving ? 0.5 : 1,
           }}
         />
-        {error && <div style={{ fontSize: 10, color: "#c0392b", marginTop: 2 }}>{error}</div>}
+        {error && <div style={{ fontSize: 10, color: C.red600, marginTop: 2 }}>{error}</div>}
       </td>
     );
   }
@@ -101,12 +102,12 @@ function LimitCell({ featureId, plan, value, onSave }) {
         padding: "2px 8px",
         borderRadius: 6,
         fontSize: 13, fontWeight: 700,
-        background: isOff ? "#f5f5f5" : isUnlim ? "#eaf6ec" : "#f0f0f0",
-        color: isOff ? "#ccc" : isUnlim ? "#2a7a3b" : "#111",
+        background: isOff ? C.gray50 : isUnlim ? C.green50 : C.gray75,
+        color: isOff ? C.gray300 : isUnlim ? C.green600 : C.gray900,
         border: "1px solid transparent",
         transition: "border-color 0.1s",
       }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = "#ddd"}
+        onMouseEnter={e => e.currentTarget.style.borderColor = C.gray250}
         onMouseLeave={e => e.currentTarget.style.borderColor = "transparent"}
       >
         {display}
@@ -160,12 +161,12 @@ function PersonalLimitCell({ plan, value, onSave }) {
           placeholder="∞"
           style={{
             width: 52, padding: "3px 6px", fontSize: 13, fontWeight: 600,
-            border: `1px solid ${error ? "#c0392b" : "#1a6bab"}`,
+            border: `1px solid ${error ? C.red600 : C.blue600}`,
             borderRadius: 6, textAlign: "center", outline: "none",
-            fontFamily: "system-ui, sans-serif", opacity: saving ? 0.5 : 1,
+            fontFamily: F.ui, opacity: saving ? 0.5 : 1,
           }}
         />
-        {error && <div style={{ fontSize: 10, color: "#c0392b", marginTop: 2 }}>{error}</div>}
+        {error && <div style={{ fontSize: 10, color: C.red600, marginTop: 2 }}>{error}</div>}
       </td>
     );
   }
@@ -176,11 +177,11 @@ function PersonalLimitCell({ plan, value, onSave }) {
       <span style={{
         display: "inline-block", minWidth: 36, padding: "2px 8px", borderRadius: 6,
         fontSize: 13, fontWeight: 700,
-        background: isOff ? "#f5f5f5" : isUnlim ? "#eaf6ec" : "#f0f0f0",
-        color: isOff ? "#ccc" : isUnlim ? "#2a7a3b" : "#111",
+        background: isOff ? C.gray50 : isUnlim ? C.green50 : C.gray75,
+        color: isOff ? C.gray300 : isUnlim ? C.green600 : C.gray900,
         border: "1px solid transparent", transition: "border-color 0.1s",
       }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = "#ddd"}
+        onMouseEnter={e => e.currentTarget.style.borderColor = C.gray250}
         onMouseLeave={e => e.currentTarget.style.borderColor = "transparent"}
       >{display}</span>
     </td>
@@ -218,22 +219,22 @@ export default function PlanLimitsTab() {
     );
   }
 
-  if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
-  if (error)   return <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "12px 16px", color: "#c0392b", fontSize: 13 }}>{error}</div>;
+  if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: C.gray400, fontSize: 14 }}>Loading…</div>;
+  if (error)   return <div style={{ background: C.red50, border: `1px solid ${C.red100}`, borderRadius: 10, padding: "12px 16px", color: C.red600, fontSize: 13 }}>{error}</div>;
 
   return (
     <div>
-      <div style={{ fontSize: 11, color: "#aaa", marginBottom: 16 }}>
+      <div style={{ fontSize: 11, color: C.gray400, marginBottom: 16 }}>
         Click any cell to edit. <strong>∞</strong> = unlimited · <strong>off</strong> = disabled · positive integer = cap. Changes apply immediately.
       </div>
 
       {/* Org plan limits */}
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Org Plans</div>
-      <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, overflow: "hidden", marginBottom: 24 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "system-ui, sans-serif" }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: C.gray650, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Org Plans</div>
+      <div style={{ background: C.white, border: `1px solid ${C.gray100}`, borderRadius: 14, overflow: "hidden", marginBottom: 24 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: F.ui }}>
           <thead>
-            <tr style={{ borderBottom: "2px solid #f0f0f0", background: "#fafafa" }}>
-              <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 700, fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em" }}>Feature</th>
+            <tr style={{ borderBottom: `2px solid ${C.gray75}`, background: C.gray25 }}>
+              <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 700, fontSize: 11, color: C.gray400, textTransform: "uppercase", letterSpacing: "0.07em" }}>Feature</th>
               {PLANS.map(p => (
                 <th key={p} style={{ padding: "10px 12px", textAlign: "center", fontWeight: 700, fontSize: 11, color: PLAN_COLORS[p], textTransform: "uppercase", letterSpacing: "0.07em", width: 72 }}>
                   {PLAN_LABELS[p]}
@@ -243,10 +244,10 @@ export default function PlanLimitsTab() {
           </thead>
           <tbody>
             {features.map((f, i) => (
-              <tr key={f.feature_id} style={{ borderBottom: i < features.length - 1 ? "1px solid #f5f5f5" : "none", background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+              <tr key={f.feature_id} style={{ borderBottom: i < features.length - 1 ? `1px solid ${C.gray50}` : "none", background: i % 2 === 0 ? C.white : C.gray25 }}>
                 <td style={{ padding: "10px 16px", verticalAlign: "middle" }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>{f.feature_id}</div>
-                  <div style={{ fontSize: 11, color: "#aaa", marginTop: 1 }}>{f.description}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.gray900 }}>{f.feature_id}</div>
+                  <div style={{ fontSize: 11, color: C.gray400, marginTop: 1 }}>{f.description}</div>
                 </td>
                 {PLANS.map(plan => (
                   <LimitCell
@@ -264,15 +265,15 @@ export default function PlanLimitsTab() {
       </div>
 
       {/* Personal plan limits */}
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#555", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Personal Plans</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: C.gray650, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Personal Plans</div>
       {personalLoading ? (
-        <div style={{ fontSize: 13, color: "#aaa", padding: "8px 0" }}>Loading…</div>
+        <div style={{ fontSize: 13, color: C.gray400, padding: "8px 0" }}>Loading…</div>
       ) : (
-        <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "system-ui, sans-serif" }}>
+        <div style={{ background: C.white, border: `1px solid ${C.gray100}`, borderRadius: 14, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: F.ui }}>
             <thead>
-              <tr style={{ borderBottom: "2px solid #f0f0f0", background: "#fafafa" }}>
-                <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 700, fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em" }}>Limit</th>
+              <tr style={{ borderBottom: `2px solid ${C.gray75}`, background: C.gray25 }}>
+                <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 700, fontSize: 11, color: C.gray400, textTransform: "uppercase", letterSpacing: "0.07em" }}>Limit</th>
                 {PERSONAL_PLANS.map(p => (
                   <th key={p} style={{ padding: "10px 12px", textAlign: "center", fontWeight: 700, fontSize: 11, color: PERSONAL_PLAN_COLORS[p], textTransform: "uppercase", letterSpacing: "0.07em", width: 72 }}>
                     {PERSONAL_PLAN_LABELS[p]}
@@ -283,8 +284,8 @@ export default function PlanLimitsTab() {
             <tbody>
               <tr>
                 <td style={{ padding: "10px 16px", verticalAlign: "middle" }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>game_limit</div>
-                  <div style={{ fontSize: 11, color: "#aaa", marginTop: 1 }}>Max personal games per user</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.gray900 }}>game_limit</div>
+                  <div style={{ fontSize: 11, color: C.gray400, marginTop: 1 }}>Max personal games per user</div>
                 </td>
                 {PERSONAL_PLANS.map(plan => {
                   const row = personalLimits.find(r => r.plan === plan);

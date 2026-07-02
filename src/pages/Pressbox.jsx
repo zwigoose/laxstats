@@ -10,6 +10,7 @@ import { deriveQuarterState } from "../services/gameEvents";
 import { useDocTitle } from "../hooks/useDocTitle";
 import GameTimeline from "../components/GameTimeline";
 import PlayerStatsTable, { PRESSBOX_STAT_KEYS } from "../components/PlayerStatsTable";
+import { C, F } from "../styles/tokens";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -202,13 +203,13 @@ export default function Dashboard() {
   // ── Derived state ─────────────────────────────────────────────────────────
 
   const state    = game?.state;
-  const teams    = state?.teams || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
+  const teams    = state?.teams || [{ name: "Home", color: C.blue600 }, { name: "Away", color: C.orange700 }];
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
   const log = v2Log ?? [];
   const currentQuarter    = derivedQuarterState?.currentQuarter    ?? state?.currentQuarter    ?? 1;
   const completedQuarters = derivedQuarterState?.completedQuarters ?? state?.completedQuarters ?? [];
   const gameOver          = derivedQuarterState?.gameOver          ?? state?.gameOver          ?? false;
-  const teamColors        = [teams[0]?.color || "#1a6bab", teams[1]?.color || "#b84e1a"];
+  const teamColors        = [teams[0]?.color || C.blue600, teams[1]?.color || C.orange700];
 
   const totalScores = useMemo(() => [
     log.filter(e => e.event === "goal" && e.teamIdx === 0).length,
@@ -250,8 +251,8 @@ export default function Dashboard() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  if (loading) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#888", fontSize: 14, fontFamily: "system-ui, sans-serif" }}>Loading…</div>;
-  if (error)   return <div style={{ maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14, fontFamily: "system-ui, sans-serif" }}>{error}</div>;
+  if (loading) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: C.gray500, fontSize: 14, fontFamily: F.ui }}>Loading…</div>;
+  if (error)   return <div style={{ maxWidth: 400, margin: "40px auto", padding: 20, background: C.red50, border: `1px solid ${C.red300}`, borderRadius: 10, color: C.red600, fontSize: 14, fontFamily: F.ui }}>{error}</div>;
 
   const latestTime = getLatestTime(log, currentQuarter);
 
@@ -265,42 +266,42 @@ export default function Dashboard() {
     const b = parseInt(c.slice(4, 6), 16);
     // Relative luminance (simplified sRGB approximation)
     const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-    return lum < 60 ? "#ffffff" : hex;
+    return lum < 60 ? C.white : hex;
   }
 
   // Shared style fragments
-  const card = { border: "1px solid #e5e5e5", borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 };
-  const cardHdr = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 12px", borderBottom: "1px solid #e5e5e5", background: "#f9f9f9", flexShrink: 0 };
-  const cardHdrLabel = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888" };
+  const card = { border: `1px solid ${C.gray150}`, borderRadius: 10, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 };
+  const cardHdr = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 12px", borderBottom: `1px solid ${C.gray150}`, background: C.gray30, flexShrink: 0 };
+  const cardHdrLabel = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: C.gray500 };
   const scrollBody = { flex: 1, overflowY: "auto", minHeight: 0 };
 
   // Table cell styles (condensed)
-  const TH  = (sorted) => ({ padding: "5px 6px", textAlign: "right", fontWeight: 600, fontSize: 10, color: sorted ? "#111" : "#888", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid #e5e5e5", background: "#f5f5f5", cursor: "pointer", whiteSpace: "nowrap" });
-  const THL = { padding: "5px 10px", textAlign: "left", fontWeight: 600, fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid #e5e5e5", background: "#f5f5f5", whiteSpace: "nowrap" };
-  const TD  = (extra={}) => ({ padding: "4px 6px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "right", whiteSpace: "nowrap", ...extra });
-  const TDL = (extra={}) => ({ padding: "4px 10px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "left",  whiteSpace: "nowrap", ...extra });
+  const TH  = (sorted) => ({ padding: "5px 6px", textAlign: "right", fontWeight: 600, fontSize: 10, color: sorted ? C.gray900 : C.gray500, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: `1px solid ${C.gray150}`, background: C.gray50, cursor: "pointer", whiteSpace: "nowrap" });
+  const THL = { padding: "5px 10px", textAlign: "left", fontWeight: 600, fontSize: 10, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: `1px solid ${C.gray150}`, background: C.gray50, whiteSpace: "nowrap" };
+  const TD  = (extra={}) => ({ padding: "4px 6px", borderBottom: `1px solid ${C.gray75}`, color: C.gray900, textAlign: "right", whiteSpace: "nowrap", ...extra });
+  const TDL = (extra={}) => ({ padding: "4px 10px", borderBottom: `1px solid ${C.gray75}`, color: C.gray900, textAlign: "left",  whiteSpace: "nowrap", ...extra });
   const TABLE = { width: "100%", fontSize: 12, borderCollapse: "collapse" };
 
   const tabBtn = (active) => ({
     padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 8,
-    border: "1px solid #ddd", cursor: "pointer",
-    background: active ? "#111" : "transparent",
-    color: active ? "#fff" : "#888",
+    border: `1px solid ${C.gray250}`, cursor: "pointer",
+    background: active ? C.gray900 : "transparent",
+    color: active ? C.white : C.gray500,
   });
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", height: "calc(100vh - var(--footer-h, 36px))", overflow: "hidden", background: "#fff", display: "flex", flexDirection: "column" }}>
+    <div style={{ fontFamily: F.ui, height: "calc(100vh - var(--footer-h, 36px))", overflow: "hidden", background: C.white, display: "flex", flexDirection: "column" }}>
 
       {/* ── Header ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 20px", borderBottom: "1px solid #e5e5e5", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
-        <button style={{ fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", whiteSpace: "nowrap" }} onClick={() => navigate("/")}>← Games</button>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 20px", borderBottom: `1px solid ${C.gray150}`, background: C.white, flexShrink: 0, flexWrap: "wrap" }}>
+        <button style={{ fontSize: 13, fontWeight: 500, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "4px 0", whiteSpace: "nowrap" }} onClick={() => navigate("/")}>← Games</button>
         <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 28, height: 28, objectFit: "contain" }} />
-        <span style={{ fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{game?.name || "Game"}</span>
+        <span style={{ fontSize: 17, fontWeight: 700, color: C.gray900, flex: 1, letterSpacing: "-0.01em", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{game?.name || "Game"}</span>
         {gameOver
-          ? <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "3px 9px" }}>Final</span>
-          : <span style={{ fontSize: 11, fontWeight: 600, color: "#fff", background: "#4caf50", borderRadius: 20, padding: "3px 9px" }}>● Live</span>}
-        <button style={{ fontSize: 12, fontWeight: 500, color: "#555", background: "#f5f5f5", border: "1px solid #e0e0e0", borderRadius: 20, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => navigate(`/games/${id}/view`)}>← View</button>
-        <button style={{ fontSize: 12, fontWeight: 500, color: copied ? "#2a7a3b" : "#555", background: copied ? "#e8f5e9" : "#f5f5f5", border: `1px solid ${copied ? "#c8e6c9" : "#e0e0e0"}`, borderRadius: 20, padding: "4px 10px", cursor: copied ? "default" : "pointer", whiteSpace: "nowrap" }} onClick={copyUrl}>
+          ? <span style={{ fontSize: 11, fontWeight: 600, color: C.gray500, background: C.gray75, borderRadius: 20, padding: "3px 9px" }}>Final</span>
+          : <span style={{ fontSize: 11, fontWeight: 600, color: C.white, background: C.green400, borderRadius: 20, padding: "3px 9px" }}>● Live</span>}
+        <button style={{ fontSize: 12, fontWeight: 500, color: C.gray650, background: C.gray50, border: `1px solid ${C.gray200}`, borderRadius: 20, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => navigate(`/games/${id}/view`)}>← View</button>
+        <button style={{ fontSize: 12, fontWeight: 500, color: copied ? C.green600 : C.gray650, background: copied ? C.green60 : C.gray50, border: `1px solid ${copied ? C.green100 : C.gray200}`, borderRadius: 20, padding: "4px 10px", cursor: copied ? "default" : "pointer", whiteSpace: "nowrap" }} onClick={copyUrl}>
           {copied ? "✓ Copied" : "Copy link"}
         </button>
       </div>
@@ -308,33 +309,33 @@ export default function Dashboard() {
       {/* ── Body ── */}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", padding: "10px 20px 10px" }}>
         {!state ? (
-          <div style={{ textAlign: "center", padding: "60px 16px", color: "#aaa", fontSize: 14 }}>Game hasn't started yet.</div>
+          <div style={{ textAlign: "center", padding: "60px 16px", color: C.gray400, fontSize: 14 }}>Game hasn't started yet.</div>
         ) : (<>
 
           {/* ── Top: score banner + score by quarter + quarter filter ── */}
           <div style={{ flexShrink: 0 }}>
 
             {/* Score banner */}
-            <div style={{ background: "#1a1a1a", borderRadius: 10, padding: "10px 20px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ background: C.gray850, borderRadius: 10, padding: "10px 20px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div style={{ textAlign: "center" }}>
                 {teams[0]?.logoUrl && <img src={teams[0].logoUrl} alt="" style={{ height: 48, maxWidth: 80, objectFit: "contain", display: "block", margin: "0 auto 4px", opacity: 0.9 }} />}
                 <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[0]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[0].name}</div>
                 <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[0]), lineHeight: 1.1 }}>{totalScores[0]}</div>
                 {!gameOver && state?.activeGoalies?.[0] && (
-                  <div style={{ fontSize: 10, color: "#999" }}>GK: #{state.activeGoalies[0].num} {state.activeGoalies[0].name}</div>
+                  <div style={{ fontSize: 10, color: C.gray450 }}>GK: #{state.activeGoalies[0].num} {state.activeGoalies[0].name}</div>
                 )}
               </div>
               <div style={{ textAlign: "center" }}>
-                <span style={{ fontSize: 26, color: "#555" }}>—</span>
-                {!gameOver && latestTime && <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>{latestTime} · {qLabel(currentQuarter)}</div>}
-                {gameOver && <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>Final</div>}
+                <span style={{ fontSize: 26, color: C.gray650 }}>—</span>
+                {!gameOver && latestTime && <div style={{ fontSize: 11, color: C.gray400, marginTop: 2 }}>{latestTime} · {qLabel(currentQuarter)}</div>}
+                {gameOver && <div style={{ fontSize: 11, color: C.gray400, marginTop: 2 }}>Final</div>}
               </div>
               <div style={{ textAlign: "center" }}>
                 {teams[1]?.logoUrl && <img src={teams[1].logoUrl} alt="" style={{ height: 48, maxWidth: 80, objectFit: "contain", display: "block", margin: "0 auto 4px", opacity: 0.9 }} />}
                 <div style={{ fontSize: 11, fontWeight: 600, color: bannerColor(teamColors[1]), textTransform: "uppercase", letterSpacing: "0.05em" }}>{teams[1].name}</div>
                 <div style={{ fontSize: 38, fontWeight: 500, color: bannerColor(teamColors[1]), lineHeight: 1.1 }}>{totalScores[1]}</div>
                 {!gameOver && state?.activeGoalies?.[1] && (
-                  <div style={{ fontSize: 10, color: "#999" }}>GK: #{state.activeGoalies[1].num} {state.activeGoalies[1].name}</div>
+                  <div style={{ fontSize: 10, color: C.gray450 }}>GK: #{state.activeGoalies[1].num} {state.activeGoalies[1].name}</div>
                 )}
               </div>
             </div>
@@ -346,18 +347,18 @@ export default function Dashboard() {
                   <thead><tr>
                     <th style={THL}>Team</th>
                     {allQuarters.map(q => (
-                      <th key={q} style={{ ...TH(false), color: completedQuarters.includes(q) ? "#888" : "#4caf50" }}>
+                      <th key={q} style={{ ...TH(false), color: completedQuarters.includes(q) ? C.gray500 : C.green400 }}>
                         {qLabel(q)}
                         {!completedQuarters.includes(q) && !gameOver && <span style={{ display: "block", fontSize: 8, fontWeight: 400 }}>live</span>}
                       </th>
                     ))}
-                    <th style={{ ...TH(false), color: "#111", borderLeft: "1px solid #e5e5e5" }}>Total</th>
+                    <th style={{ ...TH(false), color: C.gray900, borderLeft: `1px solid ${C.gray150}` }}>Total</th>
                   </tr></thead>
                   <tbody>{[0,1].map(ti => (
                     <tr key={ti}>
                       <td style={TDL({ fontWeight: 600, color: teamColors[ti] })}>{teams[ti].name}</td>
                       {allQuarters.map(q => <td key={q} style={TD()}>{(scoresByQuarter[q]||[0,0])[ti]}</td>)}
-                      <td style={TD({ fontWeight: 700, borderLeft: "1px solid #e5e5e5" })}>{totalScores[ti]}</td>
+                      <td style={TD({ fontWeight: 700, borderLeft: `1px solid ${C.gray150}` })}>{totalScores[ti]}</td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -372,7 +373,7 @@ export default function Dashboard() {
               ))}
               {!gameOver && (
                 <button style={tabBtn(statsQtr === String(currentQuarter))} onClick={() => setStatsQtr(String(currentQuarter))}>
-                  {qLabel(currentQuarter)} <span style={{ fontSize: 9, color: statsQtr === String(currentQuarter) ? "#aaa" : "#4caf50" }}>●</span>
+                  {qLabel(currentQuarter)} <span style={{ fontSize: 9, color: statsQtr === String(currentQuarter) ? C.gray400 : C.green400 }}>●</span>
                 </button>
               )}
             </div>
@@ -392,7 +393,7 @@ export default function Dashboard() {
                     ))}
                   </div>
                   {leftPanel === "team" && (
-                    <span style={{ fontSize: 11, color: "#aaa" }}>
+                    <span style={{ fontSize: 11, color: C.gray400 }}>
                       <span style={{ color: teamColors[0], marginRight: 10, fontWeight: 600 }}>{teams[0].name}</span>
                       <span style={{ color: teamColors[1], fontWeight: 600 }}>{teams[1].name}</span>
                     </span>
@@ -404,7 +405,7 @@ export default function Dashboard() {
                           fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 8,
                           border: `1px solid ${teamColors[ti]}`, cursor: "pointer",
                           background: playerTeam === ti ? teamColors[ti] : "transparent",
-                          color: playerTeam === ti ? "#fff" : teamColors[ti],
+                          color: playerTeam === ti ? C.white : teamColors[ti],
                         }}>{teams[ti]?.name}</button>
                       ))}
                     </div>
@@ -418,11 +419,11 @@ export default function Dashboard() {
                       <tbody>
                         {STAT_SECTIONS.map(section => [
                           <tr key={section.heading}>
-                            <td colSpan={3} style={{ padding: "3px 10px 2px", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#bbb", background: "#fafafa", borderBottom: "1px solid #f0f0f0" }}>{section.heading}</td>
+                            <td colSpan={3} style={{ padding: "3px 10px 2px", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.gray350, background: C.gray25, borderBottom: `1px solid ${C.gray75}` }}>{section.heading}</td>
                           </tr>,
                           ...section.rows.map(row => (
                             <tr key={row.label}>
-                              <td style={TDL({ fontSize: 12, color: "#555" })}>{row.label}</td>
+                              <td style={TDL({ fontSize: 12, color: C.gray650 })}>{row.label}</td>
                               {[0,1].map(ti => {
                                 const val = row.pct
                                   ? row.pct(teamTotals[ti], ti, teamTotals)
@@ -456,11 +457,11 @@ export default function Dashboard() {
               <div style={{ ...card, flex: 6 }}>
                 <div style={cardHdr}>
                   <span style={cardHdrLabel}>Event Log</span>
-                  <span style={{ fontSize: 11, color: "#aaa" }}>{logGroups.length} entries</span>
+                  <span style={{ fontSize: 11, color: C.gray400 }}>{logGroups.length} entries</span>
                 </div>
                 <div style={scrollBody}>
                   {logGroups.length === 0
-                    ? <div style={{ textAlign: "center", padding: "20px 16px", color: "#aaa", fontSize: 13 }}>No events for this period</div>
+                    ? <div style={{ textAlign: "center", padding: "20px 16px", color: C.gray400, fontSize: 13 }}>No events for this period</div>
                     : (() => {
                         const items = [];
                         let lastQ = null;
@@ -468,7 +469,7 @@ export default function Dashboard() {
                           const primary = groupPrimary(group);
                           const q = primary.quarter;
                           if (statsQtr === "all" && q !== lastQ) {
-                            items.push(<div key={`qd-${q}-${gi}`} style={{ padding: "3px 12px 2px", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#bbb", background: "#fafafa", borderBottom: "1px solid #f0f0f0" }}>{qLabel(q)}</div>);
+                            items.push(<div key={`qd-${q}-${gi}`} style={{ padding: "3px 12px 2px", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.gray350, background: C.gray25, borderBottom: `1px solid ${C.gray75}` }}>{qLabel(q)}</div>);
                             lastQ = q;
                           }
                           const { icon, label, player } = entryDisplayInfo(primary);
@@ -490,17 +491,17 @@ export default function Dashboard() {
                           if (primary.penaltyTime) subItems.push({ text: `⏱ ${primary.penaltyTime}` });
                           if (primary.timeoutTime) subItems.push({ text: `⏱ ${primary.timeoutTime}` });
                           items.push(
-                            <div key={primary.groupId} style={{ padding: "6px 12px", borderBottom: "1px solid #f0f0f0" }}>
+                            <div key={primary.groupId} style={{ padding: "6px 12px", borderBottom: `1px solid ${C.gray75}` }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
                                 <div style={{ width: 7, height: 7, borderRadius: "50%", background: teamColors[primary.teamIdx], flexShrink: 0 }} />
                                 <span style={{ fontWeight: 500, flex: 1, fontSize: 12 }}>{icon} {label}</span>
-                                <span style={{ color: "#888", fontSize: 11, whiteSpace: "nowrap" }}>{playerStr}</span>
+                                <span style={{ color: C.gray500, fontSize: 11, whiteSpace: "nowrap" }}>{playerStr}</span>
                                 <span style={{ color: teamColors[primary.teamIdx], fontSize: 10, marginLeft: 5, flexShrink: 0 }}>{teams[primary.teamIdx]?.name}</span>
                               </div>
                               {subItems.length > 0 && (
                                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 2, paddingLeft: 14 }}>
                                   {subItems.map((s, idx) => (
-                                    <span key={idx} style={{ fontSize: 10, color: s.red ? "#c0392b" : "#888", background: s.red ? "#fff0f0" : "#f5f5f5", borderRadius: 4, padding: "1px 5px", fontWeight: s.red ? 600 : 400 }}>{s.text}</span>
+                                    <span key={idx} style={{ fontSize: 10, color: s.red ? C.red600 : C.gray500, background: s.red ? C.red55 : C.gray50, borderRadius: 4, padding: "1px 5px", fontWeight: s.red ? 600 : 400 }}>{s.text}</span>
                                   ))}
                                 </div>
                               )}
@@ -517,7 +518,7 @@ export default function Dashboard() {
               <div style={{ ...card, flex: 4 }}>
                 <div style={cardHdr}>
                   <span style={cardHdrLabel}>Timeline</span>
-                  <span style={{ fontSize: 11, color: "#aaa" }}>{scoringTimeline.length} events</span>
+                  <span style={{ fontSize: 11, color: C.gray400 }}>{scoringTimeline.length} events</span>
                 </div>
                 <div style={scrollBody}>
                   <GameTimeline scoringTimeline={scoringTimeline} teams={teams} teamColors={teamColors} compact />

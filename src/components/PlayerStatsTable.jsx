@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { parseRoster } from "../utils/stats";
 import { STAT_LABELS } from "../constants/lacrosse";
+import { C } from "../styles/tokens";
 
 const SHARED_STAT_KEYS = [
   "goal", "assist", "shot", "sog", "shot_saved", "goal_allowed", "sv_pct",
@@ -90,29 +91,29 @@ export default function PlayerStatsTable({
     textAlign: "right", fontWeight: 600,
     fontSize: compact ? 10 : 11,
     textTransform: "uppercase", letterSpacing: "0.04em",
-    borderBottom: "1px solid #e5e5e5", background: "#f5f5f5",
+    borderBottom: `1px solid ${C.gray150}`, background: C.gray50,
     cursor: "pointer", whiteSpace: "nowrap",
   };
   const thL  = { ...thBase, textAlign: "left", cursor: "default", padding: compact ? "5px 10px" : "8px 14px", position: "sticky", top: 0, left: 0, zIndex: 3 };
-  const th   = sorted => ({ ...thBase, padding: compact ? "5px 6px" : "8px 8px", color: sorted ? "#111" : "#888", position: "sticky", top: 0, zIndex: 2 });
-  const tdL  = { fontSize: fs, padding: compact ? "4px 10px" : "9px 14px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "left", whiteSpace: "nowrap", position: "sticky", left: 0, zIndex: 1, background: "#fff" };
-  const td   = sorted => ({ fontSize: fs, padding: compact ? "4px 6px" : "9px 8px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "right", fontWeight: sorted ? 600 : 400 });
-  const badge = { display: "inline-block", borderRadius: "50%", background: "#f0f0f0", fontWeight: 600, textAlign: "center", color: "#888", flexShrink: 0,
+  const th   = sorted => ({ ...thBase, padding: compact ? "5px 6px" : "8px 8px", color: sorted ? C.gray900 : C.gray500, position: "sticky", top: 0, zIndex: 2 });
+  const tdL  = { fontSize: fs, padding: compact ? "4px 10px" : "9px 14px", borderBottom: `1px solid ${C.gray75}`, color: C.gray900, textAlign: "left", whiteSpace: "nowrap", position: "sticky", left: 0, zIndex: 1, background: C.white };
+  const td   = sorted => ({ fontSize: fs, padding: compact ? "4px 6px" : "9px 8px", borderBottom: `1px solid ${C.gray75}`, color: C.gray900, textAlign: "right", fontWeight: sorted ? 600 : 400 });
+  const badge = { display: "inline-block", borderRadius: "50%", background: C.gray75, fontWeight: 600, textAlign: "center", color: C.gray500, flexShrink: 0,
     width: compact ? 18 : 24, height: compact ? 18 : 24,
     fontSize: compact ? 9 : 11, lineHeight: compact ? "18px" : "24px",
     marginRight: compact ? 4 : 6,
   };
   const titleStyle = {
     fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em",
-    color: "#888", padding: compact ? "6px 10px" : "10px 14px 8px",
-    borderBottom: "1px solid #e5e5e5", background: "#f9f9f9",
+    color: C.gray500, padding: compact ? "6px 10px" : "10px 14px 8px",
+    borderBottom: `1px solid ${C.gray150}`, background: C.gray30,
     display: "flex", justifyContent: "space-between", alignItems: "center",
   };
   const sortBtnStyle = active => ({
     fontSize: 11, padding: "2px 8px", borderRadius: 10,
-    border: "1px solid #ddd", cursor: "pointer",
-    background: active ? "#111" : "transparent",
-    color: active ? "#fff" : "#888",
+    border: `1px solid ${C.gray250}`, cursor: "pointer",
+    background: active ? C.gray900 : "transparent",
+    color: active ? C.white : C.gray500,
     fontWeight: 400, textTransform: "none", letterSpacing: 0,
   });
 
@@ -122,16 +123,16 @@ export default function PlayerStatsTable({
       <div style={titleStyle}>
         <span>Player stats</span>
         <span style={{ display: "flex", gap: 5, alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: "#aaa", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>Sort:</span>
+          <span style={{ fontSize: 11, color: C.gray400, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>Sort:</span>
           <button style={sortBtnStyle(sortKey === "num")}  onClick={() => setSortKey("num")}>#</button>
           <button style={sortBtnStyle(sortKey === "name")} onClick={() => setSortKey("name")}>Name</button>
-          <span style={{ fontSize: 11, color: "#ccc", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>·</span>
-          <span style={{ fontSize: 11, color: "#aaa", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>tap stat to sort</span>
+          <span style={{ fontSize: 11, color: C.gray300, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>·</span>
+          <span style={{ fontSize: 11, color: C.gray400, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>tap stat to sort</span>
         </span>
       </div>
 
       {!hasRows ? (
-        <div style={{ textAlign: "center", padding: "40px 16px", color: "#aaa", fontSize: 14 }}>
+        <div style={{ textAlign: "center", padding: "40px 16px", color: C.gray400, fontSize: 14 }}>
           No player stats for this period
         </div>
       ) : (
@@ -156,7 +157,7 @@ export default function PlayerStatsTable({
                     <tr key={`h-${ti}`}>
                       <td
                         colSpan={visibleKeys.length + 1}
-                        style={{ padding: compact ? "4px 10px 2px" : "8px 14px 4px", fontSize: compact ? 10 : 11, fontWeight: 600, color: teamColors[ti], background: "#fafafa" }}
+                        style={{ padding: compact ? "4px 10px 2px" : "8px 14px 4px", fontSize: compact ? 10 : 11, fontWeight: 600, color: teamColors[ti], background: C.gray25 }}
                       >
                         {teams[ti].name.toUpperCase()}
                       </td>
@@ -176,8 +177,8 @@ export default function PlayerStatsTable({
                           {decision && (
                             <span style={{
                               marginLeft: 6, fontSize: compact ? 9 : 10, fontWeight: 700,
-                              color: decision === "W" ? "#2a7a3b" : "#c0392b",
-                              background: decision === "W" ? "#eaf6ec" : "#fff0ee",
+                              color: decision === "W" ? C.green600 : C.red600,
+                              background: decision === "W" ? C.green50 : C.red65,
                               borderRadius: 4, padding: "1px 5px",
                             }}>{decision}</span>
                           )}

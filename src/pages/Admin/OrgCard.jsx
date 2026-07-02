@@ -5,6 +5,7 @@ import { getGameInfo } from "../../utils/game";
 import { PLANS, PLAN_STATUS, ORG_ROLES, BOOLEAN_FEATURES, PLAN_COLOR, STATUS_COLOR } from "../../constants/lacrosse";
 import { displayName } from "./helpers";
 import { ColorPicker, PRESET_COLORS, OrgLogoSection } from "../TeamManager";
+import { C, F, SH } from "../../styles/tokens";
 
 export default function OrgCard({ org, users, onUpdated, onDeleted }) {
   const navigate = useNavigate();
@@ -149,40 +150,40 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
   }
 
   const pc  = PLAN_COLOR[org.plan] || PLAN_COLOR.pro;
-  const inp = { padding: "6px 9px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", background: "#fff", boxSizing: "border-box" };
+  const inp = { padding: "6px 9px", fontSize: 13, border: `1px solid ${C.gray200}`, borderRadius: 8, fontFamily: F.ui, background: C.white, boxSizing: "border-box" };
 
   return (
-    <div style={{ border: "1px solid #e8e8e8", borderRadius: 14, marginBottom: 10, overflow: "hidden", background: "#fff", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+    <div style={{ border: `1px solid ${C.gray100}`, borderRadius: 14, marginBottom: 10, overflow: "hidden", background: C.white, boxShadow: SH.subtle }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer" }} onClick={toggle}>
-        <div style={{ width: 14, height: 14, borderRadius: "50%", background: orgColor, border: "2px solid #e0e0e0", flexShrink: 0 }} />
+        <div style={{ width: 14, height: 14, borderRadius: "50%", background: orgColor, border: `2px solid ${C.gray200}`, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>{org.name}</span>
-            <span style={{ fontSize: 11, color: "#aaa" }}>/{org.slug}</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: C.gray900 }}>{org.name}</span>
+            <span style={{ fontSize: 11, color: C.gray400 }}>/{org.slug}</span>
             <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "2px 7px", background: pc.bg, color: pc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{org.plan}</span>
-            <span style={{ fontSize: 11, color: STATUS_COLOR[org.plan_status] || "#888" }}>{org.plan_status}</span>
+            <span style={{ fontSize: 11, color: STATUS_COLOR[org.plan_status] || C.gray500 }}>{org.plan_status}</span>
           </div>
-          <div style={{ fontSize: 12, color: "#aaa", marginTop: 3 }}>
+          <div style={{ fontSize: 12, color: C.gray400, marginTop: 3 }}>
             {org.member_count} member{org.member_count !== 1 ? "s" : ""} · {org.game_count} game{org.game_count !== 1 ? "s" : ""} · {org.season_count} season{org.season_count !== 1 ? "s" : ""} · {org.team_count} team{org.team_count !== 1 ? "s" : ""}
           </div>
         </div>
-        <div style={{ fontSize: 14, color: "#ccc", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</div>
+        <div style={{ fontSize: 14, color: C.gray300, transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</div>
       </div>
 
       {open && (
-        <div style={{ borderTop: "1px solid #f0f0f0", padding: "16px" }}>
-          {error && <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 8, padding: "8px 12px", color: "#c0392b", fontSize: 12, marginBottom: 12 }}>{error}</div>}
+        <div style={{ borderTop: `1px solid ${C.gray75}`, padding: "16px" }}>
+          {error && <div style={{ background: C.red50, border: `1px solid ${C.red100}`, borderRadius: 8, padding: "8px 12px", color: C.red600, fontSize: 12, marginBottom: 12 }}>{error}</div>}
           {loadingDetail ? (
-            <div style={{ color: "#aaa", fontSize: 13 }}>Loading…</div>
+            <div style={{ color: C.gray400, fontSize: 13 }}>Loading…</div>
           ) : (
             <>
               {/* Plan */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Plan</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Plan</div>
                 {!editPlan ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 13, color: "#111" }}>{org.plan} · {org.plan_status}</span>
-                    <button onClick={() => setEditPlan(true)} style={{ fontSize: 12, color: "#1a6bab", background: "none", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 9px", cursor: "pointer" }}>Edit</button>
+                    <span style={{ fontSize: 13, color: C.gray900 }}>{org.plan} · {org.plan_status}</span>
+                    <button onClick={() => setEditPlan(true)} style={{ fontSize: 12, color: C.blue600, background: "none", border: `1px solid ${C.blue200}`, borderRadius: 6, padding: "2px 9px", cursor: "pointer" }}>Edit</button>
                   </div>
                 ) : (
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -192,31 +193,31 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
                     <select value={planStatus} onChange={e => setPlanStatus(e.target.value)} style={{ ...inp }}>
                       {PLAN_STATUS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <button onClick={savePlan} disabled={savingPlan} style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>{savingPlan ? "…" : "Save"}</button>
-                    <button onClick={() => { setEditPlan(false); setPlan(org.plan); setPlanStatus(org.plan_status); }} style={{ padding: "6px 12px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555" }}>Cancel</button>
+                    <button onClick={savePlan} disabled={savingPlan} style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 8, cursor: "pointer" }}>{savingPlan ? "…" : "Save"}</button>
+                    <button onClick={() => { setEditPlan(false); setPlan(org.plan); setPlanStatus(org.plan_status); }} style={{ padding: "6px 12px", fontSize: 13, background: "transparent", border: `1px solid ${C.gray200}`, borderRadius: 8, cursor: "pointer", color: C.gray650 }}>Cancel</button>
                   </div>
                 )}
               </div>
 
               {/* Org color */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Org Color</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Org Color</div>
                 {!editingColor ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: orgColor, border: "2px solid #e0e0e0", flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, color: "#555", fontFamily: "monospace" }}>{orgColor}</span>
-                    <button onClick={() => setEditingColor(true)} style={{ fontSize: 12, color: "#1a6bab", background: "none", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 9px", cursor: "pointer" }}>Edit</button>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: orgColor, border: `2px solid ${C.gray200}`, flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, color: C.gray650, fontFamily: F.mono }}>{orgColor}</span>
+                    <button onClick={() => setEditingColor(true)} style={{ fontSize: 12, color: C.blue600, background: "none", border: `1px solid ${C.blue200}`, borderRadius: 6, padding: "2px 9px", cursor: "pointer" }}>Edit</button>
                   </div>
                 ) : (
                   <div>
                     <ColorPicker value={orgColor} onChange={setOrgColor} />
                     <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                       <button onClick={() => handleSaveOrgColor(orgColor)} disabled={savingColor}
-                        style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                        style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 8, cursor: "pointer" }}>
                         {savingColor ? "…" : "Save"}
                       </button>
                       <button onClick={() => { setEditingColor(false); setOrgColor(org.color || PRESET_COLORS[0]); }}
-                        style={{ padding: "6px 12px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555" }}>Cancel</button>
+                        style={{ padding: "6px 12px", fontSize: 13, background: "transparent", border: `1px solid ${C.gray200}`, borderRadius: 8, cursor: "pointer", color: C.gray650 }}>Cancel</button>
                     </div>
                   </div>
                 )}
@@ -224,7 +225,7 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
 
               {/* Org Logo */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Org Logo</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Org Logo</div>
                 <OrgLogoSection
                   orgId={org.id}
                   initialLogoUrl={orgLogoUrl}
@@ -235,19 +236,19 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
 
               {/* Members */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Members</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Members</div>
                 {members.length === 0 ? (
-                  <div style={{ fontSize: 13, color: "#aaa", marginBottom: 10 }}>No members.</div>
+                  <div style={{ fontSize: 13, color: C.gray400, marginBottom: 10 }}>No members.</div>
                 ) : (
                   <div style={{ marginBottom: 10 }}>
                     {members.map(m => (
-                      <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
-                        <span style={{ flex: 1, fontSize: 13, color: "#111" }}>{displayName(m.email)}</span>
+                      <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${C.gray50}` }}>
+                        <span style={{ flex: 1, fontSize: 13, color: C.gray900 }}>{displayName(m.email)}</span>
                         <select value={m.role} onChange={e => handleRoleChange(m.user_id, e.target.value)} style={{ ...inp, padding: "4px 7px", fontSize: 12 }}>
                           {ORG_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                         <button onClick={() => handleRemoveMember(m.user_id)}
-                          style={{ fontSize: 11, color: "#c0392b", background: "none", border: "1px solid #f0a0a0", borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>Remove</button>
+                          style={{ fontSize: 11, color: C.red600, background: "none", border: `1px solid ${C.red300}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>Remove</button>
                       </div>
                     ))}
                   </div>
@@ -262,26 +263,26 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
                   </select>
                   {!addSearchResult ? (
                     <button onClick={handleSearch} disabled={!addUsername.trim() || searching}
-                      style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, background: addUsername.trim() ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                      style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, background: addUsername.trim() ? C.gray900 : C.gray300, color: C.white, border: "none", borderRadius: 8, cursor: "pointer" }}>
                       {searching ? "…" : "Find"}
                     </button>
                   ) : (
                     <button onClick={handleAddMember} disabled={adding}
-                      style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, background: "#2a7a3b", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                      style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, background: C.green600, color: C.white, border: "none", borderRadius: 8, cursor: "pointer" }}>
                       {adding ? "…" : `Add ${addSearchResult.display_name}`}
                     </button>
                   )}
                 </div>
-                {addError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 4 }}>{addError}</div>}
+                {addError && <div style={{ fontSize: 12, color: C.red600, marginTop: 4 }}>{addError}</div>}
               </div>
 
               {/* Feature overrides */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Feature Limits</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Feature Limits</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "6px 12px", alignItems: "center" }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "#aaa" }}>Feature</span>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "#aaa" }}>Plan default</span>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "#aaa" }}>Override</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: C.gray400 }}>Feature</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: C.gray400 }}>Plan default</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: C.gray400 }}>Override</span>
                   {features.map(f => {
                     const isBool = BOOLEAN_FEATURES.has(f.feature_id);
                     const planLabel = isBool
@@ -289,8 +290,8 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
                       : (f.plan_limit === null ? "∞" : f.plan_limit === 0 ? "off" : String(f.plan_limit));
                     return (
                       <>
-                        <span key={f.feature_id + "_n"} style={{ fontSize: 13, color: "#111" }}>{f.description || f.feature_id}</span>
-                        <span key={f.feature_id + "_p"} style={{ fontSize: 12, color: "#aaa", textAlign: "right" }}>{planLabel}</span>
+                        <span key={f.feature_id + "_n"} style={{ fontSize: 13, color: C.gray900 }}>{f.description || f.feature_id}</span>
+                        <span key={f.feature_id + "_p"} style={{ fontSize: 12, color: C.gray400, textAlign: "right" }}>{planLabel}</span>
                         {isBool ? (
                           <select key={f.feature_id + "_o"} value={f.override_limit === null ? "" : String(f.override_limit)}
                             onChange={e => handleFeatureOverride(f.feature_id, e.target.value)}
@@ -308,7 +309,7 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
                     );
                   })}
                 </div>
-                <div style={{ fontSize: 11, color: "#bbb", marginTop: 6 }}>
+                <div style={{ fontSize: 11, color: C.gray350, marginTop: 6 }}>
                   Boolean features: Plan default / true / false. Numeric: blank = plan default, number = override limit.
                 </div>
               </div>
@@ -316,36 +317,36 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
               {/* Teams */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Teams</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em" }}>Teams</div>
                   {!showNewTeam && (
                     <button onClick={() => setShowNewTeam(true)}
-                      style={{ fontSize: 12, fontWeight: 600, color: "#1a6bab", background: "none", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 9px", cursor: "pointer" }}>+ New Team</button>
+                      style={{ fontSize: 12, fontWeight: 600, color: C.blue600, background: "none", border: `1px solid ${C.blue200}`, borderRadius: 6, padding: "2px 9px", cursor: "pointer" }}>+ New Team</button>
                   )}
                 </div>
-                {teams.length === 0 && !showNewTeam && <div style={{ fontSize: 13, color: "#aaa", marginBottom: 8 }}>No teams yet.</div>}
+                {teams.length === 0 && !showNewTeam && <div style={{ fontSize: 13, color: C.gray400, marginBottom: 8 }}>No teams yet.</div>}
                 {teams.length > 0 && (
                   <div style={{ marginBottom: 10 }}>
                     {teams.map(t => (
-                      <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #f5f5f5" }}>
-                        <div style={{ width: 12, height: 12, borderRadius: "50%", background: t.color || "#888", flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, color: "#111", flex: 1 }}>{t.name}</span>
+                      <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: `1px solid ${C.gray50}` }}>
+                        <div style={{ width: 12, height: 12, borderRadius: "50%", background: t.color || C.gray500, flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, color: C.gray900, flex: 1 }}>{t.name}</span>
                         <button onClick={() => navigate(`/orgs/${org.slug}/teams`)}
-                          style={{ fontSize: 11, color: "#555", background: "none", border: "1px solid #ddd", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>Manage</button>
+                          style={{ fontSize: 11, color: C.gray650, background: "none", border: `1px solid ${C.gray250}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>Manage</button>
                       </div>
                     ))}
                   </div>
                 )}
                 {showNewTeam && (
-                  <div style={{ background: "#f7f7f7", borderRadius: 10, padding: "12px 14px", border: "1px solid #e8e8e8" }}>
+                  <div style={{ background: C.gray45, borderRadius: 10, padding: "12px 14px", border: `1px solid ${C.gray100}` }}>
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                       <input style={{ ...inp, flex: 1, minWidth: 120 }} placeholder="Team name" value={newTeamName}
                         onChange={e => setNewTeamName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleCreateTeam()} autoFocus />
                       <button onClick={handleCreateTeam} disabled={!newTeamName.trim() || creatingTeam}
-                        style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: newTeamName.trim() && !creatingTeam ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
+                        style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: newTeamName.trim() && !creatingTeam ? C.gray900 : C.gray300, color: C.white, border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
                         {creatingTeam ? "…" : "Create"}
                       </button>
                       <button onClick={() => { setShowNewTeam(false); setNewTeamName(""); }}
-                        style={{ padding: "6px 10px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555", flexShrink: 0 }}>Cancel</button>
+                        style={{ padding: "6px 10px", fontSize: 13, background: "transparent", border: `1px solid ${C.gray200}`, borderRadius: 8, cursor: "pointer", color: C.gray650, flexShrink: 0 }}>Cancel</button>
                     </div>
                   </div>
                 )}
@@ -354,26 +355,26 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
               {/* Games */}
               {orgGames.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Games</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Games</div>
                   {orgGames.map(g => {
                     const info = getGameInfo(g);
                     const started = info?.started && !info?.gameOver;
                     const over = info?.gameOver;
                     return (
-                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
-                        <div style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: over ? "#ccc" : started ? "#2a7a3b" : "#f0a500" }} />
-                        <span style={{ flex: 1, fontSize: 13, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${C.gray50}` }}>
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, background: over ? C.gray300 : started ? C.green600 : C.orange550 }} />
+                        <span style={{ flex: 1, fontSize: 13, color: C.gray900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {g.name || (info ? `${info.t0?.name} vs ${info.t1?.name}` : "Untitled")}
                         </span>
-                        <span style={{ fontSize: 11, color: "#bbb", flexShrink: 0 }}>{over ? "Final" : started ? "Live" : "Pending"}</span>
+                        <span style={{ fontSize: 11, color: C.gray350, flexShrink: 0 }}>{over ? "Final" : started ? "Live" : "Pending"}</span>
                         {!over && (
                           <button onClick={() => navigate(`/games/${g.id}/score`)}
-                            style={{ padding: "3px 10px", fontSize: 11, fontWeight: 700, background: "#111", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}>
+                            style={{ padding: "3px 10px", fontSize: 11, fontWeight: 700, background: C.gray900, color: C.white, border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}>
                             {started ? "Score" : "Setup"}
                           </button>
                         )}
                         <button onClick={() => navigate(`/games/${g.id}/view`)}
-                          style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, background: "transparent", color: "#555", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}>View</button>
+                          style={{ padding: "3px 10px", fontSize: 11, fontWeight: 600, background: "transparent", color: C.gray650, border: `1px solid ${C.gray250}`, borderRadius: 6, cursor: "pointer", flexShrink: 0 }}>View</button>
                       </div>
                     );
                   })}
@@ -382,15 +383,15 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
 
               {/* Create Game */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Create Game</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Create Game</div>
                 {!showNewGame ? (
                   <button onClick={() => setShowNewGame(true)}
-                    style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                    style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 8, cursor: "pointer" }}>
                     + New Game in {org.name}
                   </button>
                 ) : (
-                  <div style={{ background: "#f7f7f7", borderRadius: 10, padding: "12px 14px", border: "1px solid #e8e8e8" }}>
-                    <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Owner — org admin, coach, or scorekeeper</div>
+                  <div style={{ background: C.gray45, borderRadius: 10, padding: "12px 14px", border: `1px solid ${C.gray100}` }}>
+                    <div style={{ fontSize: 12, color: C.gray500, marginBottom: 8 }}>Owner — org admin, coach, or scorekeeper</div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <select value={gameOwner} onChange={e => setGameOwner(e.target.value)} style={{ ...inp, flex: 1 }}>
                         <option value="">Select member…</option>
@@ -398,34 +399,34 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
                           .map(m => <option key={m.user_id} value={m.user_id}>{displayName(m.email)} — {m.role.replace("org_", "")}</option>)}
                       </select>
                       <button onClick={handleCreateGame} disabled={!gameOwner}
-                        style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: gameOwner ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
+                        style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: gameOwner ? C.gray900 : C.gray300, color: C.white, border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
                         Go to Setup →
                       </button>
                       <button onClick={() => { setShowNewGame(false); setGameOwner(""); }}
-                        style={{ padding: "6px 10px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555", flexShrink: 0 }}>Cancel</button>
+                        style={{ padding: "6px 10px", fontSize: 13, background: "transparent", border: `1px solid ${C.gray200}`, borderRadius: 8, cursor: "pointer", color: C.gray650, flexShrink: 0 }}>Cancel</button>
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Danger zone */}
-              <div style={{ borderTop: "1px solid #f5f5f5", paddingTop: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#c0392b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Danger Zone</div>
+              <div style={{ borderTop: `1px solid ${C.gray50}`, paddingTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.red600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Danger Zone</div>
                 {deleteStage === 0 && (
-                  <button onClick={() => setDeleteStage(1)} style={{ padding: "6px 14px", fontSize: 13, color: "#c0392b", background: "transparent", border: "1px solid #f0a0a0", borderRadius: 8, cursor: "pointer" }}>Delete org…</button>
+                  <button onClick={() => setDeleteStage(1)} style={{ padding: "6px 14px", fontSize: 13, color: C.red600, background: "transparent", border: `1px solid ${C.red300}`, borderRadius: 8, cursor: "pointer" }}>Delete org…</button>
                 )}
                 {deleteStage === 1 && (
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "#c0392b" }}>Delete <strong>{org.name}</strong> and all its data?</span>
-                    <button onClick={() => setDeleteStage(0)} style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}>Cancel</button>
-                    <button onClick={() => setDeleteStage(2)} style={{ padding: "5px 12px", fontSize: 12, color: "#c0392b", background: "transparent", border: "1px solid #e08080", borderRadius: 7, cursor: "pointer", fontWeight: 600 }}>Delete</button>
+                    <span style={{ fontSize: 13, color: C.red600 }}>Delete <strong>{org.name}</strong> and all its data?</span>
+                    <button onClick={() => setDeleteStage(0)} style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }}>Cancel</button>
+                    <button onClick={() => setDeleteStage(2)} style={{ padding: "5px 12px", fontSize: 12, color: C.red600, background: "transparent", border: `1px solid ${C.red400}`, borderRadius: 7, cursor: "pointer", fontWeight: 600 }}>Delete</button>
                   </div>
                 )}
                 {deleteStage === 2 && (
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "#c0392b", fontWeight: 600 }}>Cannot be undone. Confirm?</span>
-                    <button onClick={() => setDeleteStage(0)} style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}>Cancel</button>
-                    <button onClick={handleDelete} disabled={deleting} style={{ padding: "5px 12px", fontSize: 12, background: "#c0392b", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", fontWeight: 600 }}>{deleting ? "…" : "Yes, delete"}</button>
+                    <span style={{ fontSize: 13, color: C.red600, fontWeight: 600 }}>Cannot be undone. Confirm?</span>
+                    <button onClick={() => setDeleteStage(0)} style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }}>Cancel</button>
+                    <button onClick={handleDelete} disabled={deleting} style={{ padding: "5px 12px", fontSize: 12, background: C.red600, color: C.white, border: "none", borderRadius: 7, cursor: "pointer", fontWeight: 600 }}>{deleting ? "…" : "Yes, delete"}</button>
                   </div>
                 )}
               </div>

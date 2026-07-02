@@ -11,24 +11,25 @@ import { useAuth } from "../contexts/AuthContext";
 import LaxStats from "../components/LaxStats";
 import { useGameEvents } from "../hooks/useGameEvents";
 import { updateGameEventsPlayer } from "../services/gameEvents";
+import { C, F } from "../styles/tokens";
 
 const S = {
-  header:        { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10, fontFamily: "system-ui, sans-serif" },
-  backBtn:       { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
+  header:        { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: `1px solid ${C.gray150}`, background: C.white, position: "sticky", top: 0, zIndex: 10, fontFamily: F.ui },
+  backBtn:       { fontSize: 13, fontWeight: 500, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
   // minWidth 0 + ellipsis: when status text ("Saving…") appears, the title
   // truncates instead of wrapping — keeps the sticky header a constant height
   // so the UI below never shifts (most visible on narrow mobile screens).
-  headerTitle:   { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-  saveStatus:    { fontSize: 12, color: "#aaa" },
-  viewBtn:       { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#555" },
-  loading:       { fontFamily: "system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#888", fontSize: 14 },
-  error:         { fontFamily: "system-ui, sans-serif", maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14 },
-  secondaryBadge: { whiteSpace: "nowrap", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#1a6bab", background: "#eef4fb", border: "1px solid #c0d8f0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
-  primaryBadge:   { whiteSpace: "nowrap", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #b5e0c0", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
-  offlineBadge:   { whiteSpace: "nowrap", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#9a4800", background: "#fff3e0", border: "1px solid #ffd08a", borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
-  syncingStatus:  { fontSize: 12, color: "#1a6bab" },
-  syncedStatus:   { fontSize: 12, color: "#2a7a3b" },
-  syncErrStatus:  { fontSize: 12, color: "#c0392b" },
+  headerTitle:   { fontSize: 17, fontWeight: 700, color: C.gray900, flex: 1, letterSpacing: "-0.01em", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  saveStatus:    { fontSize: 12, color: C.gray400 },
+  viewBtn:       { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 8, cursor: "pointer", color: C.gray650 },
+  loading:       { fontFamily: F.ui, display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: C.gray500, fontSize: 14 },
+  error:         { fontFamily: F.ui, maxWidth: 400, margin: "40px auto", padding: 20, background: C.red50, border: `1px solid ${C.red300}`, borderRadius: 10, color: C.red600, fontSize: 14 },
+  secondaryBadge: { whiteSpace: "nowrap", flexShrink: 0, fontSize: 11, fontWeight: 700, color: C.blue600, background: C.blue50, border: `1px solid ${C.blue200}`, borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
+  primaryBadge:   { whiteSpace: "nowrap", flexShrink: 0, fontSize: 11, fontWeight: 700, color: C.green600, background: C.green50, border: `1px solid ${C.green200}`, borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
+  offlineBadge:   { whiteSpace: "nowrap", flexShrink: 0, fontSize: 11, fontWeight: 700, color: C.orange850, background: C.orange100, border: `1px solid ${C.orange250}`, borderRadius: 6, padding: "2px 8px", letterSpacing: "0.04em" },
+  syncingStatus:  { fontSize: 12, color: C.blue600 },
+  syncedStatus:   { fontSize: 12, color: C.green600 },
+  syncErrStatus:  { fontSize: 12, color: C.red600 },
 };
 
 function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }) {
@@ -291,22 +292,22 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
       </div>
 
       {inviteState === "error" && (
-        <div style={{ padding: "8px 16px", background: "#fff5f5", borderBottom: "1px solid #fdd", fontFamily: "system-ui, sans-serif", fontSize: 12, color: "#c0392b" }}>
+        <div style={{ padding: "8px 16px", background: C.red50, borderBottom: `1px solid ${C.red100}`, fontFamily: F.ui, fontSize: 12, color: C.red600 }}>
           Could not generate invite link: {inviteError}
         </div>
       )}
 
       {inviteLink && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", background: "#f0f7ff", borderBottom: "1px solid #c8dff5", fontFamily: "system-ui, sans-serif" }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#1a6bab", whiteSpace: "nowrap" }}>Scorer invite link</span>
-          <span style={{ flex: 1, fontSize: 11, color: "#444", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "monospace" }}>{inviteLink}</span>
-          <button onClick={copyInviteLink} style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, background: inviteState === "copied" ? "#2a7a3b" : "#1a6bab", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", background: C.blue35, borderBottom: `1px solid ${C.blue160}`, fontFamily: F.ui }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: C.blue600, whiteSpace: "nowrap" }}>Scorer invite link</span>
+          <span style={{ flex: 1, fontSize: 11, color: C.gray700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F.mono }}>{inviteLink}</span>
+          <button onClick={copyInviteLink} style={{ padding: "4px 12px", fontSize: 11, fontWeight: 600, background: inviteState === "copied" ? C.green600 : C.blue600, color: C.white, border: "none", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
             {inviteState === "copied" ? "Copied ✓" : "Copy"}
           </button>
-          <button onClick={generateInviteLink} style={{ padding: "4px 10px", fontSize: 11, color: "#1a6bab", background: "transparent", border: "1px solid #b3d4f0", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
+          <button onClick={generateInviteLink} style={{ padding: "4px 10px", fontSize: 11, color: C.blue600, background: "transparent", border: `1px solid ${C.blue250}`, borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}>
             New link
           </button>
-          <span style={{ fontSize: 10, color: "#999", whiteSpace: "nowrap" }}>Expires 24h</span>
+          <span style={{ fontSize: 10, color: C.gray450, whiteSpace: "nowrap" }}>Expires 24h</span>
         </div>
       )}
 

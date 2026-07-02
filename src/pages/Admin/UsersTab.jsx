@@ -6,11 +6,12 @@ import { qLabel } from "../../utils/stats";
 import { formatDate, getGameInfo } from "../../utils/game";
 import { displayName, makeTempClient } from "./helpers";
 import { PERSONAL_PLANS, PLAN_STATUS } from "../../constants/lacrosse";
+import { C, F, SH } from "../../styles/tokens";
 
 const PERSONAL_PLAN_COLOR = {
-  free:  { bg: "#f5f5f5", color: "#888" },
-  basic: { bg: "#eef4fb", color: "#1a6bab" },
-  plus:  { bg: "#eaf6ec", color: "#2a7a3b" },
+  free:  { bg: C.gray50, color: C.gray500 },
+  basic: { bg: C.blue50, color: C.blue600 },
+  plus:  { bg: C.green50, color: C.green600 },
 };
 
 export default function UsersTab() {
@@ -112,40 +113,40 @@ export default function UsersTab() {
     return map;
   }, [games]);
 
-  if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
-  if (error)   return <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "12px 16px", color: "#c0392b", fontSize: 13, marginBottom: 16 }}>{error}</div>;
+  if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: C.gray400, fontSize: 14 }}>Loading…</div>;
+  if (error)   return <div style={{ background: C.red50, border: `1px solid ${C.red100}`, borderRadius: 10, padding: "12px 16px", color: C.red600, fontSize: 13, marginBottom: 16 }}>{error}</div>;
 
-  const inputStyle = { width: "100%", padding: "8px 10px", fontSize: 14, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" };
+  const inputStyle = { width: "100%", padding: "8px 10px", fontSize: 14, border: `1px solid ${C.gray200}`, borderRadius: 8, background: C.white, boxSizing: "border-box", fontFamily: F.ui };
 
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
         {!showCreate ? (
-          <button onClick={() => setShowCreate(true)} style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer" }}>
+          <button onClick={() => setShowCreate(true)} style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 9, cursor: "pointer" }}>
             + Create User
           </button>
         ) : (
-          <div style={{ border: "1px solid #e0e0e0", borderRadius: 14, padding: 16, background: "#fafafa" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>New User</div>
+          <div style={{ border: `1px solid ${C.gray200}`, borderRadius: 14, padding: 16, background: C.gray25 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>New User</div>
             <form onSubmit={handleCreateUser}>
               <div style={{ marginBottom: 10 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Email</label>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Email</label>
                 <input style={inputStyle} type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)}
                   placeholder="user@example.com" required autoCapitalize="off" autoCorrect="off" />
               </div>
               <div style={{ marginBottom: 12 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Password</label>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Password</label>
                 <input style={inputStyle} type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)}
                   placeholder="At least 6 characters" required autoComplete="new-password" />
               </div>
               {createError && (
-                <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 8, padding: "8px 12px", color: "#c0392b", fontSize: 12, marginBottom: 10 }}>{createError}</div>
+                <div style={{ background: C.red50, border: `1px solid ${C.red100}`, borderRadius: 8, padding: "8px 12px", color: C.red600, fontSize: 12, marginBottom: 10 }}>{createError}</div>
               )}
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="button" onClick={() => { setShowCreate(false); setCreateError(null); setNewEmail(""); setNewPassword(""); }}
-                  style={{ padding: "8px 14px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555" }}>Cancel</button>
+                  style={{ padding: "8px 14px", fontSize: 13, background: "transparent", border: `1px solid ${C.gray200}`, borderRadius: 8, cursor: "pointer", color: C.gray650 }}>Cancel</button>
                 <button type="submit" disabled={creating}
-                  style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, background: creating ? "#ccc" : "#111", color: "#fff", border: "none", borderRadius: 8, cursor: creating ? "not-allowed" : "pointer" }}>
+                  style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, background: creating ? C.gray300 : C.gray900, color: C.white, border: "none", borderRadius: 8, cursor: creating ? "not-allowed" : "pointer" }}>
                   {creating ? "Creating…" : "Create"}
                 </button>
               </div>
@@ -161,73 +162,73 @@ export default function UsersTab() {
           const isSelf = u.id === currentUser?.id;
           const deleteStage = deleteStages[u.id] ?? 0;
           return (
-            <li key={u.id} style={{ border: "1px solid #e8e8e8", borderRadius: 14, marginBottom: 10, overflow: "hidden", background: "#fff", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+            <li key={u.id} style={{ border: `1px solid ${C.gray100}`, borderRadius: 14, marginBottom: 10, overflow: "hidden", background: C.white, boxShadow: SH.subtle }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", cursor: "pointer" }}
                 onClick={() => setExpandedId(open ? null : u.id)}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: u.is_admin ? "#fff3e0" : "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: u.is_admin ? C.orange100 : C.gray75, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
                   {u.is_admin ? "⭐" : "👤"}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{displayName(u.email)}</span>
-                    {isSelf && <span style={{ fontSize: 10, fontWeight: 700, color: "#1a6bab", background: "#eef4fb", borderRadius: 6, padding: "2px 6px", letterSpacing: "0.06em" }}>YOU</span>}
-                    {u.is_admin && <span style={{ fontSize: 10, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 6, padding: "2px 6px", letterSpacing: "0.06em", textTransform: "uppercase" }}>Admin</span>}
+                    <span style={{ fontSize: 15, fontWeight: 600, color: C.gray900 }}>{displayName(u.email)}</span>
+                    {isSelf && <span style={{ fontSize: 10, fontWeight: 700, color: C.blue600, background: C.blue50, borderRadius: 6, padding: "2px 6px", letterSpacing: "0.06em" }}>YOU</span>}
+                    {u.is_admin && <span style={{ fontSize: 10, fontWeight: 700, color: C.orange600, background: C.orange50, borderRadius: 6, padding: "2px 6px", letterSpacing: "0.06em", textTransform: "uppercase" }}>Admin</span>}
                     {(() => { const pc = PERSONAL_PLAN_COLOR[u.personal_plan] || PERSONAL_PLAN_COLOR.free; return (
                       <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 6, padding: "2px 6px", background: pc.bg, color: pc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{u.personal_plan ?? "free"}</span>
                     ); })()}
                   </div>
-                  <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>{userGames.length} game{userGames.length !== 1 ? "s" : ""}</div>
+                  <div style={{ fontSize: 12, color: C.gray400, marginTop: 2 }}>{userGames.length} game{userGames.length !== 1 ? "s" : ""}</div>
                 </div>
                 {!isSelf && (
                   <>
                     <button disabled={togglingId === u.id}
                       onClick={e => { e.stopPropagation(); toggleAdmin(u.id, u.is_admin); }}
                       style={{ padding: "5px 11px", fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: "pointer", border: "1px solid", flexShrink: 0,
-                        background: u.is_admin ? "#fff8ec" : "#f5f5f5", color: u.is_admin ? "#d4820a" : "#555", borderColor: u.is_admin ? "#f0d080" : "#ddd" }}>
+                        background: u.is_admin ? C.orange50 : C.gray50, color: u.is_admin ? C.orange600 : C.gray650, borderColor: u.is_admin ? C.amber300 : C.gray250 }}>
                       {togglingId === u.id ? "…" : u.is_admin ? "Revoke admin" : "Make admin"}
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); setDeleteStage(u.id, deleteStage === 0 ? 1 : null); }}
-                      style={{ padding: "5px 9px", fontSize: 14, background: "transparent", border: "1px solid #f0a0a0", borderRadius: 8, cursor: "pointer", color: "#c0392b", lineHeight: 1, flexShrink: 0 }}>
+                      style={{ padding: "5px 9px", fontSize: 14, background: "transparent", border: `1px solid ${C.red300}`, borderRadius: 8, cursor: "pointer", color: C.red600, lineHeight: 1, flexShrink: 0 }}>
                       🗑
                     </button>
                   </>
                 )}
-                <div style={{ fontSize: 14, color: "#ccc", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s", marginLeft: isSelf ? 0 : 4 }}>›</div>
+                <div style={{ fontSize: 14, color: C.gray300, transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s", marginLeft: isSelf ? 0 : 4 }}>›</div>
               </div>
 
               {deleteStage === 1 && (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", background: "#fff5f5", borderTop: "1px solid #fdd" }}>
-                  <span style={{ fontSize: 13, color: "#c0392b", fontWeight: 500 }}>Delete this user?</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", background: C.red50, borderTop: `1px solid ${C.red100}` }}>
+                  <span style={{ fontSize: 13, color: C.red600, fontWeight: 500 }}>Delete this user?</span>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}
+                    <button style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }}
                       onClick={() => setDeleteStage(u.id, null)}>Cancel</button>
-                    <button style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #e08080", borderRadius: 7, cursor: "pointer", color: "#c0392b", fontWeight: 600 }}
+                    <button style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.red400}`, borderRadius: 7, cursor: "pointer", color: C.red600, fontWeight: 600 }}
                       onClick={() => setDeleteStage(u.id, 2)}>Delete</button>
                   </div>
                 </div>
               )}
               {deleteStage === 2 && (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", background: "#fef0f0", borderTop: "1px solid #e8a0a0" }}>
-                  <span style={{ fontSize: 13, color: "#c0392b", fontWeight: 600 }}>Permanently delete? Cannot be undone.</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", background: C.red60, borderTop: `1px solid ${C.red310}` }}>
+                  <span style={{ fontSize: 13, color: C.red600, fontWeight: 600 }}>Permanently delete? Cannot be undone.</span>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}
+                    <button style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }}
                       onClick={() => setDeleteStage(u.id, null)}>Cancel</button>
-                    <button style={{ padding: "5px 12px", fontSize: 12, background: "#c0392b", border: "none", borderRadius: 7, cursor: "pointer", color: "#fff", fontWeight: 600 }}
+                    <button style={{ padding: "5px 12px", fontSize: 12, background: C.red600, border: "none", borderRadius: 7, cursor: "pointer", color: C.white, fontWeight: 600 }}
                       onClick={() => handleDeleteUser(u.id)}>Yes, delete</button>
                   </div>
                 </div>
               )}
 
               {open && (
-                <div style={{ borderTop: "1px solid #f0f0f0", padding: "12px 16px" }}>
+                <div style={{ borderTop: `1px solid ${C.gray75}`, padding: "12px 16px" }}>
                   {/* Personal plan management */}
                   {(() => {
                     const edit = planEditFor(u);
-                    const inp = { padding: "5px 8px", fontSize: 12, border: "1px solid #e0e0e0", borderRadius: 7, background: "#fff", fontFamily: "system-ui, sans-serif" };
+                    const inp = { padding: "5px 8px", fontSize: 12, border: `1px solid ${C.gray200}`, borderRadius: 7, background: C.white, fontFamily: F.ui };
                     return (
-                      <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid #f5f5f5" }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Personal Plan</div>
+                      <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${C.gray50}` }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Personal Plan</div>
                         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                           <select value={edit.plan} onChange={e => setPlanEdit(u.id, { plan: e.target.value })} style={inp}>
                             {PERSONAL_PLANS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -236,45 +237,45 @@ export default function UsersTab() {
                             {PLAN_STATUS.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                           <button onClick={() => handleSavePlan(u)} disabled={edit.saving}
-                            style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: edit.saving ? "#ccc" : "#111", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}>
+                            style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: edit.saving ? C.gray300 : C.gray900, color: C.white, border: "none", borderRadius: 7, cursor: "pointer" }}>
                             {edit.saving ? "…" : "Save"}
                           </button>
                         </div>
-                        {edit.error && <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4 }}>{edit.error}</div>}
+                        {edit.error && <div style={{ fontSize: 11, color: C.red600, marginTop: 4 }}>{edit.error}</div>}
                       </div>
                     );
                   })()}
                   {userGames.length === 0 ? (
-                    <div style={{ fontSize: 13, color: "#aaa" }}>No games yet.</div>
+                    <div style={{ fontSize: 13, color: C.gray400 }}>No games yet.</div>
                   ) : (
                     <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
                       {userGames.map(g => {
                         const info = getGameInfo(g);
                         return (
-                          <li key={g.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "#fafafa", borderRadius: 9, border: "1px solid #efefef" }}>
+                          <li key={g.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: C.gray25, borderRadius: 9, border: `1px solid ${C.gray80}` }}>
                             <div>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: C.gray900 }}>
                                 {info ? `${info.t0.name} vs ${info.t1.name}` : g.name}
                               </div>
-                              <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>{formatDate(g.created_at)}</div>
+                              <div style={{ fontSize: 11, color: C.gray400, marginTop: 2 }}>{formatDate(g.created_at)}</div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                               {info?.gameOver ? (
-                                <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "2px 8px" }}>Final</span>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: C.gray500, background: C.gray75, borderRadius: 20, padding: "2px 8px" }}>Final</span>
                               ) : info?.started ? (
-                                <span style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "2px 8px" }}>● Live{info.latestTime ? ` · ${info.latestTime} ${qLabel(info.currentQuarter)}` : ""}</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: C.green600, background: C.green50, borderRadius: 20, padding: "2px 8px" }}>● Live{info.latestTime ? ` · ${info.latestTime} ${qLabel(info.currentQuarter)}` : ""}</span>
                               ) : (
-                                <span style={{ fontSize: 11, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "2px 8px" }}>Pending</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: C.orange600, background: C.orange50, borderRadius: 20, padding: "2px 8px" }}>Pending</span>
                               )}
                               {info && (
-                                <span style={{ fontSize: 13, fontWeight: 700, color: "#111", fontVariantNumeric: "tabular-nums" }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: C.gray900, fontVariantNumeric: "tabular-nums" }}>
                                   {info.score0}–{info.score1}
                                 </span>
                               )}
-                              <button style={{ padding: "3px 8px", fontSize: 11, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", color: "#555" }}
+                              <button style={{ padding: "3px 8px", fontSize: 11, fontWeight: 500, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 6, cursor: "pointer", color: C.gray650 }}
                                 onClick={() => navigate(`/games/${g.id}/view`)}>View</button>
                               {!info?.gameOver && (
-                                <button style={{ padding: "3px 8px", fontSize: 11, fontWeight: 600, background: "#111", border: "none", borderRadius: 6, cursor: "pointer", color: "#fff" }}
+                                <button style={{ padding: "3px 8px", fontSize: 11, fontWeight: 600, background: C.gray900, border: "none", borderRadius: 6, cursor: "pointer", color: C.white }}
                                   onClick={() => navigate(`/games/${g.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
                               )}
                             </div>
