@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import { C, F } from "../../styles/tokens";
 
 export default function AdminSharePanel({ rosterId }) {
   const [shares, setShares]             = useState([]);
@@ -45,18 +46,18 @@ export default function AdminSharePanel({ rosterId }) {
     setRemovingId(null);
   }
 
-  if (!loaded) return <div style={{ fontSize: 12, color: "#aaa", paddingTop: 12 }}>Loading shares…</div>;
+  if (!loaded) return <div style={{ fontSize: 12, color: C.gray400, paddingTop: 12 }}>Loading shares…</div>;
 
   return (
-    <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e8e8e8" }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Sharing</div>
+    <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px dashed ${C.gray100}` }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Sharing</div>
       {shares.length > 0 && (
         <ul style={{ listStyle: "none", padding: 0, margin: "0 0 10px" }}>
           {shares.map(s => (
-            <li key={s.share_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f5f5f5" }}>
-              <span style={{ fontSize: 13, color: "#444" }}>{s.display_name}</span>
+            <li key={s.share_id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${C.gray50}` }}>
+              <span style={{ fontSize: 13, color: C.gray700 }}>{s.display_name}</span>
               <button onClick={() => handleRemove(s.share_id)} disabled={removingId === s.share_id}
-                style={{ fontSize: 11, color: "#c0392b", background: "none", border: "1px solid #f0a0a0", borderRadius: 6, cursor: "pointer", padding: "2px 8px" }}>
+                style={{ fontSize: 11, color: C.red600, background: "none", border: `1px solid ${C.red300}`, borderRadius: 6, cursor: "pointer", padding: "2px 8px" }}>
                 {removingId === s.share_id ? "…" : "Remove"}
               </button>
             </li>
@@ -65,22 +66,22 @@ export default function AdminSharePanel({ rosterId }) {
       )}
       <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
         <input
-          style={{ flex: 1, padding: "7px 10px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", boxSizing: "border-box" }}
+          style={{ flex: 1, padding: "7px 10px", fontSize: 13, border: `1px solid ${C.gray200}`, borderRadius: 8, fontFamily: F.ui, boxSizing: "border-box" }}
           placeholder="Username or email" value={username} autoCapitalize="off" autoCorrect="off"
           onChange={e => { setUsername(e.target.value); setSearchResult(null); setSearchError(null); }}
           onKeyDown={e => e.key === "Enter" && username.trim() && handleSearch()}
         />
         <button onClick={handleSearch} disabled={!username.trim() || searching}
-          style={{ padding: "7px 12px", fontSize: 13, fontWeight: 600, background: username.trim() && !searching ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
+          style={{ padding: "7px 12px", fontSize: 13, fontWeight: 600, background: username.trim() && !searching ? C.gray900 : C.gray300, color: C.white, border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}>
           {searching ? "…" : "Find"}
         </button>
       </div>
-      {searchError && <div style={{ fontSize: 12, color: "#c0392b", marginBottom: 6 }}>{searchError}</div>}
+      {searchError && <div style={{ fontSize: 12, color: C.red600, marginBottom: 6 }}>{searchError}</div>}
       {searchResult && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", background: "#f5f5f5", borderRadius: 8 }}>
-          <span style={{ fontSize: 13, color: "#111" }}>{searchResult.display_name}</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", background: C.gray50, borderRadius: 8 }}>
+          <span style={{ fontSize: 13, color: C.gray900 }}>{searchResult.display_name}</span>
           <button onClick={handleAdd} disabled={adding}
-            style={{ fontSize: 12, fontWeight: 600, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #b5e0c0", borderRadius: 6, cursor: "pointer", padding: "3px 10px" }}>
+            style={{ fontSize: 12, fontWeight: 600, color: C.green600, background: C.green50, border: `1px solid ${C.green200}`, borderRadius: 6, cursor: "pointer", padding: "3px 10px" }}>
             {adding ? "…" : "Share"}
           </button>
         </div>

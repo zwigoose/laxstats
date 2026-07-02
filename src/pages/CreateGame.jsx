@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { entitlementMsg } from "../utils/entitlement";
 import { usePersonalGameUsage } from "../hooks/usePersonalGameUsage";
+import { C, F, SH } from "../styles/tokens";
 
 
 const GAME_TYPES = [
@@ -15,21 +16,21 @@ const GAME_TYPES = [
 ];
 
 const S = {
-  page:    { fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5" },
+  page:    { fontFamily: F.ui, minHeight: "100vh", background: C.gray50 },
   wrap:    { maxWidth: 480, margin: "0 auto", padding: "32px 20px" },
-  back:    { fontSize: 13, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "0 0 28px", display: "block" },
-  h1:      { fontSize: 24, fontWeight: 800, color: "#111", margin: "0 0 24px", letterSpacing: "-0.02em" },
-  label:   { display: "block", fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, marginTop: 18 },
-  input:   { width: "100%", padding: "10px 12px", fontSize: 14, border: "1px solid #e0e0e0", borderRadius: 10, background: "#fff", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" },
-  select:  { width: "100%", padding: "10px 12px", fontSize: 14, border: "1px solid #e0e0e0", borderRadius: 10, background: "#fff", boxSizing: "border-box", fontFamily: "system-ui, sans-serif", appearance: "none" },
-  btn:     { width: "100%", padding: "13px", fontSize: 15, fontWeight: 700, background: "#111", color: "#fff", border: "none", borderRadius: 12, cursor: "pointer", marginTop: 24 },
-  btnGray: { width: "100%", padding: "13px", fontSize: 15, fontWeight: 700, background: "#f0f0f0", color: "#555", border: "none", borderRadius: 12, cursor: "pointer", marginTop: 12 },
+  back:    { fontSize: 13, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "0 0 28px", display: "block" },
+  h1:      { fontSize: 24, fontWeight: 800, color: C.gray900, margin: "0 0 24px", letterSpacing: "-0.02em" },
+  label:   { display: "block", fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, marginTop: 18 },
+  input:   { width: "100%", padding: "10px 12px", fontSize: 14, border: `1px solid ${C.gray200}`, borderRadius: 10, background: C.white, boxSizing: "border-box", fontFamily: F.ui },
+  select:  { width: "100%", padding: "10px 12px", fontSize: 14, border: `1px solid ${C.gray200}`, borderRadius: 10, background: C.white, boxSizing: "border-box", fontFamily: F.ui, appearance: "none" },
+  btn:     { width: "100%", padding: "13px", fontSize: 15, fontWeight: 700, background: C.gray900, color: C.white, border: "none", borderRadius: 12, cursor: "pointer", marginTop: 24 },
+  btnGray: { width: "100%", padding: "13px", fontSize: 15, fontWeight: 700, background: C.gray75, color: C.gray650, border: "none", borderRadius: 12, cursor: "pointer", marginTop: 12 },
   bigChoice: {
     width: "100%", padding: "20px 16px", textAlign: "left",
-    background: "#fff", border: "1px solid #e0e0e0", borderRadius: 14,
-    cursor: "pointer", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.04)",
+    background: C.white, border: `1px solid ${C.gray200}`, borderRadius: 14,
+    cursor: "pointer", marginBottom: 12, boxShadow: SH.subtle2,
   },
-  err: { background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "10px 14px", color: "#c0392b", fontSize: 13, marginBottom: 16 },
+  err: { background: C.red50, border: `1px solid ${C.red100}`, borderRadius: 10, padding: "10px 14px", color: C.red600, fontSize: 13, marginBottom: 16 },
 };
 
 export default function CreateGame() {
@@ -163,7 +164,7 @@ export default function CreateGame() {
   if (step === "creating-personal") {
     return (
       <div style={{ ...S.page, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ fontSize: 14, color: "#888" }}>Creating game…</div>
+        <div style={{ fontSize: 14, color: C.gray500 }}>Creating game…</div>
       </div>
     );
   }
@@ -186,8 +187,8 @@ export default function CreateGame() {
                 <button
                   style={{ ...S.bigChoice, opacity: atLimit ? 0.6 : 1, cursor: atLimit ? "not-allowed" : "pointer" }}
                   onClick={atLimit ? undefined : handlePersonalChoice}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 4 }}>Personal game</div>
-                  <div style={{ fontSize: 13, color: atLimit ? "#c0392b" : "#888" }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: C.gray900, marginBottom: 4 }}>Personal game</div>
+                  <div style={{ fontSize: 13, color: atLimit ? C.red600 : C.gray500 }}>
                     {atLimit
                       ? `Limit reached (${personalUsage.current_count} / ${personalUsage.game_limit}) — upgrade to add more`
                       : hasLimit
@@ -199,10 +200,10 @@ export default function CreateGame() {
             })()}
             {orgMemberships.map(m => (
               <button key={m.org_id} style={S.bigChoice} onClick={() => selectOrg(m)}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#111", marginBottom: 4 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.gray900, marginBottom: 4 }}>
                   {m.org?.name ?? "Org game"}
                 </div>
-                <div style={{ fontSize: 13, color: "#888" }}>
+                <div style={{ fontSize: 13, color: C.gray500 }}>
                   {m.role === "org_admin" ? "Admin" : m.role.charAt(0).toUpperCase() + m.role.slice(1)} · /orgs/{m.org?.slug}
                 </div>
               </button>
@@ -222,13 +223,13 @@ export default function CreateGame() {
                     onClick={() => { setSelectedSeason(s); setNewSeasonName(""); }}
                     style={{
                       ...S.bigChoice,
-                      border: selectedSeason?.id === s.id ? "2px solid #111" : "1px solid #e0e0e0",
+                      border: selectedSeason?.id === s.id ? `2px solid ${C.gray900}` : `1px solid ${C.gray200}`,
                       padding: "14px 16px",
                     }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{s.name}</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: C.gray900 }}>{s.name}</div>
                   </button>
                 ))}
-                <div style={{ textAlign: "center", color: "#bbb", fontSize: 13, margin: "8px 0" }}>or</div>
+                <div style={{ textAlign: "center", color: C.gray350, fontSize: 13, margin: "8px 0" }}>or</div>
               </>
             )}
             <span style={{ ...S.label, marginTop: 0 }}>Create a new season</span>
@@ -246,7 +247,7 @@ export default function CreateGame() {
         {step === "org-details" && (
           <>
             <h1 style={S.h1}>Game Details</h1>
-            <div style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
+            <div style={{ fontSize: 13, color: C.gray500, marginBottom: 20 }}>
               {selectedOrg?.org?.name}
               {selectedSeason ? ` · ${selectedSeason.name}` : ""}
             </div>
@@ -277,18 +278,18 @@ export default function CreateGame() {
         {step === "org-opponent" && (
           <>
             <h1 style={S.h1}>Opponent</h1>
-            <div style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
+            <div style={{ fontSize: 13, color: C.gray500, marginBottom: 20 }}>
               Search for the opponent school on LaxStats, or skip to set up the opponent in the scorekeeper.
             </div>
 
             {selectedOpponent ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: "#eaf6ec", border: "1px solid #b5e0c0", borderRadius: 12, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: C.green50, border: `1px solid ${C.green200}`, borderRadius: 12, marginBottom: 16 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>{selectedOpponent.name}</div>
-                  <div style={{ fontSize: 12, color: "#666" }}>laxstats.app/orgs/{selectedOpponent.slug}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.gray900 }}>{selectedOpponent.name}</div>
+                  <div style={{ fontSize: 12, color: C.gray600 }}>laxstats.app/orgs/{selectedOpponent.slug}</div>
                 </div>
                 <button
-                  style={{ fontSize: 12, color: "#888", background: "none", border: "1px solid #ccc", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}
+                  style={{ fontSize: 12, color: C.gray500, background: "none", border: `1px solid ${C.gray300}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}
                   onClick={() => { setSelectedOpponent(null); setOpponentSearch(""); setOpponentResults([]); }}>
                   Change
                 </button>
@@ -303,19 +304,19 @@ export default function CreateGame() {
                   placeholder="Riverfalls Prep…"
                   autoFocus
                 />
-                {opponentSearching && <div style={{ fontSize: 12, color: "#aaa", marginTop: 8 }}>Searching…</div>}
+                {opponentSearching && <div style={{ fontSize: 12, color: C.gray400, marginTop: 8 }}>Searching…</div>}
                 {!opponentSearching && opponentSearch.trim() && opponentResults.length === 0 && (
-                  <div style={{ fontSize: 12, color: "#aaa", marginTop: 8 }}>No LaxStats programs found — you can still set up the opponent in the scorekeeper.</div>
+                  <div style={{ fontSize: 12, color: C.gray400, marginTop: 8 }}>No LaxStats programs found — you can still set up the opponent in the scorekeeper.</div>
                 )}
                 {opponentResults.length > 0 && (
-                  <div style={{ marginTop: 8, border: "1px solid #e0e0e0", borderRadius: 10, overflow: "hidden" }}>
+                  <div style={{ marginTop: 8, border: `1px solid ${C.gray200}`, borderRadius: 10, overflow: "hidden" }}>
                     {opponentResults.map((org, i) => (
                       <button
                         key={org.id}
-                        style={{ width: "100%", textAlign: "left", padding: "12px 16px", background: "#fff", border: "none", borderTop: i > 0 ? "1px solid #f0f0f0" : "none", cursor: "pointer", fontFamily: "system-ui, sans-serif" }}
+                        style={{ width: "100%", textAlign: "left", padding: "12px 16px", background: C.white, border: "none", borderTop: i > 0 ? `1px solid ${C.gray75}` : "none", cursor: "pointer", fontFamily: F.ui }}
                         onClick={() => { setSelectedOpponent(org); setOpponentSearch(""); setOpponentResults([]); }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{org.name}</div>
-                        <div style={{ fontSize: 11, color: "#aaa" }}>laxstats.app/orgs/{org.slug}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: C.gray900 }}>{org.name}</div>
+                        <div style={{ fontSize: 11, color: C.gray400 }}>laxstats.app/orgs/{org.slug}</div>
                       </button>
                     ))}
                   </div>

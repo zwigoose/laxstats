@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { entryZone, ZONE_BANDS } from '../utils/shotZones';
+import { C } from "../styles/tokens";
 
 // viewBox 0 0 120 110 — 2 units per yard, full half-field
 // y=0: midline  y=110: end line
@@ -21,23 +22,23 @@ const ZONE_RECTS = [
 function HalfField() {
   return (
     <>
-      <rect x="0" y="0" width={VW} height={VH} fill="#34d399" fillOpacity="0.12" />
+      <rect x="0" y="0" width={VW} height={VH} fill={C.emerald400} fillOpacity="0.12" />
       {/* Sidelines */}
-      <line x1="0" y1="0" x2="0" y2={VH} stroke="#064e3b" strokeWidth="1" />
-      <line x1={VW} y1="0" x2={VW} y2={VH} stroke="#064e3b" strokeWidth="1" />
+      <line x1="0" y1="0" x2="0" y2={VH} stroke={C.emerald800} strokeWidth="1" />
+      <line x1={VW} y1="0" x2={VW} y2={VH} stroke={C.emerald800} strokeWidth="1" />
       {/* End line */}
-      <line x1="0" y1={VH} x2={VW} y2={VH} stroke="#064e3b" strokeWidth="2" />
+      <line x1="0" y1={VH} x2={VW} y2={VH} stroke={C.emerald800} strokeWidth="2" />
       {/* Midline */}
-      <line x1="0" y1="0" x2={VW} y2="0" stroke="#064e3b" strokeWidth="1.5" />
-      <text x="60" y="6" textAnchor="middle" fontSize="4" fill="#064e3b" opacity="0.45">Midfield</text>
+      <line x1="0" y1="0" x2={VW} y2="0" stroke={C.emerald800} strokeWidth="1.5" />
+      <text x="60" y="6" textAnchor="middle" fontSize="4" fill={C.emerald800} opacity="0.45">Midfield</text>
       {/* Restraining line — 20 yd from midline, full width */}
-      <line x1="0" y1="40" x2={VW} y2="40" stroke="#064e3b" strokeWidth="0.75" strokeDasharray="3,2" opacity="0.8" />
+      <line x1="0" y1="40" x2={VW} y2="40" stroke={C.emerald800} strokeWidth="0.75" strokeDasharray="3,2" opacity="0.8" />
       {/* Goal crease */}
-      <circle cx="60" cy="90" r="6" fill="rgba(255,255,255,0.35)" stroke="#064e3b" strokeWidth="0.75" />
+      <circle cx="60" cy="90" r="6" fill={C.whiteA35} stroke={C.emerald800} strokeWidth="0.75" />
       {/* Goal cage — triangle viewed from above */}
-      <polygon points="57,90 63,90 60,94" fill="rgba(255,255,255,0.75)" stroke="#064e3b" strokeWidth="1" strokeLinejoin="round" />
+      <polygon points="57,90 63,90 60,94" fill={C.whiteA75} stroke={C.emerald800} strokeWidth="1" strokeLinejoin="round" />
       {/* Goal line (front of cage) */}
-      <line x1="57" y1="90" x2="63" y2="90" stroke="#064e3b" strokeWidth="2" />
+      <line x1="57" y1="90" x2="63" y2="90" stroke={C.emerald800} strokeWidth="2" />
     </>
   );
 }
@@ -69,10 +70,10 @@ export default function ShotMap({ log, teamColors, teams }) {
   const maxShots = Math.max(1, ...Object.values(zoneStats).map(z => z.shots));
 
   const teamName = (idx) => teams?.[idx]?.name || `Team ${idx + 1}`;
-  const fillColor = teamFilter === "both" ? "#064e3b" : teamColors[Number(teamFilter)];
+  const fillColor = teamFilter === "both" ? C.emerald800 : teamColors[Number(teamFilter)];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, background: '#fff', borderRadius: 12, border: '1px solid #e5e5e5' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 16, background: C.white, borderRadius: 12, border: `1px solid ${C.gray150}` }}>
 
       {/* Team filter */}
       <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -81,12 +82,12 @@ export default function ShotMap({ log, teamColors, teams }) {
             padding: "5px 14px",
             fontSize: 12,
             fontWeight: 500,
-            border: `1px solid ${teamFilter === val ? '#111' : '#ddd'}`,
+            border: `1px solid ${teamFilter === val ? C.gray900 : C.gray250}`,
             borderRadius: 20,
             background: teamFilter === val
-              ? (val === "both" ? "#111" : teamColors[Number(val)])
+              ? (val === "both" ? C.gray900 : teamColors[Number(val)])
               : "transparent",
-            color: teamFilter === val ? "#fff" : "#888",
+            color: teamFilter === val ? C.white : C.gray500,
             cursor: "pointer",
           }}>
             {label}
@@ -95,11 +96,11 @@ export default function ShotMap({ log, teamColors, teams }) {
       </div>
 
       {/* Field with per-zone aggregates */}
-      <div style={{ width: '100%', aspectRatio: `${VW}/${VH}`, border: '1.5px solid #064e3b', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ width: '100%', aspectRatio: `${VW}/${VH}`, border: `1.5px solid ${C.emerald800}`, borderRadius: 8, overflow: 'hidden' }}>
         <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: '100%', height: '100%', display: 'block' }}>
           <HalfField />
           {/* Behind-goal area — not a valid shot origin */}
-          <rect x="0" y="90" width={VW} height="20" fill="#064e3b" fillOpacity="0.1" />
+          <rect x="0" y="90" width={VW} height="20" fill={C.emerald800} fillOpacity="0.1" />
           {ZONE_RECTS.map(({ zone, x, y, w, h }) => {
             const { shots: zShots, goals } = zoneStats[zone];
             const pct = zShots ? Math.round((goals / zShots) * 100) : null;
@@ -109,13 +110,13 @@ export default function ShotMap({ log, teamColors, teams }) {
                   x={x} y={y} width={w} height={h}
                   fill={fillColor}
                   fillOpacity={zShots ? 0.12 + 0.45 * (zShots / maxShots) : 0}
-                  stroke="#064e3b" strokeWidth="0.5" strokeOpacity="0.5"
+                  stroke={C.emerald800} strokeWidth="0.5" strokeOpacity="0.5"
                 />
-                <text x={x + w / 2} y={y + h / 2 - 3} textAnchor="middle" fontSize="4" fontWeight="700" fill="#064e3b" opacity="0.45">
+                <text x={x + w / 2} y={y + h / 2 - 3} textAnchor="middle" fontSize="4" fontWeight="700" fill={C.emerald800} opacity="0.45">
                   {zone}
                 </text>
                 {zShots > 0 && (
-                  <text x={x + w / 2} y={y + h / 2 + 4} textAnchor="middle" fontSize="5.5" fontWeight="700" fill="#063e2e">
+                  <text x={x + w / 2} y={y + h / 2 + 4} textAnchor="middle" fontSize="5.5" fontWeight="700" fill={C.emerald900}>
                     {zShots}-{goals} · {pct}%
                   </text>
                 )}
@@ -126,11 +127,11 @@ export default function ShotMap({ log, teamColors, teams }) {
       </div>
 
       {shots.length === 0 && (
-        <div style={{ textAlign: 'center', fontSize: 13, color: '#aaa' }}>No shot locations recorded yet</div>
+        <div style={{ textAlign: 'center', fontSize: 13, color: C.gray400 }}>No shot locations recorded yet</div>
       )}
 
       {/* Legend */}
-      <div style={{ textAlign: 'center', fontSize: 12, color: '#888' }}>
+      <div style={{ textAlign: 'center', fontSize: 12, color: C.gray500 }}>
         Per zone: shots-goals · shooting % — shading scales with shot volume
       </div>
     </div>

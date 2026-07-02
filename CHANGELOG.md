@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.21.5] — 2026-07-01
+
+### Changed
+- **Internal** — consolidated all inline color, font, and shadow literals (2,421 across 43 files) into a new design-token module (`src/styles/tokens.js`), the single source of truth for the visual design; zero visual change
+
+---
+
 ## [2.21.4] — 2026-06-17
 
 ### Changed

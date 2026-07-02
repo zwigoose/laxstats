@@ -8,6 +8,7 @@ import { parseRoster } from "../utils/stats";
 import { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
 import { STAT_LABELS } from "../constants/lacrosse";
 import { version } from "../../package.json";
+import { C, F } from "../styles/tokens";
 
 function formatDate(str) {
   if (!str) return null;
@@ -57,12 +58,12 @@ export default function PrintGame() {
   }, [id]);
 
   const state = game?.state;
-  const teams = state?.teams || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
+  const teams = state?.teams || [{ name: "Home", color: C.blue600 }, { name: "Away", color: C.orange700 }];
   const log   = v2Log ?? [];
   const completedQuarters = derivedQuarterState?.completedQuarters ?? state?.completedQuarters ?? [];
   const currentQuarter    = derivedQuarterState?.currentQuarter    ?? state?.currentQuarter    ?? 1;
   const gameOver          = derivedQuarterState?.gameOver          ?? state?.gameOver          ?? false;
-  const teamColors = [teams[0]?.color || "#1a6bab", teams[1]?.color || "#b84e1a"];
+  const teamColors = [teams[0]?.color || C.blue600, teams[1]?.color || C.orange700];
   const displayLogos = [teams[0]?.logoUrl || orgLogos[0], teams[1]?.logoUrl || orgLogos[1]];
 
   const totalScores = useMemo(() => [
@@ -154,7 +155,7 @@ export default function PrintGame() {
               <tr>
                 <th style={css.thLeft}>Team</th>
                 {allQuarters.map(q => <th key={q} style={css.th}>{qLabel(q)}</th>)}
-                <th style={{ ...css.th, fontWeight: 700, borderLeft: "2px solid #ddd" }}>Total</th>
+                <th style={{ ...css.th, fontWeight: 700, borderLeft: `2px solid ${C.gray250}` }}>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -162,7 +163,7 @@ export default function PrintGame() {
                 <tr key={ti}>
                   <td style={{ ...css.tdLeft, color: teamColors[ti], fontWeight: 600 }}>{teams[ti].name}</td>
                   {allQuarters.map(q => <td key={q} style={css.td}>{(scoresByQuarter[q] || [0,0])[ti]}</td>)}
-                  <td style={{ ...css.td, fontWeight: 700, borderLeft: "2px solid #ddd" }}>{totalScores[ti]}</td>
+                  <td style={{ ...css.td, fontWeight: 700, borderLeft: `2px solid ${C.gray250}` }}>{totalScores[ti]}</td>
                 </tr>
               ))}
             </tbody>
@@ -324,33 +325,33 @@ const TEAM_STAT_ROWS = [
 ];
 
 const css = {
-  page:        { fontFamily: "system-ui, sans-serif", maxWidth: 800, margin: "0 auto", padding: "0 0 40px", color: "#111" },
-  loading:     { display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#888", fontSize: 14, fontFamily: "system-ui, sans-serif" },
-  error:       { maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14, fontFamily: "system-ui, sans-serif" },
-  toolbar:     { display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10 },
-  backBtn:     { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0" },
-  brandMark:   { fontSize: 15, fontWeight: 800, color: "#111", letterSpacing: "-0.03em", flex: 1, textAlign: "center" },
-  printBtn:    { fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, padding: "7px 16px", cursor: "pointer", whiteSpace: "nowrap" },
+  page:        { fontFamily: F.ui, maxWidth: 800, margin: "0 auto", padding: "0 0 40px", color: C.gray900 },
+  loading:     { display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: C.gray500, fontSize: 14, fontFamily: F.ui },
+  error:       { maxWidth: 400, margin: "40px auto", padding: 20, background: C.red50, border: `1px solid ${C.red300}`, borderRadius: 10, color: C.red600, fontSize: 14, fontFamily: F.ui },
+  toolbar:     { display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: `1px solid ${C.gray150}`, background: C.white, position: "sticky", top: 0, zIndex: 10 },
+  backBtn:     { fontSize: 13, fontWeight: 500, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "4px 0" },
+  brandMark:   { fontSize: 15, fontWeight: 800, color: C.gray900, letterSpacing: "-0.03em", flex: 1, textAlign: "center" },
+  printBtn:    { fontSize: 13, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", cursor: "pointer", whiteSpace: "nowrap" },
   gameHeader:  { padding: "20px 20px 0" },
   gameName:    { fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 6 },
-  gameMeta:    { display: "flex", flexWrap: "wrap", gap: "4px 16px", fontSize: 12, color: "#777" },
+  gameMeta:    { display: "flex", flexWrap: "wrap", gap: "4px 16px", fontSize: 12, color: C.gray550 },
   scoreSection:{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 12, padding: "20px 20px" },
   teamCol:     { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 },
   logo:        { height: 52, maxWidth: 96, objectFit: "contain" },
   teamName:    { fontSize: 13, fontWeight: 700 },
   scoreCenter: { textAlign: "center", fontSize: 48, fontWeight: 500, letterSpacing: 4 },
-  scoreDash:   { color: "#ccc", margin: "0 10px" },
-  finalLabel:  { fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#888", marginTop: 4 },
+  scoreDash:   { color: C.gray300, margin: "0 10px" },
+  finalLabel:  { fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: C.gray500, marginTop: 4 },
   section:     { padding: "0 20px 24px" },
-  sectionHeading: { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#aaa", marginBottom: 8 },
-  table:       { width: "100%", fontSize: 12, borderCollapse: "collapse", border: "1px solid #e5e5e5", borderRadius: 8, overflow: "hidden" },
-  thLeft:      { padding: "7px 12px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid #e5e5e5", background: "#f5f5f5", whiteSpace: "nowrap" },
-  th:          { padding: "7px 8px", textAlign: "right", fontWeight: 600, fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid #e5e5e5", background: "#f5f5f5", whiteSpace: "nowrap" },
-  tdLeft:      { padding: "6px 12px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "left", whiteSpace: "nowrap" },
-  td:          { padding: "6px 8px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "right" },
-  statGroupHead: { padding: "8px 12px 2px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#bbb", background: "#fafafa", borderBottom: "1px solid #f0f0f0" },
-  numBadge:    { display: "inline-block", width: 22, height: 22, borderRadius: "50%", background: "#f0f0f0", fontSize: 10, fontWeight: 600, textAlign: "center", lineHeight: "22px", marginRight: 6, color: "#888" },
-  printFooter: { textAlign: "center", fontSize: 10, color: "#ccc", padding: "16px 20px 0", borderTop: "1px solid #f0f0f0", margin: "0 20px" },
+  sectionHeading: { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.gray400, marginBottom: 8 },
+  table:       { width: "100%", fontSize: 12, borderCollapse: "collapse", border: `1px solid ${C.gray150}`, borderRadius: 8, overflow: "hidden" },
+  thLeft:      { padding: "7px 12px", textAlign: "left", fontWeight: 600, fontSize: 11, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: `1px solid ${C.gray150}`, background: C.gray50, whiteSpace: "nowrap" },
+  th:          { padding: "7px 8px", textAlign: "right", fontWeight: 600, fontSize: 11, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: `1px solid ${C.gray150}`, background: C.gray50, whiteSpace: "nowrap" },
+  tdLeft:      { padding: "6px 12px", borderBottom: `1px solid ${C.gray75}`, color: C.gray900, textAlign: "left", whiteSpace: "nowrap" },
+  td:          { padding: "6px 8px", borderBottom: `1px solid ${C.gray75}`, color: C.gray900, textAlign: "right" },
+  statGroupHead: { padding: "8px 12px 2px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: C.gray350, background: C.gray25, borderBottom: `1px solid ${C.gray75}` },
+  numBadge:    { display: "inline-block", width: 22, height: 22, borderRadius: "50%", background: C.gray75, fontSize: 10, fontWeight: 600, textAlign: "center", lineHeight: "22px", marginRight: 6, color: C.gray500 },
+  printFooter: { textAlign: "center", fontSize: 10, color: C.gray300, padding: "16px 20px 0", borderTop: `1px solid ${C.gray75}`, margin: "0 20px" },
 };
 
 const PRINT_CSS = `

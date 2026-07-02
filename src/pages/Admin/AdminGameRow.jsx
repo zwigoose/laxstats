@@ -4,13 +4,14 @@ import { supabase } from "../../lib/supabase";
 import { qLabel } from "../../utils/stats";
 import { formatDate, getGameInfo } from "../../utils/game";
 import { displayName } from "./helpers";
+import { C, SH } from "../../styles/tokens";
 
 export default function AdminGameRow({ game, userMap, users, onReassigned, onDeleted }) {
   const navigate = useNavigate();
   const info = getGameInfo(game);
   const owner = userMap[game.user_id];
-  const c0 = info?.t0?.color || "#444";
-  const c1 = info?.t1?.color || "#888";
+  const c0 = info?.t0?.color || C.gray700;
+  const c1 = info?.t1?.color || C.gray500;
   const [adminOpen, setAdminOpen]         = useState(false);
   const [newOwnerId, setNewOwnerId]       = useState(game.user_id || "");
   const [reassigning, setReassigning]     = useState(false);
@@ -71,17 +72,17 @@ export default function AdminGameRow({ game, userMap, users, onReassigned, onDel
   }
 
   return (
-    <div style={{ borderRadius: 14, overflow: "hidden", marginBottom: 10, boxShadow: "0 2px 10px rgba(0,0,0,0.06)", border: "1px solid #e8e8e8", background: "#fff" }}>
-      <div style={{ height: 4, background: info ? `linear-gradient(90deg, ${c0} 50%, ${c1} 50%)` : "#e0e0e0" }} />
+    <div style={{ borderRadius: 14, overflow: "hidden", marginBottom: 10, boxShadow: SH.card2, border: `1px solid ${C.gray100}`, background: C.white }}>
+      <div style={{ height: 4, background: info ? `linear-gradient(90deg, ${c0} 50%, ${c1} 50%)` : C.gray200 }} />
       <div style={{ padding: "12px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.gray900 }}>
             {info ? `${info.t0.name} vs ${info.t1.name}` : game.name}
           </div>
           {info && (
-            <div style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "#111" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: C.gray900 }}>
               <span style={{ color: c0 }}>{info.score0}</span>
-              <span style={{ color: "#ccc", margin: "0 4px" }}>—</span>
+              <span style={{ color: C.gray300, margin: "0 4px" }}>—</span>
               <span style={{ color: c1 }}>{info.score1}</span>
             </div>
           )}
@@ -89,28 +90,28 @@ export default function AdminGameRow({ game, userMap, users, onReassigned, onDel
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {info?.gameOver ? (
-              <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "2px 8px" }}>Final</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: C.gray500, background: C.gray75, borderRadius: 20, padding: "2px 8px" }}>Final</span>
             ) : info?.started ? (
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "2px 8px" }}>● Live{info.latestTime ? ` · ${info.latestTime} ${qLabel(info.currentQuarter)}` : ""}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.green600, background: C.green50, borderRadius: 20, padding: "2px 8px" }}>● Live{info.latestTime ? ` · ${info.latestTime} ${qLabel(info.currentQuarter)}` : ""}</span>
             ) : (
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "2px 8px" }}>Pending</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.orange600, background: C.orange50, borderRadius: 20, padding: "2px 8px" }}>Pending</span>
             )}
-            {owner && <span style={{ fontSize: 11, color: "#aaa" }}>{displayName(owner.email)}</span>}
-            <span style={{ fontSize: 11, color: "#ccc" }}>
+            {owner && <span style={{ fontSize: 11, color: C.gray400 }}>{displayName(owner.email)}</span>}
+            <span style={{ fontSize: 11, color: C.gray300 }}>
               Game: {formatDate((game.state?.gameDate) || game.created_at.split("T")[0])}
               {" · "}Created: {formatDate(game.created_at)}
             </span>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            <button style={{ padding: "5px 10px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}
+            <button style={{ padding: "5px 10px", fontSize: 12, fontWeight: 500, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }}
               onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
-            <button style={{ padding: "5px 10px", fontSize: 12, fontWeight: 500, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}
+            <button style={{ padding: "5px 10px", fontSize: 12, fontWeight: 500, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }}
               onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}>Press Box</button>
             {!info?.gameOver && (
-              <button style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: "#111", border: "none", borderRadius: 7, cursor: "pointer", color: "#fff" }}
+              <button style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, background: C.gray900, border: "none", borderRadius: 7, cursor: "pointer", color: C.white }}
                 onClick={() => navigate(`/games/${game.id}/score`)}>{info?.started ? "Score" : "Setup"}</button>
             )}
-            <button title="Reassign owner" style={{ padding: "5px 9px", fontSize: 12, background: adminOpen ? "#f0f0f0" : "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#888" }}
+            <button title="Reassign owner" style={{ padding: "5px 9px", fontSize: 12, background: adminOpen ? C.gray75 : "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray500 }}
               onClick={() => {
                 const opening = !adminOpen;
                 setAdminOpen(opening);
@@ -125,95 +126,95 @@ export default function AdminGameRow({ game, userMap, users, onReassigned, onDel
         </div>
       </div>
       {adminOpen && (
-        <div style={{ borderTop: "1px solid #f0f0f0", padding: "10px 16px 12px", background: "#fafafa" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Reassign owner</div>
+        <div style={{ borderTop: `1px solid ${C.gray75}`, padding: "10px 16px 12px", background: C.gray25 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Reassign owner</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <select value={newOwnerId} onChange={e => setNewOwnerId(e.target.value)}
-              style={{ flex: 1, padding: "6px 8px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff" }}>
+              style={{ flex: 1, padding: "6px 8px", fontSize: 13, border: `1px solid ${C.gray200}`, borderRadius: 8, background: C.white }}>
               <option value="">Select user…</option>
               {users.map(u => <option key={u.id} value={u.id}>{displayName(u.email)}</option>)}
             </select>
             <button onClick={handleReassign} disabled={!newOwnerId || newOwnerId === game.user_id || reassigning}
-              style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: (newOwnerId && newOwnerId !== game.user_id && !reassigning) ? "#111" : "#ccc", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
+              style={{ padding: "6px 14px", fontSize: 13, fontWeight: 600, background: (newOwnerId && newOwnerId !== game.user_id && !reassigning) ? C.gray900 : C.gray300, color: C.white, border: "none", borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
               {reassigning ? "…" : "Save"}
             </button>
           </div>
-          {reassignError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{reassignError}</div>}
-          <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Press Box</div>
+          {reassignError && <div style={{ fontSize: 12, color: C.red600, marginTop: 6 }}>{reassignError}</div>}
+          <div style={{ marginTop: 14, borderTop: `1px solid ${C.gray90}`, paddingTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Press Box</div>
             {orgPressbox ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ position: "relative", width: 40, height: 22, borderRadius: 11, background: "#111", flexShrink: 0 }}>
-                  <span style={{ position: "absolute", top: 3, left: 21, width: 16, height: 16, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                <div style={{ position: "relative", width: 40, height: 22, borderRadius: 11, background: C.gray900, flexShrink: 0 }}>
+                  <span style={{ position: "absolute", top: 3, left: 21, width: 16, height: 16, borderRadius: "50%", background: C.white, boxShadow: SH.crisp }} />
                 </div>
-                <span style={{ fontSize: 13, color: "#555" }}>Enabled via org plan</span>
+                <span style={{ fontSize: 13, color: C.gray650 }}>Enabled via org plan</span>
                 <button onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}
-                  style={{ fontSize: 11, color: "#1a6bab", background: "none", border: "1px solid #c0d8f0", borderRadius: 6, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Open ↗</button>
+                  style={{ fontSize: 11, color: C.blue600, background: "none", border: `1px solid ${C.blue200}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Open ↗</button>
               </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <button onClick={handleTogglePressbox} disabled={togglingPressbox}
-                  style={{ position: "relative", width: 40, height: 22, borderRadius: 11, border: "none", background: pressboxEnabled ? "#111" : "#ddd", cursor: togglingPressbox ? "default" : "pointer", transition: "background 0.2s", flexShrink: 0, padding: 0 }}>
-                  <span style={{ position: "absolute", top: 3, left: pressboxEnabled ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                  style={{ position: "relative", width: 40, height: 22, borderRadius: 11, border: "none", background: pressboxEnabled ? C.gray900 : C.gray250, cursor: togglingPressbox ? "default" : "pointer", transition: "background 0.2s", flexShrink: 0, padding: 0 }}>
+                  <span style={{ position: "absolute", top: 3, left: pressboxEnabled ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: C.white, transition: "left 0.2s", boxShadow: SH.crisp }} />
                 </button>
-                <span style={{ fontSize: 13, color: "#555" }}>
+                <span style={{ fontSize: 13, color: C.gray650 }}>
                   {pressboxEnabled ? "Enabled — press box link is active for this game" : "Disabled — enable to share the press box view"}
                 </span>
                 {pressboxEnabled && (
                   <button onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}
-                    style={{ fontSize: 11, color: "#1a6bab", background: "none", border: "1px solid #c0d8f0", borderRadius: 6, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Open ↗</button>
+                    style={{ fontSize: 11, color: C.blue600, background: "none", border: `1px solid ${C.blue200}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Open ↗</button>
                 )}
               </div>
             )}
-            {pressboxError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{pressboxError}</div>}
+            {pressboxError && <div style={{ fontSize: 12, color: C.red600, marginTop: 6 }}>{pressboxError}</div>}
           </div>
-          <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Multi-Scorekeeper</div>
+          <div style={{ marginTop: 14, borderTop: `1px solid ${C.gray90}`, paddingTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Multi-Scorekeeper</div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button onClick={handleToggleMultiScorer} disabled={togglingMultiScorer}
-                style={{ position: "relative", width: 40, height: 22, borderRadius: 11, border: "none", background: multiScorerEnabled ? "#111" : "#ddd", cursor: togglingMultiScorer ? "default" : "pointer", transition: "background 0.2s", flexShrink: 0, padding: 0 }}>
-                <span style={{ position: "absolute", top: 3, left: multiScorerEnabled ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                style={{ position: "relative", width: 40, height: 22, borderRadius: 11, border: "none", background: multiScorerEnabled ? C.gray900 : C.gray250, cursor: togglingMultiScorer ? "default" : "pointer", transition: "background 0.2s", flexShrink: 0, padding: 0 }}>
+                <span style={{ position: "absolute", top: 3, left: multiScorerEnabled ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: C.white, transition: "left 0.2s", boxShadow: SH.crisp }} />
               </button>
-              <span style={{ fontSize: 13, color: "#555" }}>
+              <span style={{ fontSize: 13, color: C.gray650 }}>
                 {multiScorerEnabled ? "Enabled — scorer invite links can be generated" : "Disabled — only the game owner can score"}
               </span>
             </div>
-            {multiScorerError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{multiScorerError}</div>}
+            {multiScorerError && <div style={{ fontSize: 12, color: C.red600, marginTop: 6 }}>{multiScorerError}</div>}
           </div>
           {game.schema_ver === 2 && (
-            <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Shot Location Overlay</div>
+            <div style={{ marginTop: 14, borderTop: `1px solid ${C.gray90}`, paddingTop: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Shot Location Overlay</div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <button onClick={handleToggleShotLocation} disabled={togglingShotLocation}
-                  style={{ position: "relative", width: 40, height: 22, borderRadius: 11, border: "none", background: shotLocationEnabled ? "#111" : "#ddd", cursor: togglingShotLocation ? "default" : "pointer", transition: "background 0.2s", flexShrink: 0, padding: 0 }}>
-                  <span style={{ position: "absolute", top: 3, left: shotLocationEnabled ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+                  style={{ position: "relative", width: 40, height: 22, borderRadius: 11, border: "none", background: shotLocationEnabled ? C.gray900 : C.gray250, cursor: togglingShotLocation ? "default" : "pointer", transition: "background 0.2s", flexShrink: 0, padding: 0 }}>
+                  <span style={{ position: "absolute", top: 3, left: shotLocationEnabled ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: C.white, transition: "left 0.2s", boxShadow: SH.crisp }} />
                 </button>
-                <span style={{ fontSize: 13, color: "#555" }}>
+                <span style={{ fontSize: 13, color: C.gray650 }}>
                   {shotLocationEnabled ? "Enabled — shot locations are tracked on the field map" : "Disabled — shots are tracked without coordinates"}
                 </span>
               </div>
-              {shotLocationError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{shotLocationError}</div>}
+              {shotLocationError && <div style={{ fontSize: 12, color: C.red600, marginTop: 6 }}>{shotLocationError}</div>}
             </div>
           )}
-          <div style={{ marginTop: 14, borderTop: "1px solid #ebebeb", paddingTop: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Danger zone</div>
+          <div style={{ marginTop: 14, borderTop: `1px solid ${C.gray90}`, paddingTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Danger zone</div>
             {!deleteConfirm ? (
               <button onClick={handleDelete}
-                style={{ padding: "6px 14px", fontSize: 13, fontWeight: 500, background: "transparent", border: "1px solid #e0a0a0", borderRadius: 8, cursor: "pointer", color: "#c0392b" }}>
+                style={{ padding: "6px 14px", fontSize: 13, fontWeight: 500, background: "transparent", border: `1px solid ${C.red320}`, borderRadius: 8, cursor: "pointer", color: C.red600 }}>
                 Delete game
               </button>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 13, color: "#c0392b", fontWeight: 500 }}>Delete permanently?</span>
+                <span style={{ fontSize: 13, color: C.red600, fontWeight: 500 }}>Delete permanently?</span>
                 <button onClick={handleDelete} disabled={deleting}
-                  style={{ padding: "6px 14px", fontSize: 13, fontWeight: 700, background: deleting ? "#ccc" : "#c0392b", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                  style={{ padding: "6px 14px", fontSize: 13, fontWeight: 700, background: deleting ? C.gray300 : C.red600, color: C.white, border: "none", borderRadius: 8, cursor: "pointer" }}>
                   {deleting ? "Deleting…" : "Yes, delete"}
                 </button>
                 <button onClick={() => { setDeleteConfirm(false); setDeleteError(null); }}
-                  style={{ padding: "6px 12px", fontSize: 13, background: "transparent", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", color: "#888" }}>Cancel</button>
+                  style={{ padding: "6px 12px", fontSize: 13, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 8, cursor: "pointer", color: C.gray500 }}>Cancel</button>
               </div>
             )}
-            {deleteError && <div style={{ fontSize: 12, color: "#c0392b", marginTop: 6 }}>{deleteError}</div>}
+            {deleteError && <div style={{ fontSize: 12, color: C.red600, marginTop: 6 }}>{deleteError}</div>}
           </div>
         </div>
       )}

@@ -4,6 +4,7 @@ import { PLANS } from "../../constants/lacrosse";
 import { displayName } from "./helpers";
 import OrgCard from "./OrgCard";
 import { ColorPicker, PRESET_COLORS } from "../TeamManager";
+import { C, F } from "../../styles/tokens";
 
 function slugify(str) {
   return str.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -25,7 +26,7 @@ export default function OrgsTab() {
   const [createError, setCreateError] = useState(null);
   const [slugEdited, setSlugEdited]   = useState(false);
 
-  const inp = { padding: "7px 10px", fontSize: 13, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", background: "#fff", boxSizing: "border-box" };
+  const inp = { padding: "7px 10px", fontSize: 13, border: `1px solid ${C.gray200}`, borderRadius: 8, fontFamily: F.ui, background: C.white, boxSizing: "border-box" };
 
   useEffect(() => {
     Promise.all([
@@ -69,64 +70,64 @@ export default function OrgsTab() {
     setCreating(false);
   }
 
-  if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>Loading…</div>;
-  if (error)   return <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "12px 16px", color: "#c0392b", fontSize: 13 }}>{error}</div>;
+  if (loading) return <div style={{ textAlign: "center", padding: "48px 0", color: C.gray400, fontSize: 14 }}>Loading…</div>;
+  if (error)   return <div style={{ background: C.red50, border: `1px solid ${C.red100}`, borderRadius: 10, padding: "12px 16px", color: C.red600, fontSize: 13 }}>{error}</div>;
 
   return (
     <div style={{ paddingBottom: 40 }}>
       <div style={{ marginBottom: 16 }}>
         {!showCreate ? (
           <button onClick={() => setShowCreate(true)}
-            style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 9, cursor: "pointer" }}>
+            style={{ padding: "7px 16px", fontSize: 13, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 9, cursor: "pointer" }}>
             + Create Org
           </button>
         ) : (
-          <div style={{ border: "1px solid #e0e0e0", borderRadius: 14, padding: 16, background: "#fafafa", marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>New Organization</div>
+          <div style={{ border: `1px solid ${C.gray200}`, borderRadius: 14, padding: 16, background: C.gray25, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>New Organization</div>
             <form onSubmit={handleCreateOrg}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Name</label>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Name</label>
                   <input style={{ ...inp, width: "100%" }} value={newName} onChange={e => handleNameChange(e.target.value)} placeholder="My League" required />
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Slug</label>
-                  <input style={{ ...inp, width: "100%", fontFamily: "monospace" }} value={newSlug}
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Slug</label>
+                  <input style={{ ...inp, width: "100%", fontFamily: F.mono }} value={newSlug}
                     onChange={e => { setNewSlug(e.target.value); setSlugEdited(true); }}
                     placeholder="my-league" required pattern="[a-z0-9\-]+" />
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Owner</label>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Owner</label>
                   <select style={{ ...inp, width: "100%" }} value={newOwner} onChange={e => setNewOwner(e.target.value)} required>
                     <option value="">Select user…</option>
                     {users.map(u => <option key={u.id} value={u.id}>{displayName(u.email)}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Plan</label>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Plan</label>
                   <select style={{ ...inp, width: "100%" }} value={newPlan} onChange={e => setNewPlan(e.target.value)}>
                     {PLANS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
               </div>
               <div style={{ marginBottom: 10 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Org Color</label>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Org Color</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <div style={{ width: 18, height: 18, borderRadius: "50%", background: newColor, border: "1px solid #ddd", flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, color: "#aaa", fontFamily: "monospace" }}>{newColor}</span>
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", background: newColor, border: `1px solid ${C.gray250}`, flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, color: C.gray400, fontFamily: F.mono }}>{newColor}</span>
                 </div>
                 <ColorPicker value={newColor} onChange={setNewColor} />
               </div>
               {createError && (
-                <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 8, padding: "8px 12px", color: "#c0392b", fontSize: 12, marginBottom: 10 }}>{createError}</div>
+                <div style={{ background: C.red50, border: `1px solid ${C.red100}`, borderRadius: 8, padding: "8px 12px", color: C.red600, fontSize: 12, marginBottom: 10 }}>{createError}</div>
               )}
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="button" onClick={() => { setShowCreate(false); setCreateError(null); setNewName(""); setNewSlug(""); setNewOwner(""); setSlugEdited(false); }}
-                  style={{ padding: "8px 14px", fontSize: 13, background: "transparent", border: "1px solid #e0e0e0", borderRadius: 8, cursor: "pointer", color: "#555" }}>Cancel</button>
+                  style={{ padding: "8px 14px", fontSize: 13, background: "transparent", border: `1px solid ${C.gray200}`, borderRadius: 8, cursor: "pointer", color: C.gray650 }}>Cancel</button>
                 <button type="submit" disabled={!newName.trim() || !newSlug.trim() || !newOwner || creating}
-                  style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, background: (!newName.trim() || !newSlug.trim() || !newOwner || creating) ? "#ccc" : "#111", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+                  style={{ padding: "8px 16px", fontSize: 13, fontWeight: 600, background: (!newName.trim() || !newSlug.trim() || !newOwner || creating) ? C.gray300 : C.gray900, color: C.white, border: "none", borderRadius: 8, cursor: "pointer" }}>
                   {creating ? "Creating…" : "Create Org"}
                 </button>
               </div>
@@ -136,10 +137,10 @@ export default function OrgsTab() {
       </div>
 
       {orgs.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "48px 0", color: "#aaa", fontSize: 14 }}>No organizations yet.</div>
+        <div style={{ textAlign: "center", padding: "48px 0", color: C.gray400, fontSize: 14 }}>No organizations yet.</div>
       ) : (
         <>
-          <div style={{ fontSize: 13, color: "#aaa", marginBottom: 12 }}>{orgs.length} org{orgs.length !== 1 ? "s" : ""}</div>
+          <div style={{ fontSize: 13, color: C.gray400, marginBottom: 12 }}>{orgs.length} org{orgs.length !== 1 ? "s" : ""}</div>
           {orgs.map(org => (
             <OrgCard
               key={org.id}

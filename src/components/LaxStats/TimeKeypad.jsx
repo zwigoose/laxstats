@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { C, F } from "../../styles/tokens";
 
 function parseClockDigits(digits) {
   if (!digits) return { valid: false };
@@ -47,12 +48,12 @@ export default function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeilin
     padding: "16px 0",
     fontSize: special ? 18 : 22,
     fontWeight: special ? 600 : 400,
-    background: special ? "#f0f0f0" : "#f7f7f7",
-    border: "1px solid #e8e8e8",
+    background: special ? C.gray75 : C.gray45,
+    border: `1px solid ${C.gray100}`,
     borderRadius: 14,
     cursor: "pointer",
-    color: "#111",
-    fontFamily: "system-ui, sans-serif",
+    color: C.gray900,
+    fontFamily: F.ui,
     userSelect: "none",
     WebkitUserSelect: "none",
   });
@@ -61,22 +62,22 @@ export default function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeilin
     <div style={{ marginTop: 12 }}>
       <div>
         <div style={{ textAlign: "center", marginBottom: 4 }}>
-          <span style={{ fontSize: 48, fontWeight: 300, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums", color: canUse ? "#111" : errorMsg ? "#c0392b" : digits.length > 0 ? "#111" : "#ccc" }}>
+          <span style={{ fontSize: 48, fontWeight: 300, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums", color: canUse ? C.gray900 : errorMsg ? C.red600 : digits.length > 0 ? C.gray900 : C.gray300 }}>
             {parsed.label ?? (digits.length > 0 ? "—:——" : "--:--")}
           </span>
         </div>
         <div style={{ textAlign: "center", height: 18, marginBottom: 10 }}>
           {digits.length > 0
-            ? <span style={{ fontSize: 12, color: errorMsg ? "#c0392b" : "#aaa" }}>
+            ? <span style={{ fontSize: 12, color: errorMsg ? C.red600 : C.gray400 }}>
                 Typed: {digits}{errorMsg ? ` — ${errorMsg}` : ""}
               </span>
-            : <span style={{ fontSize: 12, color: "#ddd" }}>Enter time remaining</span>}
+            : <span style={{ fontSize: 12, color: C.gray250 }}>Enter time remaining</span>}
         </div>
         <div style={{ height: showSameAsLatest && latestLabel ? 50 : 0, marginBottom: showSameAsLatest && latestLabel ? 10 : 0 }}>
           {showSameAsLatest && latestLabel && (
             <button
               onClick={() => setDigits(timeStringToDigits(latestLabel))}
-              style={{ width: "100%", padding: "10px 0", fontSize: 13, fontWeight: 600, background: "#f0f8ff", border: "1px solid #c0d8f0", borderRadius: 10, cursor: "pointer", color: "#1a6bab" }}>
+              style={{ width: "100%", padding: "10px 0", fontSize: 13, fontWeight: 600, background: C.blue30, border: `1px solid ${C.blue200}`, borderRadius: 10, cursor: "pointer", color: C.blue600 }}>
               Same as latest: {latestLabel}
             </button>
           )}
@@ -89,7 +90,7 @@ export default function TimeKeypad({ maxSeconds, ceilingSecs, allowEqualToCeilin
         <button style={keyStyle(true)} onClick={() => setDigits(prev => prev.slice(0, -1))}>⌫</button>
         <button style={keyStyle(false)} onClick={() => pressDigit("0")}>{0}</button>
         <button
-          style={{ ...keyStyle(true), background: canUse ? "#111" : "#ccc", color: "#fff", fontWeight: 600, fontSize: 15 }}
+          style={{ ...keyStyle(true), background: canUse ? C.gray900 : C.gray300, color: C.white, fontWeight: 600, fontSize: 15 }}
           disabled={!canUse}
           onClick={() => canUse && onConfirm(parsed.label)}>
           Use

@@ -14,6 +14,7 @@ import PlayerStatsTable, { PLAYER_STAT_KEYS } from "../PlayerStatsTable";
 import FieldMapInput from "./FieldMapInput";
 import ShotMap from "../ShotMap";
 import { upsertOrgTeamPlayer } from "../../services/teams";
+import { C, F, SH } from "../../styles/tokens";
 
 export { EVENTS, STAT_KEYS, STAT_LABELS, buildPlayerStats, buildTeamTotals, buildLogGroups, buildScoringTimeline, qLabel, isOT, toSecs, entryDisplayInfo };
 
@@ -43,7 +44,7 @@ export default function LaxStats({
 }) {
   const [screen, setScreen] = useState("setup"); // setup | track | stats | log
   const [trackingStarted, setTrackingStarted] = useState(false);
-  const [teams, setTeams] = useState([{ name: "Home", roster: "", color: "#1a6bab" }, { name: "Away", roster: "", color: "#b84e1a" }]);
+  const [teams, setTeams] = useState([{ name: "Home", roster: "", color: C.blue600 }, { name: "Away", roster: "", color: C.orange700 }]);
   const [parsedRosters, setParsedRosters] = useState([[], []]);
   const [log, setLog] = useState([]);
   // Tracks groupIds that were added to `log` via the remoteEntries prop so we know
@@ -834,7 +835,7 @@ export default function LaxStats({
         <button
           style={{
             ...S.playerBtn(false, color, isHome),
-            border: isHome ? `2px dashed ${color}` : "2px dashed rgba(255,255,255,0.6)",
+            border: isHome ? `2px dashed ${color}` : `2px dashed ${C.whiteA60}`,
             opacity: 0.85,
           }}
           title="Add a missing jersey number"
@@ -1525,16 +1526,16 @@ export default function LaxStats({
       {screen === "setup" && (
         <div>
           {orgContext && (
-            <div style={{ background: "#eef4fb", border: "1px solid #c0d8f0", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#1a6bab", display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ background: C.blue50, border: `1px solid ${C.blue200}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: C.blue600, display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontWeight: 700 }}>Org game</span>
-              {orgContext.orgName && <><span style={{ color: "#b0c8e0" }}>·</span><span>{orgContext.orgName}</span></>}
-              {orgContext.seasonName && <><span style={{ color: "#b0c8e0" }}>·</span><span>{orgContext.seasonName}</span></>}
+              {orgContext.orgName && <><span style={{ color: C.blue300 }}>·</span><span>{orgContext.orgName}</span></>}
+              {orgContext.seasonName && <><span style={{ color: C.blue300 }}>·</span><span>{orgContext.seasonName}</span></>}
             </div>
           )}
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Game Date</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Game Date</div>
             {trackingStarted ? (
-              <div style={{ fontSize: 14, color: "#111", padding: "8px 0" }}>
+              <div style={{ fontSize: 14, color: C.gray900, padding: "8px 0" }}>
                 {new Date(gameDate + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
               </div>
             ) : (
@@ -1542,7 +1543,7 @@ export default function LaxStats({
                 type="date"
                 value={gameDate}
                 onChange={e => setGameDate(e.target.value)}
-                style={{ padding: "8px 10px", fontSize: 14, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", color: "#111", background: "#fff" }}
+                style={{ padding: "8px 10px", fontSize: 14, border: `1px solid ${C.gray200}`, borderRadius: 8, fontFamily: F.ui, color: C.gray900, background: C.white }}
               />
             )}
           </div>
@@ -1552,13 +1553,13 @@ export default function LaxStats({
             { label: "Referees", value: refereeNames, set: setRefereeNames, placeholder: "Names of officials" },
           ].map(({ label, value, set, placeholder }) => (
             <div key={label} style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</div>
               <input
                 type="text"
                 value={value}
                 onChange={e => set(e.target.value)}
                 placeholder={placeholder}
-                style={{ width: "100%", padding: "8px 10px", fontSize: 14, border: "1px solid #e0e0e0", borderRadius: 8, fontFamily: "system-ui, sans-serif", color: "#111", background: "#fff", boxSizing: "border-box" }}
+                style={{ width: "100%", padding: "8px 10px", fontSize: 14, border: `1px solid ${C.gray200}`, borderRadius: 8, fontFamily: F.ui, color: C.gray900, background: C.white, boxSizing: "border-box" }}
               />
             </div>
           ))}
@@ -1569,7 +1570,7 @@ export default function LaxStats({
                   <div style={S.teamLabel(teams[ti].color)}>{ti === 0 ? "Home" : "Away"}</div>
                   {!teams[ti].orgTeamId && (savedTeams.length > 0 || orgTeams.length > 0 || awayOrgTeams.length > 0) && (
                     <select
-                      style={{ fontSize: 11, color: teams[ti].color, border: "1px solid #e5e5e5", borderRadius: 6, padding: "3px 6px", background: "#fafafa", cursor: "pointer", maxWidth: 130 }}
+                      style={{ fontSize: 11, color: teams[ti].color, border: `1px solid ${C.gray150}`, borderRadius: 6, padding: "3px 6px", background: C.gray25, cursor: "pointer", maxWidth: 130 }}
                       defaultValue=""
                       onChange={e => {
                         const val = e.target.value;
@@ -1620,9 +1621,9 @@ export default function LaxStats({
                   <>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       <div style={{ width: 12, height: 12, borderRadius: "50%", background: teams[ti].color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 16, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" }}>{teams[ti].name}</span>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: C.gray900, flex: 1, letterSpacing: "-0.01em" }}>{teams[ti].name}</span>
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#9a4800", background: "#fff3e0", border: "1px solid #ffd08a", borderRadius: 6, padding: "3px 9px", marginBottom: 10, display: "inline-block" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: C.orange850, background: C.orange100, border: `1px solid ${C.orange250}`, borderRadius: 6, padding: "3px 9px", marginBottom: 10, display: "inline-block" }}>
                       {teams[ti].orgTeamId ? "Org roster · game-day edits" : "Roster · game in progress"}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -1630,23 +1631,23 @@ export default function LaxStats({
                         const isEditing = rosterEdit?.teamIdx === ti && rosterEdit?.mode === "edit" && rosterEdit?.playerIdx === pi;
                         if (isEditing) {
                           return (
-                            <div key={pi} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", background: "#f0f7ff", border: "1px solid #b3d4f0", borderRadius: 6 }}>
-                              <span style={{ fontSize: 11, color: "#888", flexShrink: 0 }}>#</span>
+                            <div key={pi} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", background: C.blue35, border: `1px solid ${C.blue250}`, borderRadius: 6 }}>
+                              <span style={{ fontSize: 11, color: C.gray500, flexShrink: 0 }}>#</span>
                               <input
                                 autoFocus
-                                style={{ width: 48, fontSize: 13, fontWeight: 600, border: "1px solid #b3d4f0", borderRadius: 4, padding: "2px 4px" }}
+                                style={{ width: 48, fontSize: 13, fontWeight: 600, border: `1px solid ${C.blue250}`, borderRadius: 4, padding: "2px 4px" }}
                                 value={rosterEdit.num}
                                 onChange={e => setRosterEdit(prev => ({ ...prev, num: e.target.value, error: null }))}
                                 onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
                               />
                               <input
-                                style={{ flex: 1, fontSize: 13, border: "1px solid #b3d4f0", borderRadius: 4, padding: "2px 4px" }}
+                                style={{ flex: 1, fontSize: 13, border: `1px solid ${C.blue250}`, borderRadius: 4, padding: "2px 4px" }}
                                 value={rosterEdit.name}
                                 onChange={e => setRosterEdit(prev => ({ ...prev, name: e.target.value, error: null }))}
                                 onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
                               />
-                              <button onClick={commitRosterEdit} style={{ fontSize: 11, fontWeight: 600, color: "#fff", background: "#1a6bab", border: "none", borderRadius: 5, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>Save</button>
-                              <button onClick={() => setRosterEdit(null)} style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #ddd", borderRadius: 5, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Cancel</button>
+                              <button onClick={commitRosterEdit} style={{ fontSize: 11, fontWeight: 600, color: C.white, background: C.blue600, border: "none", borderRadius: 5, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>Save</button>
+                              <button onClick={() => setRosterEdit(null)} style={{ fontSize: 11, color: C.gray500, background: "none", border: `1px solid ${C.gray250}`, borderRadius: 5, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Cancel</button>
                             </div>
                           );
                         }
@@ -1656,44 +1657,44 @@ export default function LaxStats({
                             <span style={{ fontSize: 13, flex: 1 }}>{p.name}</span>
                             <button
                               onClick={() => setRosterEdit({ teamIdx: ti, mode: "edit", playerIdx: pi, num: p.num, name: p.name, error: null })}
-                              style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #e5e5e5", borderRadius: 5, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
+                              style={{ fontSize: 11, color: C.gray500, background: "none", border: `1px solid ${C.gray150}`, borderRadius: 5, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
                             >Edit</button>
                           </div>
                         );
                       })}
                     </div>
                     {rosterEdit?.teamIdx === ti && rosterEdit?.mode === "add" ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", marginTop: 6, background: "#f0fff4", border: "1px solid #b5e0c0", borderRadius: 6 }}>
-                        <span style={{ fontSize: 11, color: "#888", flexShrink: 0 }}>#</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", marginTop: 6, background: C.green25, border: `1px solid ${C.green200}`, borderRadius: 6 }}>
+                        <span style={{ fontSize: 11, color: C.gray500, flexShrink: 0 }}>#</span>
                         <input
                           autoFocus
-                          style={{ width: 48, fontSize: 13, fontWeight: 600, border: "1px solid #b5e0c0", borderRadius: 4, padding: "2px 4px" }}
+                          style={{ width: 48, fontSize: 13, fontWeight: 600, border: `1px solid ${C.green200}`, borderRadius: 4, padding: "2px 4px" }}
                           value={rosterEdit.num}
                           placeholder="00"
                           onChange={e => setRosterEdit(prev => ({ ...prev, num: e.target.value, error: null }))}
                           onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
                         />
                         <input
-                          style={{ flex: 1, fontSize: 13, border: "1px solid #b5e0c0", borderRadius: 4, padding: "2px 4px" }}
+                          style={{ flex: 1, fontSize: 13, border: `1px solid ${C.green200}`, borderRadius: 4, padding: "2px 4px" }}
                           value={rosterEdit.name}
                           placeholder="Player name"
                           onChange={e => setRosterEdit(prev => ({ ...prev, name: e.target.value, error: null }))}
                           onKeyDown={e => { if (e.key === "Enter") commitRosterEdit(); if (e.key === "Escape") setRosterEdit(null); }}
                         />
-                        <button onClick={commitRosterEdit} style={{ fontSize: 11, fontWeight: 600, color: "#fff", background: "#2a7a3b", border: "none", borderRadius: 5, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>Add</button>
-                        <button onClick={() => setRosterEdit(null)} style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #ddd", borderRadius: 5, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Cancel</button>
+                        <button onClick={commitRosterEdit} style={{ fontSize: 11, fontWeight: 600, color: C.white, background: C.green600, border: "none", borderRadius: 5, padding: "3px 10px", cursor: "pointer", flexShrink: 0 }}>Add</button>
+                        <button onClick={() => setRosterEdit(null)} style={{ fontSize: 11, color: C.gray500, background: "none", border: `1px solid ${C.gray250}`, borderRadius: 5, padding: "3px 8px", cursor: "pointer", flexShrink: 0 }}>Cancel</button>
                       </div>
                     ) : (
                       <button
                         onClick={() => setRosterEdit({ teamIdx: ti, mode: "add", num: "", name: "", error: null })}
-                        style={{ marginTop: 8, fontSize: 12, color: "#2a7a3b", background: "none", border: "1px dashed #b5e0c0", borderRadius: 6, padding: "5px 12px", cursor: "pointer", width: "100%", textAlign: "left" }}
+                        style={{ marginTop: 8, fontSize: 12, color: C.green600, background: "none", border: `1px dashed ${C.green200}`, borderRadius: 6, padding: "5px 12px", cursor: "pointer", width: "100%", textAlign: "left" }}
                       >+ Add player</button>
                     )}
                     {rosterEdit?.teamIdx === ti && rosterEdit?.error && (
-                      <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4 }}>{rosterEdit.error}</div>
+                      <div style={{ fontSize: 11, color: C.red600, marginTop: 4 }}>{rosterEdit.error}</div>
                     )}
                     {teams[ti].orgTeamId && (
-                      <div style={{ fontSize: 11, color: "#bbb", marginTop: 8 }}>
+                      <div style={{ fontSize: 11, color: C.gray350, marginTop: 8 }}>
                         Changes apply to this game only · Org → Teams roster is unchanged
                       </div>
                     )}
@@ -1703,26 +1704,26 @@ export default function LaxStats({
                   <>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       <div style={{ width: 12, height: 12, borderRadius: "50%", background: teams[ti].color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 16, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em" }}>{teams[ti].name}</span>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: C.gray900, flex: 1, letterSpacing: "-0.01em" }}>{teams[ti].name}</span>
                       <button
                         onClick={() => {
-                          setTeams(t => t.map((x, i) => i === ti ? { ...x, orgTeamId: null, roster: "", name: ti === 0 ? "Home" : "Away", color: ti === 0 ? "#1a6bab" : "#b84e1a" } : x));
+                          setTeams(t => t.map((x, i) => i === ti ? { ...x, orgTeamId: null, roster: "", name: ti === 0 ? "Home" : "Away", color: ti === 0 ? C.blue600 : C.orange700 } : x));
                           if (onOrgTeamSelected) onOrgTeamSelected(ti, null);
                         }}
-                        style={{ fontSize: 11, color: "#888", background: "none", border: "1px solid #ddd", borderRadius: 6, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
+                        style={{ fontSize: 11, color: C.gray500, background: "none", border: `1px solid ${C.gray250}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
                       >
                         Change
                       </button>
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#2a7a3b", background: "#eaf6ec", border: "1px solid #c0e8c8", borderRadius: 6, padding: "3px 9px", marginBottom: 10, display: "inline-block" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: C.green600, background: C.green50, border: `1px solid ${C.green110}`, borderRadius: 6, padding: "3px 9px", marginBottom: 10, display: "inline-block" }}>
                       Org roster · locked
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                       {teams[ti].logoUrl && (
-                        <img src={teams[ti].logoUrl} alt="logo" style={{ width: 28, height: 28, objectFit: "contain", borderRadius: 4, border: "1px solid #e0e0e0", background: "#fff" }} />
+                        <img src={teams[ti].logoUrl} alt="logo" style={{ width: 28, height: 28, objectFit: "contain", borderRadius: 4, border: `1px solid ${C.gray200}`, background: C.white }} />
                       )}
                       {gameId && currentUserId && (
-                        <label style={{ fontSize: 11, color: "#888", cursor: logoUploading[ti] ? "default" : "pointer", border: "1px dashed #ccc", borderRadius: 6, padding: "3px 10px", opacity: logoUploading[ti] ? 0.5 : 1 }}>
+                        <label style={{ fontSize: 11, color: C.gray500, cursor: logoUploading[ti] ? "default" : "pointer", border: `1px dashed ${C.gray300}`, borderRadius: 6, padding: "3px 10px", opacity: logoUploading[ti] ? 0.5 : 1 }}>
                           {logoUploading[ti] ? "Uploading…" : teams[ti].logoUrl ? "Replace logo" : "Add logo"}
                           <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" style={{ display: "none" }} disabled={logoUploading[ti]}
                             onChange={e => { handleLogoUpload(ti, e.target.files?.[0]); e.target.value = ""; }} />
@@ -1733,11 +1734,11 @@ export default function LaxStats({
                       const players = parseRoster(teams[ti].roster);
                       return (
                         <div>
-                          <div style={{ fontSize: 11, color: "#aaa", marginBottom: 6 }}>{players.length} player{players.length !== 1 ? "s" : ""}</div>
+                          <div style={{ fontSize: 11, color: C.gray400, marginBottom: 6 }}>{players.length} player{players.length !== 1 ? "s" : ""}</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                             {players.map((p, i) => <span key={i} style={S.chip}><span style={S.chipNum}>#{p.num}</span>{p.name}</span>)}
                           </div>
-                          <div style={{ fontSize: 11, color: "#bbb", marginTop: 10 }}>
+                          <div style={{ fontSize: 11, color: C.gray350, marginTop: 10 }}>
                             To update this roster, edit it in Org → Teams
                           </div>
                         </div>
@@ -1749,17 +1750,17 @@ export default function LaxStats({
                   <>
                     <input style={S.textInput} placeholder={ti === 0 ? "Home team name" : "Away team name"}
                       value={teams[ti].name} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, name: e.target.value } : x))} />
-                    <div style={{ marginBottom: 4, fontSize: 11, color: "#888" }}>Team color</div>
+                    <div style={{ marginBottom: 4, fontSize: 11, color: C.gray500 }}>Team color</div>
                     <div style={S.colorRow}>
                       {PRESET_COLORS.map(c => <div key={c} style={S.colorSwatch(c, teams[ti].color === c)} onClick={() => setTeams(t => t.map((x, i) => i === ti ? { ...x, color: c } : x))} />)}
                       <input type="color" style={S.colorPickerInput} value={teams[ti].color} onChange={e => setTeams(t => t.map((x, i) => i === ti ? { ...x, color: e.target.value } : x))} />
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       {teams[ti].logoUrl && (
-                        <img src={teams[ti].logoUrl} alt="logo" style={{ width: 28, height: 28, objectFit: "contain", borderRadius: 4, border: "1px solid #e0e0e0", background: "#fff" }} />
+                        <img src={teams[ti].logoUrl} alt="logo" style={{ width: 28, height: 28, objectFit: "contain", borderRadius: 4, border: `1px solid ${C.gray200}`, background: C.white }} />
                       )}
                       {gameId && currentUserId && (
-                        <label style={{ fontSize: 11, color: "#888", cursor: logoUploading[ti] ? "default" : "pointer", border: "1px dashed #ccc", borderRadius: 6, padding: "3px 10px", opacity: logoUploading[ti] ? 0.5 : 1 }}>
+                        <label style={{ fontSize: 11, color: C.gray500, cursor: logoUploading[ti] ? "default" : "pointer", border: `1px dashed ${C.gray300}`, borderRadius: 6, padding: "3px 10px", opacity: logoUploading[ti] ? 0.5 : 1 }}>
                           {logoUploading[ti] ? "Uploading…" : teams[ti].logoUrl ? "Replace logo" : "Add logo (optional)"}
                           <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" style={{ display: "none" }} disabled={logoUploading[ti]}
                             onChange={e => { handleLogoUpload(ti, e.target.files?.[0]); e.target.value = ""; }} />
@@ -1781,11 +1782,11 @@ export default function LaxStats({
                       const dupes = findDuplicateNums(teams[ti].roster);
                       return (
                         <div style={{ marginTop: 10 }}>
-                          <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{players.length} player{players.length !== 1 ? "s" : ""}</div>
+                          <div style={{ fontSize: 11, color: C.gray500, marginBottom: 4 }}>{players.length} player{players.length !== 1 ? "s" : ""}</div>
                           {players.slice(0, 5).map((p, i) => <span key={i} style={S.chip}><span style={S.chipNum}>#{p.num}</span>{p.name}</span>)}
                           {players.length > 5 && <span style={S.chip}>+{players.length - 5} more</span>}
                           {dupes.length > 0 && (
-                            <div style={{ fontSize: 11, color: "#c0392b", marginTop: 6, fontWeight: 500 }}>
+                            <div style={{ fontSize: 11, color: C.red600, marginTop: 6, fontWeight: 500 }}>
                               Duplicate number{dupes.length > 1 ? "s" : ""}: {dupes.join(", ")}
                             </div>
                           )}
@@ -1811,7 +1812,7 @@ export default function LaxStats({
                   {gameOver ? "Game Finalized" : "Start Tracking →"}
                 </button>
                 {!gameOver && hasAny && !ready && (
-                  <div style={{ fontSize: 12, color: hasDupes ? "#c0392b" : "#aaa", textAlign: "center", marginTop: 8 }}>
+                  <div style={{ fontSize: 12, color: hasDupes ? C.red600 : C.gray400, textAlign: "center", marginTop: 8 }}>
                     {hasDupes
                       ? "Fix duplicate numbers before starting"
                       : <>Both teams need at least 10 players{r0len > 0 && r1len > 0 ? ` (${teams[0].name}: ${r0len}, ${teams[1].name}: ${r1len})` : ""}</>
@@ -1823,7 +1824,7 @@ export default function LaxStats({
           })()}
           {log.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <button style={{ width: "100%", padding: "11px", fontSize: 14, fontWeight: 500, border: "1px solid #ddd", borderRadius: 10, color: exportCopied ? "#2a7a3b" : "#555", cursor: "pointer", background: exportCopied ? "#eaf3de" : "#f7f7f7" }}
+              <button style={{ width: "100%", padding: "11px", fontSize: 14, fontWeight: 500, border: `1px solid ${C.gray250}`, borderRadius: 10, color: exportCopied ? C.green600 : C.gray650, cursor: "pointer", background: exportCopied ? C.green75 : C.gray45 }}
                 onClick={handleExport}>
                 {exportCopied ? "✓ Copied!" : "Export game (JSON)"}
               </button>
@@ -1831,7 +1832,7 @@ export default function LaxStats({
           )}
           {onCancel && !trackingStarted && (
             <div style={{ textAlign: "center", marginTop: 16 }}>
-              <button style={{ fontSize: 13, color: "#c0392b", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+              <button style={{ fontSize: 13, color: C.red600, background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
                 onClick={onCancel}>
                 Discard game
               </button>
@@ -1842,10 +1843,10 @@ export default function LaxStats({
           {exportJson && (
             <div style={{ marginTop: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <div style={{ fontSize: 12, color: exportCopied ? "#2a7a3b" : "#888" }}>
+                <div style={{ fontSize: 12, color: exportCopied ? C.green600 : C.gray500 }}>
                   {exportCopied ? "✓ Copied to clipboard — also available below" : "Tap the textarea to select all, then copy"}
                 </div>
-                <button style={{ fontSize: 12, color: "#555", background: "none", border: "1px solid #ddd", borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}
+                <button style={{ fontSize: 12, color: C.gray650, background: "none", border: `1px solid ${C.gray250}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}
                   onClick={() => setExportJson(null)}>Dismiss</button>
               </div>
               <textarea
@@ -1853,7 +1854,7 @@ export default function LaxStats({
                 value={exportJson}
                 onFocus={e => e.target.select()}
                 onClick={e => e.target.select()}
-                style={{ width: "100%", height: 140, fontSize: 11, fontFamily: "monospace", border: "1px solid #ddd", borderRadius: 8, padding: 10, background: "#f7f7f7", color: "#444", resize: "none", boxSizing: "border-box" }}
+                style={{ width: "100%", height: 140, fontSize: 11, fontFamily: F.mono, border: `1px solid ${C.gray250}`, borderRadius: 8, padding: 10, background: C.gray45, color: C.gray700, resize: "none", boxSizing: "border-box" }}
               />
             </div>
           )}
@@ -1875,7 +1876,7 @@ export default function LaxStats({
                     flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                     padding: "6px 10px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer",
                     border: `1.5px solid ${teamColors[ti]}`,
-                    background: gk ? "transparent" : "#fafafa",
+                    background: gk ? "transparent" : C.gray25,
                     color: teamColors[ti],
                     opacity: gk ? 1 : 0.75,
                     whiteSpace: "nowrap", overflow: "hidden",
@@ -1891,18 +1892,18 @@ export default function LaxStats({
 
           {/* One-time goalie nudge after the first committed event */}
           {showGkNudge && (!activeGoalies[0] || !activeGoalies[1]) && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f0f7ff", border: "1px solid #b3d4f0", borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
-              <span style={{ fontSize: 13, color: "#1a6bab", flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.blue35, border: `1px solid ${C.blue250}`, borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
+              <span style={{ fontSize: 13, color: C.blue600, flex: 1 }}>
                 🧤 Set the active goalies — saves and goals-allowed will then attribute automatically.
               </span>
               <button
-                style={{ fontSize: 12, fontWeight: 600, color: "#fff", background: "#1a6bab", border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer", flexShrink: 0 }}
+                style={{ fontSize: 12, fontWeight: 600, color: C.white, background: C.blue600, border: "none", borderRadius: 6, padding: "5px 12px", cursor: "pointer", flexShrink: 0 }}
                 onClick={() => setGkPicker(!activeGoalies[0] ? 0 : 1)}
               >
                 Set GK
               </button>
               <button
-                style={{ fontSize: 14, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}
+                style={{ fontSize: 14, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}
                 title="Dismiss"
                 onClick={() => { gkNudgeDismissedRef.current = true; setShowGkNudge(false); }}
               >
@@ -1914,10 +1915,10 @@ export default function LaxStats({
           {/* GK picker — fixed overlay so the in-flight step is untouched */}
           {gkPicker != null && (
             <div
-              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, overflowY: "auto" }}
+              style={{ position: "fixed", inset: 0, background: C.blackA50, zIndex: 100, overflowY: "auto" }}
               onClick={e => { if (e.target === e.currentTarget) setGkPicker(null); }}
             >
-              <div style={{ background: "#fff", borderRadius: 14, maxWidth: 600, margin: "32px auto", padding: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+              <div style={{ background: C.white, borderRadius: 14, maxWidth: 600, margin: "32px auto", padding: 16, boxShadow: SH.modal }}>
                 <div style={{ ...S.stepLabel, color: teamColors[gkPicker], marginBottom: 10 }}>
                   {teams[gkPicker]?.name} — Active goalie
                 </div>
@@ -1931,15 +1932,15 @@ export default function LaxStats({
 
           {/* Desync reconciliation banner — blocks new entries until scorer acknowledges */}
           {desyncBanner && (
-            <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#856404", marginBottom: 4 }}>Quarter state corrected</div>
-              <div style={{ fontSize: 12, color: "#664d03", lineHeight: 1.5, marginBottom: 10 }}>
+            <div style={{ background: C.amber100, border: `1px solid ${C.amber500}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.amber710, marginBottom: 4 }}>Quarter state corrected</div>
+              <div style={{ fontSize: 12, color: C.amber850, lineHeight: 1.5, marginBottom: 10 }}>
                 The saved game data shows this game is in <strong>Quarter {desyncBanner.dbQuarter}</strong>.
                 The scorekeeper has been updated to match the database.
                 No entries were lost — please verify the current quarter before continuing.
               </div>
               <button
-                style={{ fontSize: 12, fontWeight: 600, color: "#664d03", background: "#ffe69c", border: "1px solid #ffc107", borderRadius: 6, padding: "6px 14px", cursor: "pointer" }}
+                style={{ fontSize: 12, fontWeight: 600, color: C.amber850, background: C.amber200, border: `1px solid ${C.amber500}`, borderRadius: 6, padding: "6px 14px", cursor: "pointer" }}
                 onClick={() => setDesyncBanner(null)}
               >
                 I understand — continue scoring
@@ -1949,17 +1950,17 @@ export default function LaxStats({
 
           {/* Quarter write error */}
           {quarterError && (
-            <div style={{ background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#c0392b", marginBottom: 4 }}>Quarter not saved</div>
-              <div style={{ fontSize: 12, color: "#c0392b" }}>{quarterError}</div>
-              <button style={{ fontSize: 11, color: "#c0392b", background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", textDecoration: "underline" }} onClick={() => setQuarterError(null)}>Dismiss</button>
+            <div style={{ background: C.red50, border: `1px solid ${C.red300}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.red600, marginBottom: 4 }}>Quarter not saved</div>
+              <div style={{ fontSize: 12, color: C.red600 }}>{quarterError}</div>
+              <button style={{ fontSize: 11, color: C.red600, background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", textDecoration: "underline" }} onClick={() => setQuarterError(null)}>Dismiss</button>
             </div>
           )}
 
           {/* Persistent last-entry banner */}
           {lastEntry && step === "team" && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#f0f0f0", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 13 }}>
-              <span style={{ flex: 1, color: "#444" }}><span style={{ fontWeight: 500, color: "#888", marginRight: 6 }}>Last entry:</span>{lastEntry.text}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, background: C.gray75, borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: 13 }}>
+              <span style={{ flex: 1, color: C.gray700 }}><span style={{ fontWeight: 500, color: C.gray500, marginRight: 6 }}>Last entry:</span>{lastEntry.text}</span>
               <button style={S.undoBtn} onClick={() => {
                 const gid = lastEntry.groupId;
                 setLog(prev => prev.filter(e => e.groupId !== gid));
@@ -1972,24 +1973,24 @@ export default function LaxStats({
           {dupeGroups.length > 0 && (
             <button
               onClick={() => { setScreen("stats"); setStatsTab("log"); setStatsQtr("dupes"); }}
-              style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: "#fffbf0", border: "1px solid #f0c060", borderRadius: 10, padding: "10px 14px", marginBottom: 14, cursor: "pointer", textAlign: "left", boxSizing: "border-box" }}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, background: C.amber50, border: `1px solid ${C.orange300}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, cursor: "pointer", textAlign: "left", boxSizing: "border-box" }}
             >
               <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#7a5c00" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.amber800 }}>
                   {dupeGroups.length} possible duplicate{dupeGroups.length !== 1 ? "s" : ""} detected
                 </div>
-                <div style={{ fontSize: 11, color: "#9a7c20", marginTop: 1 }}>Tap to review in Event Log</div>
+                <div style={{ fontSize: 11, color: C.amber650, marginTop: 1 }}>Tap to review in Event Log</div>
               </div>
-              <span style={{ fontSize: 13, color: "#c0a030", flexShrink: 0 }}>→</span>
+              <span style={{ fontSize: 13, color: C.amber550, flexShrink: 0 }}>→</span>
             </button>
           )}
 
           {editingGroupId && (
-            <div style={{ background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#7a5c00", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>✏️ Editing entry</div>
-              <div style={{ fontSize: 13, color: "#555", lineHeight: 1.5 }}>{editContextSummary()}</div>
-              <button style={{ fontSize: 11, color: "#7a5c00", background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", textDecoration: "underline" }} onClick={resetEntry}>cancel edit</button>
+            <div style={{ background: C.amber50, border: `1px solid ${C.amber250}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.amber800, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>✏️ Editing entry</div>
+              <div style={{ fontSize: 13, color: C.gray650, lineHeight: 1.5 }}>{editContextSummary()}</div>
+              <button style={{ fontSize: 11, color: C.amber800, background: "none", border: "none", cursor: "pointer", padding: "4px 0 0", textDecoration: "underline" }} onClick={resetEntry}>cancel edit</button>
             </div>
           )}
 
@@ -1998,23 +1999,23 @@ export default function LaxStats({
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <div style={S.qtrPill}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOT(currentQuarter) ? "#e67e22" : "#4caf50", display: "inline-block" }}></span>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: isOT(currentQuarter) ? C.orange500 : C.green400, display: "inline-block" }}></span>
                   {curQLabel} — Live
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 500 }}>
                   <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
-                  <span style={{ margin: "0 8px", color: "#ccc" }}>—</span>
+                  <span style={{ margin: "0 8px", color: C.gray300 }}>—</span>
                   <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
                 </div>
               </div>
-              {isOT(currentQuarter) && <div style={{ fontSize: 12, color: "#e67e22", background: "#fff8f0", border: "1px solid #f0d9b5", borderRadius: 8, padding: "6px 12px", marginBottom: 12, textAlign: "center" }}>Sudden death — next goal wins</div>}
+              {isOT(currentQuarter) && <div style={{ fontSize: 12, color: C.orange500, background: C.orange40, border: `1px solid ${C.orange200}`, borderRadius: 8, padding: "6px 12px", marginBottom: 12, textAlign: "center" }}>Sudden death — next goal wins</div>}
               <div style={S.stepLabel}>Who scored / acted?</div>
               <div style={S.teamBtns}>
                 {[0, 1].map(ti => (
                   <button key={ti} style={S.teamBigBtn(teamColors[ti], ti === 0)} onClick={() => { setSelectedTeam(ti); setStep("event"); }}>
-                    <span style={{ fontSize: 36, fontWeight: 600, display: "block", marginBottom: 4, color: ti === 0 ? teamColors[0] : "#fff" }}>{totalScores[ti]}</span>
-                    <span style={{ fontSize: 13, color: ti === 0 ? teamColors[0] : "rgba(255,255,255,0.8)" }}>{teams[ti].name}</span>
-                    <span style={{ fontSize: 13, marginTop: 6, display: "block", opacity: 0.8, color: ti === 0 ? teamColors[0] : "#fff", fontWeight: 500 }}>
+                    <span style={{ fontSize: 36, fontWeight: 600, display: "block", marginBottom: 4, color: ti === 0 ? teamColors[0] : C.white }}>{totalScores[ti]}</span>
+                    <span style={{ fontSize: 13, color: ti === 0 ? teamColors[0] : C.whiteA80 }}>{teams[ti].name}</span>
+                    <span style={{ fontSize: 13, marginTop: 6, display: "block", opacity: 0.8, color: ti === 0 ? teamColors[0] : C.white, fontWeight: 500 }}>
                       ⏸ {timeoutsLeft[ti]} timeout{timeoutsLeft[ti] !== 1 ? "s" : ""} left
                     </span>
                   </button>
@@ -2022,41 +2023,41 @@ export default function LaxStats({
               </div>
               {/* Faceoff involves both teams — entered here, not via team → event */}
               <button
-                style={{ width: "100%", padding: "14px 12px", fontSize: 15, fontWeight: 600, border: "1px solid #ddd", borderRadius: 14, background: "#f7f7f7", color: "#111", cursor: "pointer", marginBottom: 14 }}
+                style={{ width: "100%", padding: "14px 12px", fontSize: 15, fontWeight: 600, border: `1px solid ${C.gray250}`, borderRadius: 14, background: C.gray45, color: C.gray900, cursor: "pointer", marginBottom: 14 }}
                 onClick={() => { setFoPlayers([null, null]); setStep("fo_player_home"); }}
               >
                 🔄 Faceoff
               </button>
               {penaltyBoxEntries.length > 0 && (
-                <div style={{ marginTop: 16, border: "1px solid #e8e8e8", borderRadius: 12, overflow: "hidden" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", padding: "8px 14px", background: "#f9f9f9", borderBottom: "1px solid #e8e8e8" }}>
+                <div style={{ marginTop: 16, border: `1px solid ${C.gray100}`, borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", padding: "8px 14px", background: C.gray30, borderBottom: `1px solid ${C.gray100}` }}>
                     Penalty Box
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
-                      <tr style={{ background: "#fafafa" }}>
-                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Team</th>
-                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Player</th>
-                        <th style={{ padding: "6px 14px", textAlign: "right", fontWeight: 600, color: "#888", fontSize: 11, borderBottom: "1px solid #f0f0f0" }}>Releases at</th>
+                      <tr style={{ background: C.gray25 }}>
+                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: C.gray500, fontSize: 11, borderBottom: `1px solid ${C.gray75}` }}>Team</th>
+                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: C.gray500, fontSize: 11, borderBottom: `1px solid ${C.gray75}` }}>Player</th>
+                        <th style={{ padding: "6px 14px", textAlign: "right", fontWeight: 600, color: C.gray500, fontSize: 11, borderBottom: `1px solid ${C.gray75}` }}>Releases at</th>
                       </tr>
                     </thead>
                     <tbody>
                       {penaltyBoxEntries.map((entry, i) => (
-                        <tr key={i} style={{ borderBottom: i < penaltyBoxEntries.length - 1 ? "1px solid #f5f5f5" : "none", background: entry.isNested ? "#fafafa" : "#fff" }}>
+                        <tr key={i} style={{ borderBottom: i < penaltyBoxEntries.length - 1 ? `1px solid ${C.gray50}` : "none", background: entry.isNested ? C.gray25 : C.white }}>
                           <td style={{ padding: entry.isNested ? "5px 14px 5px 26px" : "8px 14px" }}>
                             {entry.isNested
-                              ? <span style={{ fontSize: 11, color: "#bbb", marginRight: 4 }}>└</span>
-                              : <div style={{ width: 14, height: 14, borderRadius: "50%", background: entry.teamIdx === 0 ? "#fff" : entry.color, border: `2px solid ${entry.color}`, boxSizing: "border-box" }} />
+                              ? <span style={{ fontSize: 11, color: C.gray350, marginRight: 4 }}>└</span>
+                              : <div style={{ width: 14, height: 14, borderRadius: "50%", background: entry.teamIdx === 0 ? C.white : entry.color, border: `2px solid ${entry.color}`, boxSizing: "border-box" }} />
                             }
                           </td>
-                          <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", fontWeight: entry.isNested ? 400 : 600, color: entry.isNested ? "#888" : "#111", fontSize: entry.isNested ? 12 : 13 }}>
+                          <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", fontWeight: entry.isNested ? 400 : 600, color: entry.isNested ? C.gray500 : C.gray900, fontSize: entry.isNested ? 12 : 13 }}>
                             #{entry.num}
                           </td>
-                          <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", textAlign: "right", fontWeight: entry.isNested ? 500 : 700, fontVariantNumeric: "tabular-nums", color: entry.isNested ? "#aaa" : "#c0392b", fontSize: entry.isNested ? 12 : 13 }}>
+                          <td style={{ padding: entry.isNested ? "5px 14px" : "8px 14px", textAlign: "right", fontWeight: entry.isNested ? 500 : 700, fontVariantNumeric: "tabular-nums", color: entry.isNested ? C.gray400 : C.red600, fontSize: entry.isNested ? 12 : 13 }}>
                             {entry.nonReleasable && (
-                              <span style={{ marginRight: 5, fontSize: 9, fontWeight: 700, color: "#c0392b", background: "#fff0ee", border: "1px solid #f0a0a0", borderRadius: 4, padding: "1px 4px", letterSpacing: "0.05em", verticalAlign: "middle" }}>NR</span>
+                              <span style={{ marginRight: 5, fontSize: 9, fontWeight: 700, color: C.red600, background: C.red65, border: `1px solid ${C.red300}`, borderRadius: 4, padding: "1px 4px", letterSpacing: "0.05em", verticalAlign: "middle" }}>NR</span>
                             )}
-                            {entry.crossQuarter && <span style={{ fontSize: 10, fontWeight: 600, color: "#aaa", marginRight: 4 }}>{qLabel(entry.releaseQ)}</span>}
+                            {entry.crossQuarter && <span style={{ fontSize: 10, fontWeight: 600, color: C.gray400, marginRight: 4 }}>{qLabel(entry.releaseQ)}</span>}
                             {entry.releaseTime}
                           </td>
                         </tr>
@@ -2076,7 +2077,7 @@ export default function LaxStats({
               {scorekeeperRole !== "secondary" && onMetaEvent && !gameOver && (
                 <div style={{ textAlign: "center", marginTop: 6 }}>
                   <button
-                    style={{ fontSize: 11, color: "#aaa", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: "2px 0" }}
+                    style={{ fontSize: 11, color: C.gray400, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: "2px 0" }}
                     onClick={() => { setQuarterOverridePending(currentQuarter); setQuarterOverrideOpen(true); }}
                   >
                     Wrong quarter?
@@ -2086,13 +2087,13 @@ export default function LaxStats({
 
               {/* Quarter override panel */}
               {quarterOverrideOpen && (
-                <div style={{ marginTop: 10, background: "#f5f5f5", border: "1px solid #ddd", borderRadius: 10, padding: "12px 14px" }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111", marginBottom: 8 }}>Set current quarter</div>
+                <div style={{ marginTop: 10, background: C.gray50, border: `1px solid ${C.gray250}`, borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.gray900, marginBottom: 8 }}>Set current quarter</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                     {[1, 2, 3, 4, 5, 6].filter(q => q <= Math.max(currentQuarter + 1, 4)).map(q => (
                       <button
                         key={q}
-                        style={{ padding: "8px 14px", fontSize: 13, fontWeight: q === quarterOverridePending ? 700 : 400, background: q === quarterOverridePending ? "#111" : "#fff", color: q === quarterOverridePending ? "#fff" : "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" }}
+                        style={{ padding: "8px 14px", fontSize: 13, fontWeight: q === quarterOverridePending ? 700 : 400, background: q === quarterOverridePending ? C.gray900 : C.white, color: q === quarterOverridePending ? C.white : C.gray650, border: `1px solid ${C.gray250}`, borderRadius: 8, cursor: "pointer" }}
                         onClick={() => setQuarterOverridePending(q)}
                       >
                         {q <= 4 ? `Q${q}` : `OT${q - 4}`}
@@ -2145,11 +2146,11 @@ export default function LaxStats({
               }}>
                 <div style={{
                   width: 10, height: 10, borderRadius: "50%",
-                  background: "rgba(255,255,255,0.5)", flexShrink: 0,
+                  background: C.whiteA50, flexShrink: 0,
                 }}></div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Recording event for</div>
-                  <div style={{ fontSize: 20, fontWeight: 600, color: "#fff", letterSpacing: 0 }}>{teams[selectedTeam].name}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: C.whiteA70, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Recording event for</div>
+                  <div style={{ fontSize: 20, fontWeight: 600, color: C.white, letterSpacing: 0 }}>{teams[selectedTeam].name}</div>
                 </div>
               </div>
               <div style={S.eventGrid}>
@@ -2227,11 +2228,11 @@ export default function LaxStats({
               <div style={S.teamBtns}>
                 {[0, 1].map(ti => (
                   <button key={ti} style={S.teamBigBtn(teamColors[ti], ti === 0)} onClick={() => handleFaceoffResult(ti)}>
-                    <span style={{ fontSize: 24, fontWeight: 600, display: "block", marginBottom: 4, color: ti === 0 ? teamColors[0] : "#fff" }}>
+                    <span style={{ fontSize: 24, fontWeight: 600, display: "block", marginBottom: 4, color: ti === 0 ? teamColors[0] : C.white }}>
                       #{foPlayers[ti]?.num}
                     </span>
-                    <span style={{ fontSize: 13, color: ti === 0 ? teamColors[0] : "rgba(255,255,255,0.85)" }}>{foPlayers[ti]?.name}</span>
-                    <span style={{ fontSize: 12, marginTop: 6, display: "block", opacity: 0.8, color: ti === 0 ? teamColors[0] : "#fff", fontWeight: 500 }}>
+                    <span style={{ fontSize: 13, color: ti === 0 ? teamColors[0] : C.whiteA85 }}>{foPlayers[ti]?.name}</span>
+                    <span style={{ fontSize: 12, marginTop: 6, display: "block", opacity: 0.8, color: ti === 0 ? teamColors[0] : C.white, fontWeight: 500 }}>
                       {teams[ti]?.name}
                     </span>
                   </button>
@@ -2329,7 +2330,7 @@ export default function LaxStats({
               {editingGroupId && (() => {
                 const g = getGroupById(editingGroupId);
                 const cur = g.some(e => e.event === "clear") ? "Successful" : g.some(e => e.event === "failed_clear") ? "Failed" : null;
-                return cur ? <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>Currently: {cur}</div> : null;
+                return cur ? <div style={{ fontSize: 12, color: C.amber800, background: C.amber50, border: `1px solid ${C.amber250}`, borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>Currently: {cur}</div> : null;
               })()}
               <div style={S.questionCard}><div style={S.questionText}>How did the clear end?</div></div>
               <div style={S.yesNoRow}>
@@ -2363,15 +2364,15 @@ export default function LaxStats({
               </div>
               {editingGroupId && (() => {
                 const prev = getGroupById(editingGroupId).find(e => e.event === "assist");
-                return <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
+                return <div style={{ fontSize: 12, color: C.amber800, background: C.amber50, border: `1px solid ${C.amber250}`, borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
                   Currently: {prev ? `Assisted by #${prev.player?.num} ${prev.player?.name}` : "Unassisted"}
                 </div>;
               })()}
               <div style={S.questionCard}><div style={S.questionText}>Was it assisted?</div></div>
               <div style={S.yesNoRow}>
                 {(() => { const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "assist") : null; return [
-                  <button key="n" style={{ ...S.btnNo, border: (!prev && editingGroupId) ? "2px solid #111" : "1px solid #ddd", fontWeight: (!prev && editingGroupId) ? 600 : 400 }} onClick={handleAssistNo}>No — unassisted{!prev && editingGroupId ? " ✓" : ""}</button>,
-                  <button key="y" style={{ ...S.btnYes, background: prev ? "#333" : "#111" }} onClick={handleAssistYes}>{prev ? `Yes ✓ (#${prev.player?.num})` : "Yes"}</button>,
+                  <button key="n" style={{ ...S.btnNo, border: (!prev && editingGroupId) ? `2px solid ${C.gray900}` : `1px solid ${C.gray250}`, fontWeight: (!prev && editingGroupId) ? 600 : 400 }} onClick={handleAssistNo}>No — unassisted{!prev && editingGroupId ? " ✓" : ""}</button>,
+                  <button key="y" style={{ ...S.btnYes, background: prev ? C.gray750 : C.gray900 }} onClick={handleAssistYes}>{prev ? `Yes ✓ (#${prev.player?.num})` : "Yes"}</button>,
                 ]; })()}
               </div>
             </div>
@@ -2447,7 +2448,7 @@ export default function LaxStats({
                 const g = getGroupById(editingGroupId);
                 const prevSaved = g.some(e => e.event === "shot_saved");
                 const cur = prevSaved ? "Saved" : "Missed";
-                return <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>Currently: {cur}</div>;
+                return <div style={{ fontSize: 12, color: C.amber800, background: C.amber50, border: `1px solid ${C.amber250}`, borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>Currently: {cur}</div>;
               })()}
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
                 {[
@@ -2484,7 +2485,7 @@ export default function LaxStats({
               <div style={S.pendingBubble(teamColors[selectedTeam])}>🟨 Penalty @ {penaltyTime} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
               {editingGroupId && (() => {
                 const existing = getGroupById(editingGroupId).find(e => e.event === "penalty_tech" || e.event === "penalty_min");
-                return existing?.foulName ? <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
+                return existing?.foulName ? <div style={{ fontSize: 12, color: C.amber800, background: C.amber50, border: `1px solid ${C.amber250}`, borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
                   Currently: {existing.foulName}
                 </div> : null;
               })()}
@@ -2495,10 +2496,10 @@ export default function LaxStats({
                   const isSelected = prevFoul === opt.name;
                   return (
                     <button key={opt.name}
-                      style={{ ...S.btnNo, textAlign: "center", padding: "10px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, border: isSelected ? "2px solid #111" : "1px solid #ddd", fontWeight: isSelected ? 600 : 400 }}
+                      style={{ ...S.btnNo, textAlign: "center", padding: "10px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, border: isSelected ? `2px solid ${C.gray900}` : `1px solid ${C.gray250}`, fontWeight: isSelected ? 600 : 400 }}
                       onClick={() => handlePenaltyFoul(opt)}>
                       <span>{opt.name}</span>
-                      <span style={{ fontSize: 10, color: opt.type === "tech" ? "#b8860b" : "#c0392b", fontWeight: 400, letterSpacing: "0.03em" }}>{opt.type === "tech" ? "🟨 Technical" : "🟥 Personal"}</span>
+                      <span style={{ fontSize: 10, color: opt.type === "tech" ? C.amber600 : C.red600, fontWeight: 400, letterSpacing: "0.03em" }}>{opt.type === "tech" ? "🟨 Technical" : "🟥 Personal"}</span>
                     </button>
                   );
                 })}
@@ -2513,14 +2514,14 @@ export default function LaxStats({
               <div style={S.pendingBubble(teamColors[selectedTeam])}>🟥 {penaltyFoulName} @ {penaltyTime} — #{selectedPlayer?.num} {selectedPlayer?.name} · {teams[selectedTeam]?.name}</div>
               {editingGroupId && (() => {
                 const prev = getGroupById(editingGroupId).find(e => e.event === "penalty_min")?.penaltyMin;
-                return prev ? <div style={{ fontSize: 12, color: "#7a5c00", background: "#fffbf0", border: "1px solid #e0d0a0", borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
+                return prev ? <div style={{ fontSize: 12, color: C.amber800, background: C.amber50, border: `1px solid ${C.amber250}`, borderRadius: 8, padding: "6px 12px", marginBottom: 10 }}>
                   Currently: {prev} minute{prev !== 1 ? "s" : ""}
                 </div> : null;
               })()}
               <div style={S.questionCard}><div style={S.questionText}>How many minutes?</div></div>
               <div style={S.threeColRow}>
                 {[1,2,3].map(m => { const prev = editingGroupId ? getGroupById(editingGroupId).find(e => e.event === "penalty_min")?.penaltyMin : null;
-                  return <button key={m} style={{ ...S.btnYes, background: prev === m ? "#333" : "#111", border: prev === m ? "2px solid #555" : "none" }} onClick={() => handlePenaltyMin(m)}>{m} min{prev === m ? " ✓" : ""}</button>; })}
+                  return <button key={m} style={{ ...S.btnYes, background: prev === m ? C.gray750 : C.gray900, border: prev === m ? `2px solid ${C.gray650}` : "none" }} onClick={() => handlePenaltyMin(m)}>{m} min{prev === m ? " ✓" : ""}</button>; })}
               </div>
             </div>
           )}
@@ -2580,33 +2581,33 @@ export default function LaxStats({
           {/* End quarter */}
           {step === "endqtr" && (
             <div>
-              <div style={{ ...S.confirmCard, background: "#fffbf0", border: "1px solid #e0d0a0" }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#7a5c00", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+              <div style={{ ...S.confirmCard, background: C.amber50, border: `1px solid ${C.amber250}` }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.amber800, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
                   End of {curQLabel}
-                  {currentQuarter === 4 && totalScores[0] !== totalScores[1] && <span style={{ marginLeft: 8, fontSize: 11, color: "#4caf50" }}>— Final</span>}
-                  {currentQuarter === 4 && totalScores[0] === totalScores[1] && <span style={{ marginLeft: 8, fontSize: 11, color: "#e67e22" }}>— Tied → OT</span>}
+                  {currentQuarter === 4 && totalScores[0] !== totalScores[1] && <span style={{ marginLeft: 8, fontSize: 11, color: C.green400 }}>— Final</span>}
+                  {currentQuarter === 4 && totalScores[0] === totalScores[1] && <span style={{ marginLeft: 8, fontSize: 11, color: C.orange500 }}>— Tied → OT</span>}
                 </div>
                 <div style={{ fontSize: 32, fontWeight: 500, marginBottom: 12 }}>
                   <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
-                  <span style={{ margin: "0 12px", color: "#ccc" }}>—</span>
+                  <span style={{ margin: "0 12px", color: C.gray300 }}>—</span>
                   <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, textAlign: "left" }}>
                   {[0, 1].map(ti => { const qs = qSummaryStats(ti, currentQuarter); return (
-                    <div key={ti} style={{ background: "#fff", borderRadius: 8, padding: "10px 12px", border: "1px solid #e5e5e5" }}>
+                    <div key={ti} style={{ background: C.white, borderRadius: 8, padding: "10px 12px", border: `1px solid ${C.gray150}` }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: teamColors[ti], marginBottom: 6 }}>{teams[ti].name}</div>
                       {[["goal","Goals"],["shot","Shots"],["ground_ball","GBs"],["faceoff_win","FO W"],["turnover","TOs"],["clear","Clears"],["failed_clear","Failed Cl"]].map(([k,l]) => (
                         <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
-                          <span style={{ color: "#888" }}>{l}</span>
-                          <span style={{ fontWeight: qs[k] > 0 ? 600 : 400, color: qs[k] > 0 ? "#111" : "#ccc" }}>{qs[k]}</span>
+                          <span style={{ color: C.gray500 }}>{l}</span>
+                          <span style={{ fontWeight: qs[k] > 0 ? 600 : 400, color: qs[k] > 0 ? C.gray900 : C.gray300 }}>{qs[k]}</span>
                         </div>
                       ))}
                     </div>
                   ); })}
                 </div>
-                {currentQuarter === 4 && totalScores[0] === totalScores[1] && <div style={{ fontSize: 12, color: "#e67e22", marginTop: 12 }}>Score is tied — overtime will begin</div>}
-                {currentQuarter === 4 && totalScores[0] !== totalScores[1] && <div style={{ fontSize: 12, color: "#555", marginTop: 12 }}>Next: review rosters and goalies, then finalize the game.</div>}
-                {currentQuarter < 4 && <div style={{ fontSize: 11, color: "#aaa", marginTop: 12 }}>Stats for this quarter will be locked.</div>}
+                {currentQuarter === 4 && totalScores[0] === totalScores[1] && <div style={{ fontSize: 12, color: C.orange500, marginTop: 12 }}>Score is tied — overtime will begin</div>}
+                {currentQuarter === 4 && totalScores[0] !== totalScores[1] && <div style={{ fontSize: 12, color: C.gray650, marginTop: 12 }}>Next: review rosters and goalies, then finalize the game.</div>}
+                {currentQuarter < 4 && <div style={{ fontSize: 11, color: C.gray400, marginTop: 12 }}>Stats for this quarter will be locked.</div>}
               </div>
               <div style={S.confirmBtns}>
                 <button style={S.btnSecondary} onClick={resetEntry}>Cancel</button>
@@ -2624,7 +2625,7 @@ export default function LaxStats({
             const keepScoringBtn = (
               <div style={{ textAlign: "center", marginTop: 12 }}>
                 <button
-                  style={{ fontSize: 13, color: "#888", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+                  style={{ fontSize: 13, color: C.gray500, background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
                   onClick={cancelFinalizeWizard}
                 >
                   Not yet — keep scoring
@@ -2633,11 +2634,11 @@ export default function LaxStats({
             );
             const wizHeader = (title, sub) => (
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#7a5c00", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.amber800, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
                   Finalize Game — {teams[winTi]?.name} {totalScores[winTi]}–{totalScores[loseTi]} {teams[loseTi]?.name}
                 </div>
                 <div style={{ fontSize: 17, fontWeight: 600 }}>{title}</div>
-                {sub && <div style={{ fontSize: 13, color: "#888", marginTop: 2 }}>{sub}</div>}
+                {sub && <div style={{ fontSize: 13, color: C.gray500, marginTop: 2 }}>{sub}</div>}
               </div>
             );
 
@@ -2649,7 +2650,7 @@ export default function LaxStats({
                 <div>
                   {wizHeader("Roster corrections", "Players added or edited during this game")}
                   {!hasAny && (
-                    <div style={{ fontSize: 13, color: "#888", background: "#f7f7f7", borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, color: C.gray500, background: C.gray45, borderRadius: 10, padding: "14px 16px", marginBottom: 12 }}>
                       No players were added or edited during this game.
                     </div>
                   )}
@@ -2662,32 +2663,32 @@ export default function LaxStats({
                         const hasEvents = playerHasEvents(ti, p.num);
                         const propagate = finalize.applyOrg[key] !== false;
                         return (
-                          <div key={key} style={{ border: "1px solid #e5e5e5", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
+                          <div key={key} style={{ border: `1px solid ${C.gray150}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontSize: 11, color: "#888", flexShrink: 0 }}>#</span>
+                              <span style={{ fontSize: 11, color: C.gray500, flexShrink: 0 }}>#</span>
                               <input
-                                style={{ width: 48, fontSize: 14, fontWeight: 600, border: "1px solid #ddd", borderRadius: 6, padding: "6px 6px" }}
+                                style={{ width: 48, fontSize: 14, fontWeight: 600, border: `1px solid ${C.gray250}`, borderRadius: 6, padding: "6px 6px" }}
                                 value={draft.num}
                                 onChange={e => setFinalize(f => ({ ...f, error: null, drafts: { ...f.drafts, [key]: { ...draft, num: e.target.value } } }))}
                               />
                               <input
-                                style={{ flex: 1, fontSize: 14, border: "1px solid #ddd", borderRadius: 6, padding: "6px 8px" }}
+                                style={{ flex: 1, fontSize: 14, border: `1px solid ${C.gray250}`, borderRadius: 6, padding: "6px 8px" }}
                                 placeholder="Player name"
                                 value={draft.name}
                                 onChange={e => setFinalize(f => ({ ...f, error: null, drafts: { ...f.drafts, [key]: { ...draft, name: e.target.value } } }))}
                               />
                               {p.addedInGame && (
-                                <span style={{ fontSize: 10, fontWeight: 700, color: "#9a4800", background: "#fff3e0", border: "1px solid #ffd08a", borderRadius: 5, padding: "2px 6px", flexShrink: 0 }}>added</span>
+                                <span style={{ fontSize: 10, fontWeight: 700, color: C.orange850, background: C.orange100, border: `1px solid ${C.orange250}`, borderRadius: 5, padding: "2px 6px", flexShrink: 0 }}>added</span>
                               )}
                               <button
-                                style={{ fontSize: 11, color: hasEvents ? "#ccc" : "#c0392b", background: "none", border: `1px solid ${hasEvents ? "#eee" : "#f0a0a0"}`, borderRadius: 6, padding: "4px 8px", cursor: hasEvents ? "not-allowed" : "pointer", flexShrink: 0 }}
+                                style={{ fontSize: 11, color: hasEvents ? C.gray300 : C.red600, background: "none", border: `1px solid ${hasEvents ? C.gray85 : C.red300}`, borderRadius: 6, padding: "4px 8px", cursor: hasEvents ? "not-allowed" : "pointer", flexShrink: 0 }}
                                 disabled={hasEvents}
                                 title={hasEvents ? "Has recorded events — can't delete" : "Remove from roster"}
                                 onClick={() => handleFinalizeDeletePlayer(ti, p.num)}
                               >✕</button>
                             </div>
                             {teams[ti].orgTeamId && (
-                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#555", marginTop: 8, cursor: "pointer" }}>
+                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.gray650, marginTop: 8, cursor: "pointer" }}>
                                 <input
                                   type="checkbox"
                                   checked={propagate}
@@ -2701,7 +2702,7 @@ export default function LaxStats({
                       })}
                     </div>
                   ))}
-                  {finalize.error && <div style={{ fontSize: 12, color: "#c0392b", marginBottom: 10 }}>{finalize.error}</div>}
+                  {finalize.error && <div style={{ fontSize: 12, color: C.red600, marginBottom: 10 }}>{finalize.error}</div>}
                   <button style={S.btnPrimary} onClick={handleFinalizeRosterContinue}>Continue →</button>
                   {keepScoringBtn}
                 </div>
@@ -2728,7 +2729,7 @@ export default function LaxStats({
                     </div>
                     <input
                       autoFocus
-                      style={{ width: "100%", padding: "12px 14px", fontSize: 16, border: "1px solid #ddd", borderRadius: 10, boxSizing: "border-box", marginBottom: 12, fontFamily: "system-ui, sans-serif" }}
+                      style={{ width: "100%", padding: "12px 14px", fontSize: 16, border: `1px solid ${C.gray250}`, borderRadius: 10, boxSizing: "border-box", marginBottom: 12, fontFamily: F.ui }}
                       placeholder="Player name"
                       value={finalize.namePrompt.draftName}
                       onChange={e => setFinalize(f => ({ ...f, namePrompt: { ...f.namePrompt, draftName: e.target.value } }))}
@@ -2781,12 +2782,12 @@ export default function LaxStats({
                     <thead><tr>
                       <th style={S.thLeft}>Team</th>
                       {allQuarters.map(q => <th key={q} style={S.th(false)}>{qLabel(q)}</th>)}
-                      <th style={{ ...S.th(false), color: "#111", borderLeft: "1px solid #e5e5e5" }}>Final</th>
+                      <th style={{ ...S.th(false), color: C.gray900, borderLeft: `1px solid ${C.gray150}` }}>Final</th>
                     </tr></thead>
                     <tbody>{[0, 1].map(ti => <tr key={ti}>
                       <td style={{ ...S.tdLeft, fontWeight: 600, color: teamColors[ti] }}>{teams[ti].name}</td>
                       {allQuarters.map(q => <td key={q} style={S.td}>{(scoresByQuarter[q] || [0, 0])[ti]}</td>)}
-                      <td style={{ ...S.td, fontWeight: 700, borderLeft: "1px solid #e5e5e5" }}>{totalScores[ti]}</td>
+                      <td style={{ ...S.td, fontWeight: 700, borderLeft: `1px solid ${C.gray150}` }}>{totalScores[ti]}</td>
                     </tr>)}</tbody>
                   </table>
                 </div>
@@ -2794,12 +2795,12 @@ export default function LaxStats({
                 {/* Team stat line */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
                   {[0, 1].map(ti => (
-                    <div key={ti} style={{ background: "#f7f7f7", borderRadius: 10, padding: "10px 12px" }}>
+                    <div key={ti} style={{ background: C.gray45, borderRadius: 10, padding: "10px 12px" }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: teamColors[ti], marginBottom: 6 }}>{teams[ti].name}</div>
                       {statLine.map(([k, l]) => (
                         <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
-                          <span style={{ color: "#888" }}>{l}</span>
-                          <span style={{ fontWeight: fullTotals[ti][k] > 0 ? 600 : 400, color: fullTotals[ti][k] > 0 ? "#111" : "#ccc" }}>{fullTotals[ti][k]}</span>
+                          <span style={{ color: C.gray500 }}>{l}</span>
+                          <span style={{ fontWeight: fullTotals[ti][k] > 0 ? 600 : 400, color: fullTotals[ti][k] > 0 ? C.gray900 : C.gray300 }}>{fullTotals[ti][k]}</span>
                         </div>
                       ))}
                     </div>
@@ -2807,29 +2808,29 @@ export default function LaxStats({
                 </div>
 
                 {/* Goalie decisions */}
-                <div style={{ border: "1px solid #e5e5e5", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Goalie decisions</div>
+                <div style={{ border: `1px solid ${C.gray150}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Goalie decisions</div>
                   <div style={{ marginBottom: 2 }}>
-                    <span style={{ fontWeight: 700, color: "#2a7a3b" }}>W</span>{" "}
+                    <span style={{ fontWeight: 700, color: C.green600 }}>W</span>{" "}
                     {finalize.goalieWin ? `#${finalize.goalieWin.num} ${finalize.goalieWin.name} · ${teams[finalize.goalieWin.teamIdx]?.name}` : "—"}
                   </div>
                   <div>
-                    <span style={{ fontWeight: 700, color: "#c0392b" }}>L</span>{" "}
+                    <span style={{ fontWeight: 700, color: C.red600 }}>L</span>{" "}
                     {finalize.goalieLoss ? `#${finalize.goalieLoss.num} ${finalize.goalieLoss.name} · ${teams[finalize.goalieLoss.teamIdx]?.name}` : "—"}
                   </div>
                 </div>
 
                 {/* Roster changes to apply */}
                 {finalize.rosterSummary.length > 0 && (
-                  <div style={{ border: "1px solid #e5e5e5", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Roster changes</div>
+                  <div style={{ border: `1px solid ${C.gray150}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Roster changes</div>
                     {finalize.rosterSummary.map((r, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                         <span style={{ color: teamColors[r.ti], fontWeight: 600 }}>#{r.num}</span>
-                        <span style={{ flex: 1 }}>{r.name || <em style={{ color: "#c0392b" }}>no name</em>}</span>
-                        <span style={{ fontSize: 11, color: "#aaa" }}>{r.addedInGame ? "added in game" : "edited"}</span>
+                        <span style={{ flex: 1 }}>{r.name || <em style={{ color: C.red600 }}>no name</em>}</span>
+                        <span style={{ fontSize: 11, color: C.gray400 }}>{r.addedInGame ? "added in game" : "edited"}</span>
                         {teams[r.ti].orgTeamId && (
-                          <span style={{ fontSize: 10, fontWeight: 700, color: r.propagate ? "#2a7a3b" : "#aaa", background: r.propagate ? "#eaf6ec" : "#f5f5f5", borderRadius: 5, padding: "2px 6px" }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: r.propagate ? C.green600 : C.gray400, background: r.propagate ? C.green50 : C.gray50, borderRadius: 5, padding: "2px 6px" }}>
                             {r.propagate ? "→ org roster" : "game only"}
                           </span>
                         )}
@@ -2838,7 +2839,7 @@ export default function LaxStats({
                   </div>
                 )}
 
-                {finalize.error && <div style={{ fontSize: 12, color: "#c0392b", marginBottom: 10 }}>{finalize.error}</div>}
+                {finalize.error && <div style={{ fontSize: 12, color: C.red600, marginBottom: 10 }}>{finalize.error}</div>}
                 <div style={S.confirmBtns}>
                   <button style={S.btnSecondary} onClick={() => setFinalize(f => ({ ...f, wstep: "goalie_loss" }))}>← Back</button>
                   <button style={{ ...S.btnPrimary, opacity: finalize.saving ? 0.6 : 1 }} disabled={finalize.saving} onClick={handleFinalizeGame}>
@@ -2853,10 +2854,10 @@ export default function LaxStats({
           {/* Duplicate confirm — clock-anchored event already exists in log from another scorer */}
           {step === "confirm_duplicate" && pendingDuplicateCommit && (
             <div>
-              <div style={{ ...S.confirmCard, background: "#fff8ec", border: "1px solid #e0c060" }}>
+              <div style={{ ...S.confirmCard, background: C.orange50, border: `1px solid ${C.amber400}` }}>
                 <div style={{ fontSize: 22, marginBottom: 8 }}>⚠️</div>
                 <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 6 }}>Possible duplicate</div>
-                <div style={{ fontSize: 13, color: "#555", lineHeight: 1.5 }}>
+                <div style={{ fontSize: 13, color: C.gray650, lineHeight: 1.5 }}>
                   Another scorer already logged the same event at the same time. Is this a separate entry or a duplicate?
                 </div>
               </div>
@@ -2878,13 +2879,13 @@ export default function LaxStats({
           {/* Delete confirm */}
           {step === "confirm_delete" && deletingGroupId && (
             <div>
-              <div style={{ ...S.confirmCard, background: "#fff5f5", border: "1px solid #f0a0a0" }}>
+              <div style={{ ...S.confirmCard, background: C.red50, border: `1px solid ${C.red300}` }}>
                 <div style={{ fontSize: 22, marginBottom: 8 }}>🗑️</div>
                 <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 6 }}>Delete this entry?</div>
                 {(() => { const group = getGroupById(deletingGroupId); const primary = groupPrimary(group); const { icon, label, player } = entryDisplayInfo(primary); return (
-                  <div style={{ fontSize: 14, color: "#888" }}>
+                  <div style={{ fontSize: 14, color: C.gray500 }}>
                     {icon} {label}{player ? ` — #${player.num} ${player.name}` : ""} · {teams[primary.teamIdx]?.name}
-                    {group.length > 1 && <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>({group.length} linked entries will be removed)</div>}
+                    {group.length > 1 && <div style={{ fontSize: 12, color: C.gray400, marginTop: 4 }}>({group.length} linked entries will be removed)</div>}
                   </div>
                 ); })()}
               </div>
@@ -2902,14 +2903,14 @@ export default function LaxStats({
         <div>
           {gameOver ? (
             <div style={S.finalBanner}>
-              <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#aaa", marginBottom: 8 }}>Final</div>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: C.gray400, marginBottom: 8 }}>Final</div>
               <div style={{ fontSize: 42, fontWeight: 500, letterSpacing: 4, marginBottom: 6 }}>
                 <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
-                <span style={{ color: "#555", margin: "0 10px" }}>—</span>
+                <span style={{ color: C.gray650, margin: "0 10px" }}>—</span>
                 <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
               </div>
-              <div style={{ fontSize: 13, color: "#aaa", marginBottom: 10 }}>{totalScores[0] > totalScores[1] ? teams[0].name : teams[1].name} wins{allQuarters.some(q => isOT(q)) ? " in overtime" : ""}</div>
-              <button style={{ fontSize: 13, padding: "8px 18px", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8, background: "transparent", color: exportCopied ? "#9fe1cb" : "rgba(255,255,255,0.7)", cursor: "pointer" }}
+              <div style={{ fontSize: 13, color: C.gray400, marginBottom: 10 }}>{totalScores[0] > totalScores[1] ? teams[0].name : teams[1].name} wins{allQuarters.some(q => isOT(q)) ? " in overtime" : ""}</div>
+              <button style={{ fontSize: 13, padding: "8px 18px", border: `1px solid ${C.whiteA25}`, borderRadius: 8, background: "transparent", color: exportCopied ? C.emerald300 : C.whiteA70, cursor: "pointer" }}
                 onClick={handleExport}>{exportCopied ? "✓ Copied!" : "Export game JSON"}</button>
             </div>
           ) : (
@@ -2917,7 +2918,7 @@ export default function LaxStats({
               <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[0] }}>{teams[0].name}</div>
               <div style={S.scoreBig}>
                 <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
-                <span style={{ color: "#ddd", margin: "0 8px" }}>—</span>
+                <span style={{ color: C.gray250, margin: "0 8px" }}>—</span>
                 <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[1], textAlign: "right" }}>{teams[1].name}</div>
@@ -2941,15 +2942,15 @@ export default function LaxStats({
               <table style={{ ...S.table, fontSize: 13 }}>
                 <thead><tr>
                   <th style={S.thLeft}>Team</th>
-                  {allQuarters.map(q => <th key={q} style={{ ...S.th(false), color: completedQuarters.includes(q) ? "#888" : teamColors[0] }}>
-                    {qLabel(q)}{!completedQuarters.includes(q) && !gameOver && <span style={{ display: "block", fontSize: 9, color: "#4caf50", fontWeight: 400 }}>live</span>}
+                  {allQuarters.map(q => <th key={q} style={{ ...S.th(false), color: completedQuarters.includes(q) ? C.gray500 : teamColors[0] }}>
+                    {qLabel(q)}{!completedQuarters.includes(q) && !gameOver && <span style={{ display: "block", fontSize: 9, color: C.green400, fontWeight: 400 }}>live</span>}
                   </th>)}
-                  <th style={{ ...S.th(false), color: "#111", borderLeft: "1px solid #e5e5e5" }}>Total</th>
+                  <th style={{ ...S.th(false), color: C.gray900, borderLeft: `1px solid ${C.gray150}` }}>Total</th>
                 </tr></thead>
                 <tbody>{[0,1].map(ti => <tr key={ti}>
                   <td style={{ ...S.tdLeft, fontWeight: 600, color: teamColors[ti] }}>{teams[ti].name}</td>
                   {allQuarters.map(q => <td key={q} style={S.td}>{(scoresByQuarter[q] || [0,0])[ti]}</td>)}
-                  <td style={{ ...S.td, fontWeight: 600, borderLeft: "1px solid #e5e5e5" }}>{totalScores[ti]}</td>
+                  <td style={{ ...S.td, fontWeight: 600, borderLeft: `1px solid ${C.gray150}` }}>{totalScores[ti]}</td>
                 </tr>)}</tbody>
               </table>
             </div>
@@ -2959,13 +2960,13 @@ export default function LaxStats({
           <div style={S.tabsRow}>
             <button style={S.tabBtn(statsQtr === "all")} onClick={() => setStatsQtr("all")}>All</button>
             {completedQuarters.map(q => <button key={q} style={S.tabBtn(statsQtr === String(q))} onClick={() => setStatsQtr(String(q))}>{qLabel(q)}</button>)}
-            {!gameOver && <button style={S.tabBtn(statsQtr === String(currentQuarter))} onClick={() => setStatsQtr(String(currentQuarter))}>{curQLabel} <span style={{ fontSize: 10, color: statsQtr === String(currentQuarter) ? "#aaa" : "#4caf50" }}>●</span></button>}
+            {!gameOver && <button style={S.tabBtn(statsQtr === String(currentQuarter))} onClick={() => setStatsQtr(String(currentQuarter))}>{curQLabel} <span style={{ fontSize: 10, color: statsQtr === String(currentQuarter) ? C.gray400 : C.green400 }}>●</span></button>}
           </div>
 
           {/* Stats sub-tabs: Summary | Players | Map | Timeline */}
           <div style={S.tabsRow}>
             {["summary","players","map","timeline"].map(t => (
-              <button key={t} style={{ ...S.tabBtn(statsTab === t), border: "1px solid #ddd" }} onClick={() => setStatsTab(t)}>
+              <button key={t} style={{ ...S.tabBtn(statsTab === t), border: `1px solid ${C.gray250}` }} onClick={() => setStatsTab(t)}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
@@ -2998,7 +2999,7 @@ export default function LaxStats({
                 { heading: "Penalties" },
                 { label: "Technicals", key: "penalty_tech" }, { label: "PF Minutes", key: "penalty_min" },
               ].map((item) => item.heading ? (
-                <div key={item.heading} style={{ gridColumn: "1 / -1", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#bbb", padding: "8px 2px 2px" }}>{item.heading}</div>
+                <div key={item.heading} style={{ gridColumn: "1 / -1", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.gray350, padding: "8px 2px 2px" }}>{item.heading}</div>
               ) : (
                 <div key={item.label} style={S.summaryCard}>
                   <div style={S.summaryLabel}>{item.label}</div>
@@ -3057,16 +3058,16 @@ export default function LaxStats({
                           if (entry.type === "timeout") {
                             const to = entry.timeout;
                             return (
-                              <tr key={`to-${gi}`} style={{ background: "#fafafa" }}>
+                              <tr key={`to-${gi}`} style={{ background: C.gray25 }}>
                                 <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
-                                  {to.timeoutTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{to.timeoutTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
-                                  <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(to.quarter)}</span>
+                                  {to.timeoutTime ? <span style={{ fontWeight: 600, color: C.gray900, fontSize: 15 }}>{to.timeoutTime}</span> : <span style={{ color: C.gray300 }}>—</span>}
+                                  <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.gray900, marginTop: 1 }}>{qLabel(to.quarter)}</span>
                                 </td>
                                 <td style={S.tdLeft}><span style={{ color: teamColors[to.teamIdx], fontWeight: 500 }}>{teams[to.teamIdx]?.name}</span></td>
-                                <td style={{ ...S.tdLeft, color: "#888", fontStyle: "italic" }} colSpan={2}>⏸ Timeout</td>
+                                <td style={{ ...S.tdLeft, color: C.gray500, fontStyle: "italic" }} colSpan={2}>⏸ Timeout</td>
                                 <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
                                   <span style={{ color: teamColors[0] }}>{entry.scoreSnap[0]}</span>
-                                  <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
+                                  <span style={{ color: C.gray300, margin: "0 3px" }}>–</span>
                                   <span style={{ color: teamColors[1] }}>{entry.scoreSnap[1]}</span>
                                 </td>
                               </tr>
@@ -3079,19 +3080,19 @@ export default function LaxStats({
                               ? `🟨 ${p.foulName ? `${p.foulName} (Technical)` : "Technical foul"}`
                               : `🟥 ${p.foulName ? `${p.foulName} (${p.penaltyMin}min${p.nonReleasable ? " NR" : ""})` : `Personal foul (${p.penaltyMin}min${p.nonReleasable ? " NR" : ""})`}`;
                             return (
-                              <tr key={`p-${gi}`} style={{ background: "#fdf8f8" }}>
+                              <tr key={`p-${gi}`} style={{ background: C.red25 }}>
                                 <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
-                                  {p.penaltyTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{p.penaltyTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
-                                  <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(p.quarter)}</span>
+                                  {p.penaltyTime ? <span style={{ fontWeight: 600, color: C.gray900, fontSize: 15 }}>{p.penaltyTime}</span> : <span style={{ color: C.gray300 }}>—</span>}
+                                  <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.gray900, marginTop: 1 }}>{qLabel(p.quarter)}</span>
                                 </td>
                                 <td style={S.tdLeft}><span style={{ color: teamColors[p.teamIdx], fontWeight: 500 }}>{teams[p.teamIdx]?.name}</span></td>
                                 <td style={S.tdLeft} colSpan={2}>
-                                  <span style={{ color: "#555" }}>{desc}</span>
-                                  <span style={{ color: "#888", marginLeft: 6 }}>— #{p.player?.num} {p.player?.name}</span>
+                                  <span style={{ color: C.gray650 }}>{desc}</span>
+                                  <span style={{ color: C.gray500, marginLeft: 6 }}>— #{p.player?.num} {p.player?.name}</span>
                                 </td>
                                 <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
                                   <span style={{ color: teamColors[0] }}>{entry.scoreSnap[0]}</span>
-                                  <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
+                                  <span style={{ color: C.gray300, margin: "0 3px" }}>–</span>
                                   <span style={{ color: teamColors[1] }}>{entry.scoreSnap[1]}</span>
                                 </td>
                               </tr>
@@ -3101,20 +3102,20 @@ export default function LaxStats({
                           return (
                             <tr key={`g-${gi}`}>
                               <td style={{ ...S.tdLeft, fontVariantNumeric: "tabular-nums", width: 72, verticalAlign: "top", paddingTop: 12 }}>
-                                {goal.goalTime ? <span style={{ fontWeight: 600, color: "#111", fontSize: 15 }}>{goal.goalTime}</span> : <span style={{ color: "#ccc" }}>—</span>}
-                                <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#111", marginTop: 1 }}>{qLabel(goal.quarter)}</span>
+                                {goal.goalTime ? <span style={{ fontWeight: 600, color: C.gray900, fontSize: 15 }}>{goal.goalTime}</span> : <span style={{ color: C.gray300 }}>—</span>}
+                                <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.gray900, marginTop: 1 }}>{qLabel(goal.quarter)}</span>
                               </td>
                               <td style={S.tdLeft}><span style={{ color: teamColors[goal.teamIdx], fontWeight: 500 }}>{teams[goal.teamIdx]?.name}</span></td>
                               <td style={S.tdLeft}>
                                 <span style={{ fontWeight: 500 }}>#{goal.player?.num} {goal.player?.name}</span>
-                                {goal.emo && <span style={{ marginLeft: 6, fontSize: 11, background: "#e8f5e9", color: "#2a7a3b", borderRadius: 4, padding: "1px 5px" }}>EMO</span>}
+                                {goal.emo && <span style={{ marginLeft: 6, fontSize: 11, background: C.green60, color: C.green600, borderRadius: 4, padding: "1px 5px" }}>EMO</span>}
                               </td>
                               <td style={S.tdLeft}>
-                                {assist ? <span style={{ color: "#888" }}>#{assist.player?.num} {assist.player?.name}</span> : <span style={{ color: "#ddd" }}>—</span>}
+                                {assist ? <span style={{ color: C.gray500 }}>#{assist.player?.num} {assist.player?.name}</span> : <span style={{ color: C.gray250 }}>—</span>}
                               </td>
                               <td style={{ ...S.td, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
                                 <span style={{ color: teamColors[0] }}>{scoreSnap[0]}</span>
-                                <span style={{ color: "#ccc", margin: "0 3px" }}>–</span>
+                                <span style={{ color: C.gray300, margin: "0 3px" }}>–</span>
                                 <span style={{ color: teamColors[1] }}>{scoreSnap[1]}</span>
                               </td>
                             </tr>
@@ -3135,9 +3136,9 @@ export default function LaxStats({
           <div style={S.tabsRow}>
             <button style={S.tabBtn(statsQtr === "all")} onClick={() => setStatsQtr("all")}>All</button>
             {completedQuarters.map(q => <button key={q} style={S.tabBtn(statsQtr === String(q))} onClick={() => setStatsQtr(String(q))}>{qLabel(q)}</button>)}
-            {!gameOver && <button style={S.tabBtn(statsQtr === String(currentQuarter))} onClick={() => setStatsQtr(String(currentQuarter))}>{curQLabel} <span style={{ fontSize: 10, color: statsQtr === String(currentQuarter) ? "#aaa" : "#4caf50" }}>●</span></button>}
+            {!gameOver && <button style={S.tabBtn(statsQtr === String(currentQuarter))} onClick={() => setStatsQtr(String(currentQuarter))}>{curQLabel} <span style={{ fontSize: 10, color: statsQtr === String(currentQuarter) ? C.gray400 : C.green400 }}>●</span></button>}
             <button
-              style={{ ...S.tabBtn(statsQtr === "dupes"), ...(dupeGroups.length > 0 && statsQtr !== "dupes" ? { color: "#7a5c00", background: "#fffbf0", borderColor: "#f0c060" } : {}) }}
+              style={{ ...S.tabBtn(statsQtr === "dupes"), ...(dupeGroups.length > 0 && statsQtr !== "dupes" ? { color: C.amber800, background: C.amber50, borderColor: C.orange300 } : {}) }}
               onClick={() => setStatsQtr("dupes")}
             >
               {dupeGroups.length > 0 ? `⚠ ${dupeGroups.length} Dupe${dupeGroups.length !== 1 ? "s" : ""}` : "Dupes"}
@@ -3175,12 +3176,12 @@ export default function LaxStats({
                             <span style={S.dupeBadge}>⚠ Possible duplicate</span>
                             <div style={S.logDot(teamColors[primary.teamIdx])}></div>
                             <span style={{ fontWeight: 500, flex: 1 }}>{icon} {label}</span>
-                            <span style={{ color: "#888", fontSize: 12 }}>{playerStr}</span>
+                            <span style={{ color: C.gray500, fontSize: 12 }}>{playerStr}</span>
                             <span style={{ color: teamColors[primary.teamIdx], fontSize: 11, marginLeft: 6 }}>{teams[primary.teamIdx]?.name}</span>
-                            <span style={{ color: "#aaa", fontSize: 11, marginLeft: 4 }}>{qLabel(primary.quarter)}</span>
+                            <span style={{ color: C.gray400, fontSize: 11, marginLeft: 4 }}>{qLabel(primary.quarter)}</span>
                             {confirmingDeleteGroupId === gid ? (
                               <>
-                                <button style={S.logActionBtn("#c0392b")} onClick={() => { handleDeleteGroup(gid); setConfirmingDeleteGroupId(null); }}>Confirm delete</button>
+                                <button style={S.logActionBtn(C.red600)} onClick={() => { handleDeleteGroup(gid); setConfirmingDeleteGroupId(null); }}>Confirm delete</button>
                                 <button style={S.logActionBtn()} onClick={() => setConfirmingDeleteGroupId(null)}>Cancel</button>
                               </>
                             ) : (
@@ -3188,7 +3189,7 @@ export default function LaxStats({
                                 {onEventDismissDuplicate && (
                                   <button style={S.logActionBtn()} title="Keep — mark as not a duplicate" onClick={() => onEventDismissDuplicate(gid)}>Keep</button>
                                 )}
-                                <button style={S.logActionBtn("#c0392b")} title="Delete this entry" onClick={() => setConfirmingDeleteGroupId(gid)}>✕</button>
+                                <button style={S.logActionBtn(C.red600)} title="Delete this entry" onClick={() => setConfirmingDeleteGroupId(gid)}>✕</button>
                               </>
                             )}
                           </div>
@@ -3239,11 +3240,11 @@ export default function LaxStats({
                             <div style={S.logGroupMain}>
                               <div style={S.logDot(teamColors[primary.teamIdx])}></div>
                               <span style={{ fontWeight: 500, flex: 1 }}>{icon} {label}</span>
-                              <span style={{ color: "#888", fontSize: 12 }}>{playerStr}</span>
+                              <span style={{ color: C.gray500, fontSize: 12 }}>{playerStr}</span>
                               <span style={{ color: teamColors[primary.teamIdx], fontSize: 11, marginLeft: 6 }}>{teams[primary.teamIdx]?.name}</span>
                               {!gameOver && <>
                                 <button style={S.logActionBtn()} title="Edit" onClick={() => startEdit(gid)}>✏️</button>
-                                <button style={S.logActionBtn("#c0392b")} title="Delete" onClick={() => { setDeletingGroupId(gid); setScreen("track"); setStep("confirm_delete"); }}>✕</button>
+                                <button style={S.logActionBtn(C.red600)} title="Delete" onClick={() => { setDeletingGroupId(gid); setScreen("track"); setStep("confirm_delete"); }}>✕</button>
                               </>}
                             </div>
                             {subItems.length > 0 && <div style={S.logGroupSub}>{subItems.map((s, i) => <span key={i} style={S.logSubChip}>{s}</span>)}</div>}

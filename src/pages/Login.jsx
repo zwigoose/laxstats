@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import SeoMeta from "../hooks/useSeoMeta";
+import { C, F, SH } from "../styles/tokens";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -36,16 +37,16 @@ export default function Login() {
     width: "100%",
     padding: "11px 13px",
     fontSize: 15,
-    border: "1px solid #ddd",
+    border: `1px solid ${C.gray250}`,
     borderRadius: 10,
-    background: "#fff",
+    background: C.white,
     boxSizing: "border-box",
     outline: "none",
-    fontFamily: "system-ui, sans-serif",
+    fontFamily: F.ui,
   };
 
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+    <div style={{ fontFamily: F.ui, minHeight: "100vh", background: C.gray50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <SeoMeta
         title={mode === "signup" ? "Create Account" : "Sign In"}
         description="Sign in to your LaxStats account to score lacrosse games, manage your roster, and share live stats."
@@ -55,37 +56,37 @@ export default function Login() {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 96, height: 96, objectFit: "contain", marginBottom: 8 }} />
-          <div style={{ fontSize: 30, fontWeight: 800, color: import.meta.env.VITE_IS_STAGING === "true" ? "#e53935" : "#111", letterSpacing: "-0.02em" }}>LaxStats</div>
+          <div style={{ fontSize: 30, fontWeight: 800, color: import.meta.env.VITE_IS_STAGING === "true" ? C.red500 : C.gray900, letterSpacing: "-0.02em" }}>LaxStats</div>
           {import.meta.env.VITE_IS_STAGING === "true" && (
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#e53935", letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 4, opacity: 0.85 }}>v2.0.0 staging</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.red500, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 4, opacity: 0.85 }}>v2.0.0 staging</div>
           )}
         </div>
 
         {/* Card */}
-        <div style={{ background: "#fff", borderRadius: 18, padding: 28, boxShadow: "0 4px 24px rgba(0,0,0,0.08)", border: "1px solid #ebebeb" }}>
+        <div style={{ background: C.white, borderRadius: 18, padding: 28, boxShadow: SH.float, border: `1px solid ${C.gray90}` }}>
           {confirmed ? (
             <div style={{ textAlign: "center", padding: "8px 0" }}>
               <div style={{ fontSize: 32, marginBottom: 12 }}>📬</div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: "#111", marginBottom: 8 }}>Check your email</div>
-              <div style={{ fontSize: 14, color: "#666", lineHeight: 1.6 }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: C.gray900, marginBottom: 8 }}>Check your email</div>
+              <div style={{ fontSize: 14, color: C.gray600, lineHeight: 1.6 }}>
                 We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.
               </div>
             </div>
           ) : (
             <>
-              <h2 style={{ margin: "0 0 22px", fontSize: 19, fontWeight: 700, color: "#111" }}>
+              <h2 style={{ margin: "0 0 22px", fontSize: 19, fontWeight: 700, color: C.gray900 }}>
                 {mode === "signin" ? "Sign in" : "Create account"}
               </h2>
 
               {error && (
-                <div style={{ background: "#fff5f5", border: "1px solid #fdd", borderRadius: 9, padding: "10px 13px", color: "#c0392b", fontSize: 13, marginBottom: 16 }}>
+                <div style={{ background: C.red50, border: `1px solid ${C.red100}`, borderRadius: 9, padding: "10px 13px", color: C.red600, fontSize: 13, marginBottom: 16 }}>
                   {error}
                 </div>
               )}
 
               <form onSubmit={handleSubmit}>
                 <div style={{ marginBottom: 14 }}>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
                     Email
                   </label>
                   <input
@@ -102,7 +103,7 @@ export default function Login() {
                 </div>
 
                 <div style={{ marginBottom: 22 }}>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
                     Password
                   </label>
                   <input
@@ -124,8 +125,8 @@ export default function Login() {
                     padding: "12px",
                     fontSize: 15,
                     fontWeight: 700,
-                    background: loading ? "#ccc" : "#111",
-                    color: "#fff",
+                    background: loading ? C.gray300 : C.gray900,
+                    color: C.white,
                     border: "none",
                     borderRadius: 10,
                     cursor: loading ? "not-allowed" : "pointer",
@@ -136,12 +137,12 @@ export default function Login() {
               </form>
 
               {/* Toggle mode */}
-              <div style={{ marginTop: 18, textAlign: "center", fontSize: 13, color: "#888" }}>
+              <div style={{ marginTop: 18, textAlign: "center", fontSize: 13, color: C.gray500 }}>
                 {mode === "signin" ? (
                   <>
                     Need an account?{" "}
                     <button onClick={() => { setMode("signup"); setError(null); }}
-                      style={{ background: "none", border: "none", color: "#1a6bab", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 13 }}>
+                      style={{ background: "none", border: "none", color: C.blue600, fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 13 }}>
                       Sign up
                     </button>
                   </>
@@ -149,7 +150,7 @@ export default function Login() {
                   <>
                     Already have an account?{" "}
                     <button onClick={() => { setMode("signin"); setError(null); }}
-                      style={{ background: "none", border: "none", color: "#1a6bab", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 13 }}>
+                      style={{ background: "none", border: "none", color: C.blue600, fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 13 }}>
                       Sign in
                     </button>
                   </>

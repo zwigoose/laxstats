@@ -18,6 +18,7 @@ import Profile from "./pages/Profile";
 import Pricing from "./pages/Pricing";
 import Guide from "./pages/Guide";
 import { version } from "../package.json";
+import { C, F, SH } from "./styles/tokens";
 
 // Single source of truth for layout heights — consumed here and via CSS variables.
 const FOOTER_H = 36;
@@ -94,11 +95,11 @@ function NavItem({ label, active, onClick }) {
       onClick={onClick}
       style={{
         fontSize: 13, fontWeight: active ? 600 : 400,
-        color: active ? "#111" : "#888",
-        background: active ? "#f0f0f0" : "none",
+        color: active ? C.gray900 : C.gray500,
+        background: active ? C.gray75 : "none",
         border: "none", cursor: "pointer",
         padding: "5px 11px", borderRadius: 7,
-        fontFamily: "system-ui, sans-serif",
+        fontFamily: F.ui,
         transition: "background 0.1s, color 0.1s",
       }}
     >
@@ -133,24 +134,24 @@ function AppNav() {
   return (
     <div style={{
       position: "fixed", top: 0, left: 0, right: 0, height: NAV_H,
-      background: "#fff", borderBottom: "1px solid #f0f0f0",
+      background: C.white, borderBottom: `1px solid ${C.gray75}`,
       display: "flex", alignItems: "center", padding: "0 16px",
-      gap: 2, zIndex: 200, fontFamily: "system-ui, sans-serif",
+      gap: 2, zIndex: 200, fontFamily: F.ui,
     }}>
       {/* Logo / home */}
       <button
         onClick={() => navigate("/")}
         style={{
-          fontSize: 15, fontWeight: 800, color: "#111", letterSpacing: "-0.03em",
+          fontSize: 15, fontWeight: 800, color: C.gray900, letterSpacing: "-0.03em",
           background: "none", border: "none", cursor: "pointer",
           padding: "5px 8px", borderRadius: 7, marginRight: 6,
-          fontFamily: "system-ui, sans-serif",
+          fontFamily: F.ui,
         }}
       >
         LaxStats
       </button>
 
-      <div style={{ width: 1, height: 18, background: "#e8e8e8", marginRight: 4 }} />
+      <div style={{ width: 1, height: 18, background: C.gray100, marginRight: 4 }} />
 
       <NavItem label="Home"    active={path === "/"}              onClick={() => navigate("/")} />
       {hasOrgs && (
@@ -171,16 +172,16 @@ function AppNav() {
           onClick={triggerInstall}
           title="Install LaxStats app"
           style={{
-            fontSize: 12, fontWeight: 600, color: "#111",
-            background: "none", border: "1px solid #d0d0d0",
+            fontSize: 12, fontWeight: 600, color: C.gray900,
+            background: "none", border: `1px solid ${C.gray275}`,
             borderRadius: 7, padding: "4px 10px", cursor: "pointer",
-            fontFamily: "system-ui, sans-serif", marginRight: 6, flexShrink: 0,
+            fontFamily: F.ui, marginRight: 6, flexShrink: 0,
             display: "flex", alignItems: "center", gap: 5,
           }}
         >
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
-            <path d="M5.5 1v6M3 5l2.5 2.5L8 5" stroke="#111" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M1 9.5h9" stroke="#111" strokeWidth="1.4" strokeLinecap="round"/>
+            <path d="M5.5 1v6M3 5l2.5 2.5L8 5" stroke={C.gray900} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M1 9.5h9" stroke={C.gray900} strokeWidth="1.4" strokeLinecap="round"/>
           </svg>
           Install
         </button>
@@ -193,45 +194,45 @@ function AppNav() {
             onClick={() => setIosOpen(v => !v)}
             title="Install LaxStats app"
             style={{
-              fontSize: 12, fontWeight: 600, color: "#111",
-              background: "none", border: "1px solid #d0d0d0",
+              fontSize: 12, fontWeight: 600, color: C.gray900,
+              background: "none", border: `1px solid ${C.gray275}`,
               borderRadius: 7, padding: "4px 10px", cursor: "pointer",
-              fontFamily: "system-ui, sans-serif",
+              fontFamily: F.ui,
               display: "flex", alignItems: "center", gap: 5,
             }}
           >
             <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
-              <path d="M5.5 1v6M3 5l2.5 2.5L8 5" stroke="#111" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M1 9.5h9" stroke="#111" strokeWidth="1.4" strokeLinecap="round"/>
+              <path d="M5.5 1v6M3 5l2.5 2.5L8 5" stroke={C.gray900} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M1 9.5h9" stroke={C.gray900} strokeWidth="1.4" strokeLinecap="round"/>
             </svg>
             Install
           </button>
           {iosOpen && (
             <div style={{
               position: "absolute", top: "calc(100% + 10px)", right: 0,
-              background: "#111", color: "#fff", borderRadius: 10,
+              background: C.gray900, color: C.white, borderRadius: 10,
               padding: "12px 14px", width: 210, zIndex: 300,
-              boxShadow: "0 4px 20px rgba(0,0,0,0.22)",
-              fontFamily: "system-ui, sans-serif",
+              boxShadow: SH.pop,
+              fontFamily: F.ui,
             }}>
               {/* Arrow */}
               <div style={{
                 position: "absolute", top: -6, right: 14,
-                width: 12, height: 12, background: "#111",
+                width: 12, height: 12, background: C.gray900,
                 transform: "rotate(45deg)", borderRadius: 2,
               }} />
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Install LaxStats</div>
-              <div style={{ fontSize: 12, lineHeight: 1.55, color: "#ccc" }}>
-                Tap the <strong style={{ color: "#fff" }}>Share</strong> button{" "}
+              <div style={{ fontSize: 12, lineHeight: 1.55, color: C.gray300 }}>
+                Tap the <strong style={{ color: C.white }}>Share</strong> button{" "}
                 <span style={{ fontSize: 13 }}>⬆</span> in Safari, then select{" "}
-                <strong style={{ color: "#fff" }}>"Add to Home Screen"</strong>.
+                <strong style={{ color: C.white }}>"Add to Home Screen"</strong>.
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); dismiss(); setIosOpen(false); }}
                 style={{
-                  marginTop: 10, fontSize: 11, color: "#888",
+                  marginTop: 10, fontSize: 11, color: C.gray500,
                   background: "none", border: "none", cursor: "pointer",
-                  padding: 0, fontFamily: "system-ui, sans-serif",
+                  padding: 0, fontFamily: F.ui,
                 }}
               >
                 Don't show again
@@ -247,10 +248,10 @@ function AppNav() {
           title="Profile"
           style={{
             width: 30, height: 30, borderRadius: "50%",
-            background: path === "/profile" ? "#111" : "#e8e8e8",
-            color: path === "/profile" ? "#fff" : "#555",
+            background: path === "/profile" ? C.gray900 : C.gray100,
+            color: path === "/profile" ? C.white : C.gray650,
             border: "none", cursor: "pointer",
-            fontSize: 12, fontWeight: 700, fontFamily: "system-ui, sans-serif",
+            fontSize: 12, fontWeight: 700, fontFamily: F.ui,
             display: "flex", alignItems: "center", justifyContent: "center",
             flexShrink: 0,
           }}
@@ -261,10 +262,10 @@ function AppNav() {
         <button
           onClick={() => navigate("/login")}
           style={{
-            fontSize: 13, fontWeight: 600, color: "#111",
-            background: "none", border: "1px solid #e0e0e0",
+            fontSize: 13, fontWeight: 600, color: C.gray900,
+            background: "none", border: `1px solid ${C.gray200}`,
             borderRadius: 8, padding: "5px 12px", cursor: "pointer",
-            fontFamily: "system-ui, sans-serif",
+            fontFamily: F.ui,
           }}
         >
           Sign in
@@ -318,9 +319,9 @@ export default function App() {
           position: "fixed", bottom: 0, left: 0, right: 0,
           height: FOOTER_H,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 11, color: "#bbb",
-          fontFamily: "system-ui, sans-serif",
-          background: "#fff", borderTop: "1px solid #f0f0f0",
+          fontSize: 11, color: C.gray350,
+          fontFamily: F.ui,
+          background: C.white, borderTop: `1px solid ${C.gray75}`,
           zIndex: 100,
         }}>
           &copy; {new Date().getFullYear()} LaxStats &middot; v{version}

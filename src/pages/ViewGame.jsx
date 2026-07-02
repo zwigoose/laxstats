@@ -18,6 +18,7 @@ import ShotMap from "../components/ShotMap";
 import HeroCard from "../components/HeroCard";
 import GameLiveStream from "../components/GameLiveStream";
 import { usePushNotifications } from "../hooks/usePushNotifications";
+import { C, F, SH } from "../styles/tokens";
 
 function getLatestTime(log, currentQuarter) {
   if (!log?.length) return null;
@@ -31,37 +32,37 @@ function getLatestTime(log, currentQuarter) {
 
 // ── Styles (matches LaxStats style conventions) ──────────────────────────────
 const S = {
-  page: { fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto", padding: "0 0 40px" },
-  header: { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #e5e5e5", background: "#fff", position: "sticky", top: 0, zIndex: 10, fontFamily: "system-ui, sans-serif" },
-  backBtn: { fontSize: 13, fontWeight: 500, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
-  headerTitle: { fontSize: 17, fontWeight: 700, color: "#111", flex: 1, letterSpacing: "-0.01em", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-  liveBadge: { fontSize: 11, fontWeight: 600, color: "#fff", background: "#4caf50", borderRadius: 20, padding: "3px 9px" },
-  finalBadge: { fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "3px 9px" },
-  pendingBadge: { fontSize: 11, fontWeight: 700, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "3px 9px" },
-  copyBtn: { fontSize: 12, fontWeight: 500, color: "#555", background: "#f5f5f5", border: "1px solid #e0e0e0", borderRadius: 20, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" },
-  copyBtnDone: { fontSize: 12, fontWeight: 500, color: "#2a7a3b", background: "#e8f5e9", border: "1px solid #c8e6c9", borderRadius: 20, padding: "4px 10px", cursor: "default", whiteSpace: "nowrap" },
+  page: { fontFamily: F.ui, maxWidth: 600, margin: "0 auto", padding: "0 0 40px" },
+  header: { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: `1px solid ${C.gray150}`, background: C.white, position: "sticky", top: 0, zIndex: 10, fontFamily: F.ui },
+  backBtn: { fontSize: 13, fontWeight: 500, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "4px 0", letterSpacing: "0.01em" },
+  headerTitle: { fontSize: 17, fontWeight: 700, color: C.gray900, flex: 1, letterSpacing: "-0.01em", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  liveBadge: { fontSize: 11, fontWeight: 600, color: C.white, background: C.green400, borderRadius: 20, padding: "3px 9px" },
+  finalBadge: { fontSize: 11, fontWeight: 600, color: C.gray500, background: C.gray75, borderRadius: 20, padding: "3px 9px" },
+  pendingBadge: { fontSize: 11, fontWeight: 700, color: C.orange600, background: C.orange50, borderRadius: 20, padding: "3px 9px" },
+  copyBtn: { fontSize: 12, fontWeight: 500, color: C.gray650, background: C.gray50, border: `1px solid ${C.gray200}`, borderRadius: 20, padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap" },
+  copyBtnDone: { fontSize: 12, fontWeight: 500, color: C.green600, background: C.green60, border: `1px solid ${C.green100}`, borderRadius: 20, padding: "4px 10px", cursor: "default", whiteSpace: "nowrap" },
   body: { padding: "0 16px" },
-  loading: { display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: "#888", fontSize: 14 },
-  error: { maxWidth: 400, margin: "40px auto", padding: 20, background: "#fff5f5", border: "1px solid #f0a0a0", borderRadius: 10, color: "#c0392b", fontSize: 14 },
-  finalBanner: { background: "#1a1a1a", color: "#fff", borderRadius: 12, padding: "20px", textAlign: "center", marginBottom: 20, marginTop: 16 },
+  loading: { display: "flex", alignItems: "center", justifyContent: "center", height: "60vh", color: C.gray500, fontSize: 14 },
+  error: { maxWidth: 400, margin: "40px auto", padding: 20, background: C.red50, border: `1px solid ${C.red300}`, borderRadius: 10, color: C.red600, fontSize: 14 },
+  finalBanner: { background: C.gray850, color: C.white, borderRadius: 12, padding: "20px", textAlign: "center", marginBottom: 20, marginTop: 16 },
   scoreHeader: { display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", marginBottom: 16, gap: 12, paddingTop: 16 },
   scoreBig: { fontSize: 38, fontWeight: 500, textAlign: "center", letterSpacing: 2 },
-  tableWrap: { border: "1px solid #e5e5e5", borderRadius: 12, overflow: "hidden", marginBottom: 20 },
-  tableTitle: { fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888", padding: "10px 14px 8px", borderBottom: "1px solid #e5e5e5", background: "#f9f9f9", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  tableWrap: { border: `1px solid ${C.gray150}`, borderRadius: 12, overflow: "hidden", marginBottom: 20 },
+  tableTitle: { fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: C.gray500, padding: "10px 14px 8px", borderBottom: `1px solid ${C.gray150}`, background: C.gray30, display: "flex", justifyContent: "space-between", alignItems: "center" },
   table: { width: "100%", fontSize: 13, borderCollapse: "collapse" },
-  thLeft: { padding: "8px 14px", textAlign: "left", fontWeight: 600, fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid #e5e5e5", background: "#f5f5f5", whiteSpace: "nowrap" },
-  th: (sorted) => ({ padding: "8px 8px", textAlign: "right", fontWeight: 600, fontSize: 11, color: sorted ? "#111" : "#888", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid #e5e5e5", background: "#f5f5f5", cursor: "pointer", whiteSpace: "nowrap" }),
-  tdLeft: { padding: "9px 14px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "left", whiteSpace: "nowrap" },
-  td: { padding: "9px 8px", borderBottom: "1px solid #f0f0f0", color: "#111", textAlign: "right" },
-  numBadge: { display: "inline-block", width: 24, height: 24, borderRadius: "50%", background: "#f0f0f0", fontSize: 11, fontWeight: 600, textAlign: "center", lineHeight: "24px", marginRight: 6, color: "#888" },
+  thLeft: { padding: "8px 14px", textAlign: "left", fontWeight: 600, fontSize: 11, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: `1px solid ${C.gray150}`, background: C.gray50, whiteSpace: "nowrap" },
+  th: (sorted) => ({ padding: "8px 8px", textAlign: "right", fontWeight: 600, fontSize: 11, color: sorted ? C.gray900 : C.gray500, textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: `1px solid ${C.gray150}`, background: C.gray50, cursor: "pointer", whiteSpace: "nowrap" }),
+  tdLeft: { padding: "9px 14px", borderBottom: `1px solid ${C.gray75}`, color: C.gray900, textAlign: "left", whiteSpace: "nowrap" },
+  td: { padding: "9px 8px", borderBottom: `1px solid ${C.gray75}`, color: C.gray900, textAlign: "right" },
+  numBadge: { display: "inline-block", width: 24, height: 24, borderRadius: "50%", background: C.gray75, fontSize: 11, fontWeight: 600, textAlign: "center", lineHeight: "24px", marginRight: 6, color: C.gray500 },
   summaryGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 },
-  summaryCard: { background: "#f7f7f7", borderRadius: 10, padding: "12px 14px" },
-  summaryLabel: { fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 },
+  summaryCard: { background: C.gray45, borderRadius: 10, padding: "12px 14px" },
+  summaryLabel: { fontSize: 11, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 },
   summaryRow: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 },
   tabsRow: { display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" },
-  tabBtn: (active) => ({ padding: "6px 14px", fontSize: 13, border: "1px solid #ddd", borderRadius: 20, background: active ? "#111" : "transparent", color: active ? "#fff" : "#888", cursor: "pointer" }),
-  emptyState: { textAlign: "center", padding: "40px 16px", color: "#aaa", fontSize: 14 },
-  noGame: { textAlign: "center", padding: "40px 16px", color: "#aaa", fontSize: 14 },
+  tabBtn: (active) => ({ padding: "6px 14px", fontSize: 13, border: `1px solid ${C.gray250}`, borderRadius: 20, background: active ? C.gray900 : "transparent", color: active ? C.white : C.gray500, cursor: "pointer" }),
+  emptyState: { textAlign: "center", padding: "40px 16px", color: C.gray400, fontSize: 14 },
+  noGame: { textAlign: "center", padding: "40px 16px", color: C.gray400, fontSize: 14 },
 };
 
 
@@ -261,13 +262,13 @@ useEffect(() => {
 
   // ── Derived from game state ──────────────────────────────────────
   const state = game?.state;
-  const teams = state?.teams || [{ name: "Home", color: "#1a6bab" }, { name: "Away", color: "#b84e1a" }];
+  const teams = state?.teams || [{ name: "Home", color: C.blue600 }, { name: "Away", color: C.orange700 }];
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
   const log = v2Log ?? [];
   const currentQuarter    = derivedQuarterState?.currentQuarter    ?? state?.currentQuarter    ?? 1;
   const completedQuarters = derivedQuarterState?.completedQuarters ?? state?.completedQuarters ?? [];
   const gameOver          = derivedQuarterState?.gameOver          ?? state?.gameOver          ?? false;
-  const teamColors = [teams[0]?.color || "#1a6bab", teams[1]?.color || "#b84e1a"];
+  const teamColors = [teams[0]?.color || C.blue600, teams[1]?.color || C.orange700];
   const displayLogos = [
     teams[0]?.logoUrl || orgLogos[0],
     teams[1]?.logoUrl || orgLogos[1],
@@ -329,8 +330,8 @@ useEffect(() => {
     setAddSeasonState("done");
   }
 
-  if (loading) return <div style={{ ...S.loading, fontFamily: "system-ui, sans-serif" }}>Loading game…</div>;
-  if (error) return <div style={{ ...S.error, fontFamily: "system-ui, sans-serif" }}>{error}</div>;
+  if (loading) return <div style={{ ...S.loading, fontFamily: F.ui }}>Loading game…</div>;
+  if (error) return <div style={{ ...S.error, fontFamily: F.ui }}>{error}</div>;
 
   const hasState = !!state;
 
@@ -351,7 +352,7 @@ useEffect(() => {
         )}
         {push.isSupported && !gameOver && (
           <button
-            style={push.isSubscribed ? { ...S.copyBtn, color: "#2a7a3b", background: "#e8f5e9", borderColor: "#c8e6c9" } : S.copyBtn}
+            style={push.isSubscribed ? { ...S.copyBtn, color: C.green600, background: C.green60, borderColor: C.green100 } : S.copyBtn}
             onClick={push.isSubscribed ? push.unsubscribe : push.subscribe}
             disabled={push.loading}>
             {push.loading ? "…" : push.isSubscribed ? "✓ Following" : "Follow"}
@@ -373,12 +374,12 @@ useEffect(() => {
 
       {qrOpen && (
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif" }}
+          style={{ position: "fixed", inset: 0, background: C.blackA55, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F.ui }}
           onClick={(e) => { if (e.target === e.currentTarget) setQrOpen(false); }}
         >
-          <div style={{ background: "#fff", borderRadius: 16, padding: "28px 28px 24px", maxWidth: 320, width: "calc(100% - 40px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#111", textAlign: "center" }}>{game?.name || "Game"}</div>
-            <div ref={qrCanvasRef} style={{ lineHeight: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #e5e5e5" }}>
+          <div style={{ background: C.white, borderRadius: 16, padding: "28px 28px 24px", maxWidth: 320, width: "calc(100% - 40px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, boxShadow: SH.modal }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.gray900, textAlign: "center" }}>{game?.name || "Game"}</div>
+            <div ref={qrCanvasRef} style={{ lineHeight: 0, borderRadius: 8, overflow: "hidden", border: `1px solid ${C.gray150}` }}>
               <QRCodeCanvas
                 value={`${window.location.origin}/games/${id}/view`}
                 size={220}
@@ -386,18 +387,18 @@ useEffect(() => {
                 includeMargin
               />
             </div>
-            <div style={{ fontSize: 11, color: "#999", textAlign: "center", wordBreak: "break-all", maxWidth: 240 }}>
+            <div style={{ fontSize: 11, color: C.gray450, textAlign: "center", wordBreak: "break-all", maxWidth: 240 }}>
               {window.location.origin}/games/{id}/view
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button
-                style={{ fontSize: 13, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, padding: "8px 20px", cursor: "pointer" }}
+                style={{ fontSize: 13, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 8, padding: "8px 20px", cursor: "pointer" }}
                 onClick={saveQrImage}
               >
                 Save image
               </button>
               <button
-                style={{ fontSize: 13, color: "#888", background: "none", border: "1px solid #e0e0e0", borderRadius: 8, padding: "8px 16px", cursor: "pointer" }}
+                style={{ fontSize: 13, color: C.gray500, background: "none", border: `1px solid ${C.gray200}`, borderRadius: 8, padding: "8px 16px", cursor: "pointer" }}
                 onClick={() => setQrOpen(false)}
               >
                 Close
@@ -410,14 +411,14 @@ useEffect(() => {
 
 {/* Away org "Add to my season" banner */}
       {awayOrgRole && addSeasonState !== "done" && (
-        <div style={{ padding: "12px 16px", background: "#fffbe6", borderBottom: "1px solid #ffe58f", fontFamily: "system-ui, sans-serif", maxWidth: 600, margin: "0 auto" }}>
+        <div style={{ padding: "12px 16px", background: C.amber60, borderBottom: `1px solid ${C.amber210}`, fontFamily: F.ui, maxWidth: 600, margin: "0 auto" }}>
           {addSeasonState === "idle" && (
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 13, color: "#7a5700", flex: 1 }}>
+              <span style={{ fontSize: 13, color: C.amber810, flex: 1 }}>
                 This game involves <strong>{awayOrgName}</strong>. Add it to a season to include it in your stats.
               </span>
               <button
-                style={{ fontSize: 12, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", whiteSpace: "nowrap" }}
+                style={{ fontSize: 12, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", whiteSpace: "nowrap" }}
                 onClick={() => { setAddSeasonState("picking"); setAddSeasonId(awaySeasons[0]?.id || ""); }}>
                 Add to season
               </button>
@@ -425,35 +426,35 @@ useEffect(() => {
           )}
           {addSeasonState === "picking" && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 13, color: "#7a5700", whiteSpace: "nowrap" }}>Add to season:</span>
+              <span style={{ fontSize: 13, color: C.amber810, whiteSpace: "nowrap" }}>Add to season:</span>
               <select
-                style={{ fontSize: 13, padding: "5px 8px", border: "1px solid #ffd666", borderRadius: 8, background: "#fff", flex: 1, minWidth: 120 }}
+                style={{ fontSize: 13, padding: "5px 8px", border: `1px solid ${C.amber310}`, borderRadius: 8, background: C.white, flex: 1, minWidth: 120 }}
                 value={addSeasonId}
                 onChange={e => setAddSeasonId(e.target.value)}>
                 <option value="" disabled>Select season…</option>
                 {awaySeasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               <button
-                style={{ fontSize: 12, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", opacity: !addSeasonId ? 0.4 : 1, whiteSpace: "nowrap" }}
+                style={{ fontSize: 12, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 8, padding: "6px 14px", cursor: "pointer", opacity: !addSeasonId ? 0.4 : 1, whiteSpace: "nowrap" }}
                 disabled={!addSeasonId}
                 onClick={handleLinkToSeason}>
                 Confirm
               </button>
               <button
-                style={{ fontSize: 12, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "6px 4px" }}
+                style={{ fontSize: 12, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "6px 4px" }}
                 onClick={() => setAddSeasonState("idle")}>
                 Cancel
               </button>
-              {addSeasonError && <span style={{ fontSize: 12, color: "#c0392b", width: "100%" }}>{addSeasonError}</span>}
+              {addSeasonError && <span style={{ fontSize: 12, color: C.red600, width: "100%" }}>{addSeasonError}</span>}
             </div>
           )}
           {addSeasonState === "saving" && (
-            <span style={{ fontSize: 13, color: "#7a5700" }}>Saving…</span>
+            <span style={{ fontSize: 13, color: C.amber810 }}>Saving…</span>
           )}
         </div>
       )}
       {awayOrgRole && addSeasonState === "done" && game?.away_season_id && (
-        <div style={{ padding: "8px 16px", background: "#f0faf2", borderBottom: "1px solid #b5e0c0", fontFamily: "system-ui, sans-serif", fontSize: 12, color: "#2a7a3b", maxWidth: 600, margin: "0 auto" }}>
+        <div style={{ padding: "8px 16px", background: C.green30, borderBottom: `1px solid ${C.green200}`, fontFamily: F.ui, fontSize: 12, color: C.green600, maxWidth: 600, margin: "0 auto" }}>
           ✓ Game added to {awayOrgName} season
         </div>
       )}
@@ -479,8 +480,8 @@ useEffect(() => {
             {!gameOver && (() => {
               const t = getLatestTime(log, currentQuarter);
               return t ? (
-                <div style={{ textAlign: "center", padding: "10px 0 0", fontSize: 13, color: "#888" }}>
-                  <span style={{ fontWeight: 600, color: "#111" }}>{t}</span> remaining · {qLabel(currentQuarter)}
+                <div style={{ textAlign: "center", padding: "10px 0 0", fontSize: 13, color: C.gray500 }}>
+                  <span style={{ fontWeight: 600, color: C.gray900 }}>{t}</span> remaining · {qLabel(currentQuarter)}
                 </div>
               ) : null;
             })()}
@@ -488,7 +489,7 @@ useEffect(() => {
             {/* Score / final banner */}
             {gameOver ? (
               <div style={S.finalBanner}>
-                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#aaa", marginBottom: 12 }}>Final</div>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: C.gray400, marginBottom: 12 }}>Final</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                     {displayLogos[0] && <img src={displayLogos[0]} alt="" style={{ height: 52, maxWidth: 96, objectFit: "contain" }} />}
@@ -496,7 +497,7 @@ useEffect(() => {
                   </div>
                   <div style={{ fontSize: 42, fontWeight: 500, letterSpacing: 4 }}>
                     <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
-                    <span style={{ color: "#555", margin: "0 10px" }}>—</span>
+                    <span style={{ color: C.gray650, margin: "0 10px" }}>—</span>
                     <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
@@ -504,7 +505,7 @@ useEffect(() => {
                     <div style={{ fontSize: 12, color: teamColors[1], fontWeight: 600 }}>{teams[1].name}</div>
                   </div>
                 </div>
-                <div style={{ fontSize: 13, color: "#aaa" }}>
+                <div style={{ fontSize: 13, color: C.gray400 }}>
                   {totalScores[0] > totalScores[1] ? teams[0].name : teams[1].name} wins
                   {allQuarters.some(q => isOT(q)) ? " in overtime" : ""}
                 </div>
@@ -515,19 +516,19 @@ useEffect(() => {
                   {displayLogos[0] && <img src={displayLogos[0]} alt="" style={{ height: 44, maxWidth: 80, objectFit: "contain" }} />}
                   <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[0] }}>{teams[0].name}</div>
                   {state?.activeGoalies?.[0] && (
-                    <div style={{ fontSize: 11, color: "#888" }}>GK: #{state.activeGoalies[0].num} {state.activeGoalies[0].name}</div>
+                    <div style={{ fontSize: 11, color: C.gray500 }}>GK: #{state.activeGoalies[0].num} {state.activeGoalies[0].name}</div>
                   )}
                 </div>
                 <div style={S.scoreBig}>
                   <span style={{ color: teamColors[0] }}>{totalScores[0]}</span>
-                  <span style={{ color: "#ddd", margin: "0 8px" }}>—</span>
+                  <span style={{ color: C.gray250, margin: "0 8px" }}>—</span>
                   <span style={{ color: teamColors[1] }}>{totalScores[1]}</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                   {displayLogos[1] && <img src={displayLogos[1]} alt="" style={{ height: 44, maxWidth: 80, objectFit: "contain" }} />}
                   <div style={{ fontSize: 13, fontWeight: 600, color: teamColors[1], textAlign: "right" }}>{teams[1].name}</div>
                   {state?.activeGoalies?.[1] && (
-                    <div style={{ fontSize: 11, color: "#888" }}>GK: #{state.activeGoalies[1].num} {state.activeGoalies[1].name}</div>
+                    <div style={{ fontSize: 11, color: C.gray500 }}>GK: #{state.activeGoalies[1].num} {state.activeGoalies[1].name}</div>
                   )}
                 </div>
               </div>
@@ -549,10 +550,10 @@ useEffect(() => {
               const refs = game?.referee_names      || game?.state?.refereeNames;
               if (!loc && !cond && !refs) return null;
               return (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", padding: "8px 2px 16px", fontSize: 12, color: "#777" }}>
-                  {loc  && <span><span style={{ color: "#aaa", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10 }}>Field </span>{loc}</span>}
-                  {cond && <span><span style={{ color: "#aaa", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10 }}>Conditions </span>{cond}</span>}
-                  {refs && <span><span style={{ color: "#aaa", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10 }}>Referees </span>{refs}</span>}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", padding: "8px 2px 16px", fontSize: 12, color: C.gray550 }}>
+                  {loc  && <span><span style={{ color: C.gray400, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10 }}>Field </span>{loc}</span>}
+                  {cond && <span><span style={{ color: C.gray400, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10 }}>Conditions </span>{cond}</span>}
+                  {refs && <span><span style={{ color: C.gray400, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10 }}>Referees </span>{refs}</span>}
                 </div>
               );
             })()}
@@ -564,20 +565,20 @@ useEffect(() => {
                   <thead><tr>
                     <th style={S.thLeft}>Team</th>
                     {allQuarters.map(q => (
-                      <th key={q} style={{ ...S.th(false), color: completedQuarters.includes(q) ? "#888" : "#4caf50" }}>
+                      <th key={q} style={{ ...S.th(false), color: completedQuarters.includes(q) ? C.gray500 : C.green400 }}>
                         {qLabel(q)}
                         {!completedQuarters.includes(q) && !gameOver && (
-                          <span style={{ display: "block", fontSize: 9, color: "#4caf50", fontWeight: 400 }}>live</span>
+                          <span style={{ display: "block", fontSize: 9, color: C.green400, fontWeight: 400 }}>live</span>
                         )}
                       </th>
                     ))}
-                    <th style={{ ...S.th(false), color: "#111", borderLeft: "1px solid #e5e5e5" }}>Total</th>
+                    <th style={{ ...S.th(false), color: C.gray900, borderLeft: `1px solid ${C.gray150}` }}>Total</th>
                   </tr></thead>
                   <tbody>{[0, 1].map(ti => (
                     <tr key={ti}>
                       <td style={{ ...S.tdLeft, fontWeight: 600, color: teamColors[ti] }}>{teams[ti].name}</td>
                       {allQuarters.map(q => <td key={q} style={S.td}>{(scoresByQuarter[q] || [0, 0])[ti]}</td>)}
-                      <td style={{ ...S.td, fontWeight: 600, borderLeft: "1px solid #e5e5e5" }}>{totalScores[ti]}</td>
+                      <td style={{ ...S.td, fontWeight: 600, borderLeft: `1px solid ${C.gray150}` }}>{totalScores[ti]}</td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -592,7 +593,7 @@ useEffect(() => {
               ))}
               {!gameOver && (
                 <button style={S.tabBtn(statsQtr === String(currentQuarter))} onClick={() => setStatsQtr(String(currentQuarter))}>
-                  {qLabel(currentQuarter)} <span style={{ fontSize: 10, color: statsQtr === String(currentQuarter) ? "#aaa" : "#4caf50" }}>●</span>
+                  {qLabel(currentQuarter)} <span style={{ fontSize: 10, color: statsQtr === String(currentQuarter) ? C.gray400 : C.green400 }}>●</span>
                 </button>
               )}
             </div>
@@ -633,7 +634,7 @@ useEffect(() => {
                   { heading: "Penalties" },
                   { label: "Technicals", key: "penalty_tech" }, { label: "PF Minutes", key: "penalty_min" },
                 ].map((item) => item.heading ? (
-                  <div key={item.heading} style={{ gridColumn: "1 / -1", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#bbb", padding: "8px 2px 2px" }}>{item.heading}</div>
+                  <div key={item.heading} style={{ gridColumn: "1 / -1", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.gray350, padding: "8px 2px 2px" }}>{item.heading}</div>
                 ) : (
                   <div key={item.label} style={S.summaryCard}>
                     <div style={S.summaryLabel}>{item.label}</div>

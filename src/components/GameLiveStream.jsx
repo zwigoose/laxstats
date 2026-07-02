@@ -1,5 +1,6 @@
 import { qLabel } from "./LaxStats";
 import { buildLogGroups } from "../utils/stats";
+import { C } from "../styles/tokens";
 
 const EVENT_LABELS = {
   goal:           "Goal",
@@ -66,7 +67,7 @@ export default function GameLiveStream({ log, teams, teamColors, completedQuarte
 
   if (!log.length) {
     return (
-      <div style={{ textAlign: "center", padding: "48px 16px", color: "#aaa", fontSize: 14 }}>
+      <div style={{ textAlign: "center", padding: "48px 16px", color: C.gray400, fontSize: 14 }}>
         No events yet — check back when the game starts.
       </div>
     );
@@ -79,16 +80,16 @@ export default function GameLiveStream({ log, teams, teamColors, completedQuarte
           const live = item.type === "quarter-live" && !gameOver;
           return (
             <div key={`q-${item.quarter}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 0 10px" }}>
-              <div style={{ flex: 1, height: 1, background: "#e5e5e5" }} />
+              <div style={{ flex: 1, height: 1, background: C.gray150 }} />
               <div style={{
                 fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em",
-                color: live ? "#4caf50" : "#aaa", whiteSpace: "nowrap",
+                color: live ? C.green400 : C.gray400, whiteSpace: "nowrap",
                 display: "flex", alignItems: "center", gap: 5,
               }}>
-                {live && <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#4caf50" }} />}
+                {live && <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: C.green400 }} />}
                 {live ? `${qLabel(item.quarter)} — Live` : `${qLabel(item.quarter)} — Final`}
               </div>
-              <div style={{ flex: 1, height: 1, background: "#e5e5e5" }} />
+              <div style={{ flex: 1, height: 1, background: C.gray150 }} />
             </div>
           );
         }
@@ -99,24 +100,24 @@ export default function GameLiveStream({ log, teams, teamColors, completedQuarte
           const teamName = teams[entry.teamIdx]?.name;
           return (
             <div key={entry.dbId ?? i} style={{
-              background: "#fff", border: `1px solid #e5e5e5`, borderLeft: `4px solid ${color}`,
+              background: C.white, border: `1px solid ${C.gray150}`, borderLeft: `4px solid ${color}`,
               borderRadius: 10, padding: "14px 16px", marginBottom: 10,
             }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color }}>Goal — {teamName}</span>
-                  {entry.goalTime && <span style={{ fontSize: 11, color: "#bbb" }}>{entry.goalTime}</span>}
+                  {entry.goalTime && <span style={{ fontSize: 11, color: C.gray350 }}>{entry.goalTime}</span>}
                 </div>
                 <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: 1 }}>
                   <span style={{ color: teamColors[0] }}>{score[0]}</span>
-                  <span style={{ color: "#ccc", margin: "0 4px" }}>—</span>
+                  <span style={{ color: C.gray300, margin: "0 4px" }}>—</span>
                   <span style={{ color: teamColors[1] }}>{score[1]}</span>
                 </div>
               </div>
               {scorer && (
-                <div style={{ fontSize: 13, color: "#333" }}>
+                <div style={{ fontSize: 13, color: C.gray750 }}>
                   <span style={{ fontWeight: 600 }}>#{scorer.num} {scorer.name}</span>
-                  {assist && <span style={{ color: "#888" }}> · Assist: #{assist.num} {assist.name}</span>}
+                  {assist && <span style={{ color: C.gray500 }}> · Assist: #{assist.num} {assist.name}</span>}
                 </div>
               )}
             </div>
@@ -132,15 +133,15 @@ export default function GameLiveStream({ log, teams, teamColors, completedQuarte
             <div key={entry.dbId ?? i} style={{
               display: "flex", alignItems: "center", gap: 10,
               padding: "8px 14px", marginBottom: 6,
-              background: "#fafafa", border: "1px solid #f0f0f0", borderRadius: 8,
+              background: C.gray25, border: `1px solid ${C.gray75}`, borderRadius: 8,
             }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
-              <div style={{ fontSize: 13, color: "#555", flex: 1 }}>
-                <span style={{ fontWeight: 600, color: "#333" }}>{label}</span>
-                {player && <span style={{ color: "#888" }}> — #{player.num} {player.name}</span>}
-                <span style={{ color: "#bbb" }}> · {teams[entry.teamIdx]?.name}</span>
+              <div style={{ fontSize: 13, color: C.gray650, flex: 1 }}>
+                <span style={{ fontWeight: 600, color: C.gray750 }}>{label}</span>
+                {player && <span style={{ color: C.gray500 }}> — #{player.num} {player.name}</span>}
+                <span style={{ color: C.gray350 }}> · {teams[entry.teamIdx]?.name}</span>
               </div>
-              {entry.goalTime && <div style={{ fontSize: 11, color: "#ccc" }}>{entry.goalTime}</div>}
+              {entry.goalTime && <div style={{ fontSize: 11, color: C.gray300 }}>{entry.goalTime}</div>}
             </div>
           );
         }
