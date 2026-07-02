@@ -1,0 +1,28 @@
+{
+  "projectId": "e27c8aea-c630-45f2-9179-44e515e88188",
+  "shape": "package",
+  "pkg": "laxstats",
+  "globalName": "LaxStats",
+  "entry": ".design-sync/entry.mjs",
+  "cssEntry": ".design-sync/base.css",
+  "srcDir": "src",
+  "overrides": {
+    "HeroCard": { "cardMode": "single", "viewport": "540x590" },
+    "PlayerStatsTable": { "viewport": "1000x1500" },
+    "ShotMap": { "viewport": "800x950" }
+  },
+  "componentSrcMap": {
+    "GameLiveStream": "src/components/GameLiveStream.jsx",
+    "GameTimeline": "src/components/GameTimeline.jsx",
+    "HeroCard": "src/components/HeroCard.jsx",
+    "PlayerStatsTable": "src/components/PlayerStatsTable.jsx",
+    "RosterEditor": "src/components/RosterEditor.jsx",
+    "ShotMap": "src/components/ShotMap.jsx",
+    "MomentumTracker": "src/components/analytics/MomentumTracker.jsx",
+    "FieldMapInput": "src/components/LaxStats/FieldMapInput.jsx",
+    "NumberKeypad": "src/components/LaxStats/NumberKeypad.jsx",
+    "TimeKeypad": "src/components/LaxStats/TimeKeypad.jsx",
+    "SharePanel": null,
+    "LaxStats": null
+  }
+}

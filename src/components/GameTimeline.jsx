@@ -1,4 +1,4 @@
-import { qLabel } from "./LaxStats";
+import { qLabel } from "../utils/stats";
 import { C, F } from "../styles/tokens";
 
 /**
