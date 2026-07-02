@@ -2,6 +2,7 @@ import { useState } from "react";
 import { getGameInfo } from "../../utils/game";
 import AdminGameRow from "./AdminGameRow";
 import SectionToggle from "./SectionToggle";
+import { C } from "../../styles/tokens";
 
 export default function OrgGameGroup({ orgName, orgSlug, games, userMap, users, onReassigned, onDeleted }) {
   const live    = games.filter(g => { const i = getGameInfo(g); return i?.started && !i?.gameOver; });
@@ -19,24 +20,24 @@ export default function OrgGameGroup({ orgName, orgSlug, games, userMap, users, 
         style={{
           width: "100%", padding: "10px 14px",
           display: "flex", alignItems: "center", gap: 10,
-          background: "#fff", border: "1px solid #e0e0e0", borderRadius: open ? "12px 12px 0 0" : 12,
+          background: C.white, border: `1px solid ${C.gray200}`, borderRadius: open ? "12px 12px 0 0" : 12,
           cursor: "pointer", textAlign: "left",
         }}
       >
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#111", flex: 1 }}>{orgName}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: C.gray900, flex: 1 }}>{orgName}</span>
         {live.length > 0 && (
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "2px 8px" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.green600, background: C.green50, borderRadius: 20, padding: "2px 8px" }}>
             ● {live.length} live
           </span>
         )}
-        <span style={{ fontSize: 11, color: "#aaa" }}>{games.length} game{games.length !== 1 ? "s" : ""}</span>
-        <span style={{ fontSize: 13, color: "#ccc", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>›</span>
+        <span style={{ fontSize: 11, color: C.gray400 }}>{games.length} game{games.length !== 1 ? "s" : ""}</span>
+        <span style={{ fontSize: 13, color: C.gray300, transform: open ? "rotate(90deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>›</span>
       </button>
 
       {open && (
-        <div style={{ border: "1px solid #e0e0e0", borderTop: "none", borderRadius: "0 0 12px 12px", padding: "10px 12px 12px", background: "#fafafa" }}>
+        <div style={{ border: `1px solid ${C.gray200}`, borderTop: "none", borderRadius: "0 0 12px 12px", padding: "10px 12px 12px", background: C.gray25 }}>
           {live.length === 0 && pending.length === 0 && final.length === 0 && (
-            <div style={{ fontSize: 13, color: "#aaa", padding: "8px 0" }}>No games.</div>
+            <div style={{ fontSize: 13, color: C.gray400, padding: "8px 0" }}>No games.</div>
           )}
           {live.map(g => (
             <AdminGameRow key={g.id} game={g} userMap={userMap} users={users} onReassigned={onReassigned} onDeleted={onDeleted} />

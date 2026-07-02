@@ -1,6 +1,7 @@
 import { useMemo, useState, useId } from "react";
 import { buildMomentumSeries, momentumPointLabel } from "../../utils/momentum";
 import { qLabel } from "../../utils/stats";
+import { C, F, SH } from "../../styles/tokens";
 
 // Fan-facing momentum line chart. Hand-rolled SVG per project convention
 // (same as ShotMap / the field renders) — no charting dependency.
@@ -61,26 +62,26 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
   }
 
   return (
-    <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: "12px 12px 8px", marginBottom: 20, background: "#fff", position: "relative" }}>
+    <div style={{ border: `1px solid ${C.gray150}`, borderRadius: 12, padding: "12px 12px 8px", marginBottom: 20, background: C.white, position: "relative" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", color: "#888" }}>MOMENTUM</span>
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", color: C.gray500 }}>MOMENTUM</span>
           <button
             aria-label="What is MOMENTUM?"
             onClick={() => setInfoOpen(v => !v)}
             onBlur={() => setInfoOpen(false)}
             style={{
-              width: 15, height: 15, borderRadius: "50%", border: "1px solid #ccc",
-              background: infoOpen ? "#888" : "transparent", color: infoOpen ? "#fff" : "#aaa",
+              width: 15, height: 15, borderRadius: "50%", border: `1px solid ${C.gray300}`,
+              background: infoOpen ? C.gray500 : "transparent", color: infoOpen ? C.white : C.gray400,
               fontSize: 10, fontWeight: 700, lineHeight: 1, cursor: "pointer", padding: 0,
-              fontFamily: "Georgia, serif", fontStyle: "italic", flexShrink: 0,
+              fontFamily: F.serif, fontStyle: "italic", flexShrink: 0,
             }}
           >
             i
           </button>
         </span>
         {!points.length && (
-          <span style={{ fontSize: 11, color: "#bbb" }}>Builds as the game is scored</span>
+          <span style={{ fontSize: 11, color: C.gray350 }}>Builds as the game is scored</span>
         )}
       </div>
 
@@ -88,8 +89,8 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
       {infoOpen && (
         <div style={{
           position: "absolute", top: 34, left: 12, right: 12, zIndex: 6,
-          background: "#1a1a1a", color: "#fff", borderRadius: 10, padding: "10px 14px",
-          fontSize: 12, lineHeight: 1.55, boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+          background: C.gray850, color: C.white, borderRadius: 10, padding: "10px 14px",
+          fontSize: 12, lineHeight: 1.55, boxShadow: SH.pop2,
         }}>
           <strong>MOMENTUM</strong> is LaxStats' live read of game control. Goals, faceoff wins,
           shots, clears, and caused turnovers push the line toward the team making the plays
@@ -115,31 +116,31 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
         {/* Quarter bands + markers */}
         {Array.from({ length: maxQ }, (_, i) => (
           <g key={i}>
-            {i > 0 && <line x1={xPx(i)} y1={PAD.top} x2={xPx(i)} y2={PAD.top + PLOT_H} stroke="#eee" strokeWidth="1" />}
-            <text x={xPx(i + 0.5)} y={H - 8} textAnchor="middle" fontSize="11" fill="#aaa" fontWeight="600">
+            {i > 0 && <line x1={xPx(i)} y1={PAD.top} x2={xPx(i)} y2={PAD.top + PLOT_H} stroke={C.gray85} strokeWidth="1" />}
+            <text x={xPx(i + 0.5)} y={H - 8} textAnchor="middle" fontSize="11" fill={C.gray400} fontWeight="600">
               {qLabel(i + 1)}
             </text>
           </g>
         ))}
 
         {/* Zero (neutral) line */}
-        <line x1={PAD.left} y1={zeroY} x2={PAD.left + PLOT_W} y2={zeroY} stroke="#ddd" strokeWidth="1" strokeDasharray="4,3" />
+        <line x1={PAD.left} y1={zeroY} x2={PAD.left + PLOT_W} y2={zeroY} stroke={C.gray250} strokeWidth="1" strokeDasharray="4,3" />
 
         {/* Controlling labels — no raw numbers shown to fans */}
-        <text x={PAD.left} y={14} fontSize="11" fontWeight="700" fill={teamColors?.[0] || "#1a6bab"}>
+        <text x={PAD.left} y={14} fontSize="11" fontWeight="700" fill={teamColors?.[0] || C.blue600}>
           ▲ {teams?.[0]?.name || "Home"} controlling
         </text>
-        <text x={PAD.left} y={PAD.top + PLOT_H - 4} fontSize="11" fontWeight="700" fill={teamColors?.[1] || "#b84e1a"}>
+        <text x={PAD.left} y={PAD.top + PLOT_H - 4} fontSize="11" fontWeight="700" fill={teamColors?.[1] || C.orange700}>
           ▼ {teams?.[1]?.name || "Away"} controlling
         </text>
 
         {/* Momentum line, clipped into the two halves */}
-        <path d={path} fill="none" stroke={teamColors?.[0] || "#1a6bab"} strokeWidth="2" strokeLinejoin="round" clipPath={`url(#${clipId}-home)`} />
-        <path d={path} fill="none" stroke={teamColors?.[1] || "#b84e1a"} strokeWidth="2" strokeLinejoin="round" clipPath={`url(#${clipId}-away)`} />
+        <path d={path} fill="none" stroke={teamColors?.[0] || C.blue600} strokeWidth="2" strokeLinejoin="round" clipPath={`url(#${clipId}-home)`} />
+        <path d={path} fill="none" stroke={teamColors?.[1] || C.orange700} strokeWidth="2" strokeLinejoin="round" clipPath={`url(#${clipId}-away)`} />
 
         {/* Hover marker */}
         {hover && (
-          <circle cx={hover.px} cy={hover.py} r="4" fill={hover.point.score >= 0 ? (teamColors?.[0] || "#1a6bab") : (teamColors?.[1] || "#b84e1a")} stroke="#fff" strokeWidth="1.5" />
+          <circle cx={hover.px} cy={hover.py} r="4" fill={hover.point.score >= 0 ? (teamColors?.[0] || C.blue600) : (teamColors?.[1] || C.orange700)} stroke={C.white} strokeWidth="1.5" />
         )}
       </svg>
 
@@ -150,7 +151,7 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
           left: `${Math.min(85, Math.max(5, (hover.px / W) * 100))}%`,
           top: 8,
           transform: "translateX(-50%)",
-          background: "#1a1a1a", color: "#fff", fontSize: 11, borderRadius: 6,
+          background: C.gray850, color: C.white, fontSize: 11, borderRadius: 6,
           padding: "4px 9px", pointerEvents: "none", whiteSpace: "nowrap", zIndex: 5,
         }}>
           {momentumPointLabel(hover.point, teams)}

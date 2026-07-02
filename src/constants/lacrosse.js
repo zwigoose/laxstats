@@ -1,3 +1,4 @@
+import { C } from "../styles/tokens";
 export const EVENTS = [
   { id: "goal",         label: "Goal",        icon: "🥍" },
   { id: "shot",         label: "Shot",        icon: "🎯" },
@@ -42,8 +43,8 @@ export const PENALTY_OPTIONS = [
 ];
 
 export const PRESET_COLORS = [
-  "#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b",
-  "#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a",
+  C.blue600,C.orange700,C.green600,C.purple600,C.red600,
+  C.orange600,C.teal600,C.gray650,C.navy700,C.orange800,
 ];
 
 export const PLANS            = ["pro", "max", "giga"];
@@ -54,11 +55,11 @@ export const ORG_ROLES        = ["org_admin", "coach", "scorekeeper", "viewer"];
 export const BOOLEAN_FEATURES = new Set(["pressbox", "season_stats", "multi_scorekeeper"]);
 
 export const PLAN_COLOR = {
-  pro:   { bg: "#eef4fb", color: "#1a6bab" },
-  max:   { bg: "#eaf6ec", color: "#2a7a3b" },
-  giga:  { bg: "#fff8ec", color: "#d4820a" },
+  pro:   { bg: C.blue50, color: C.blue600 },
+  max:   { bg: C.green50, color: C.green600 },
+  giga:  { bg: C.orange50, color: C.orange600 },
 };
 
 export const STATUS_COLOR = {
-  active: "#2a7a3b", trialing: "#1a6bab", past_due: "#d4820a", canceled: "#c0392b",
+  active: C.green600, trialing: C.blue600, past_due: C.orange600, canceled: C.red600,
 };

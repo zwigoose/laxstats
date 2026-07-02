@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useOrgRole } from "../hooks/useOrgRole";
 import { useDocTitle } from "../hooks/useDocTitle";
+import { C, F, SH } from "../styles/tokens";
 
 function parseDate(str) {
   return str?.length === 10 ? new Date(str + "T12:00:00") : new Date(str);
@@ -13,31 +14,31 @@ function formatDate(str) {
 }
 
 const S = {
-  page:   { fontFamily: "system-ui, sans-serif", minHeight: "100%", background: "#f5f5f5" },
+  page:   { fontFamily: F.ui, minHeight: "100%", background: C.gray50 },
   wrap:   { maxWidth: 600, margin: "0 auto", padding: "0 20px 32px" },
-  back:   { fontSize: 13, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "0 0 20px", display: "block" },
-  h1:     { fontSize: 24, fontWeight: 800, color: "#111", margin: "0 0 4px", letterSpacing: "-0.02em" },
-  sub:    { fontSize: 13, color: "#888", margin: "0 0 28px" },
-  sectionTitle: { fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em", margin: "24px 0 10px" },
-  card:   { background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, overflow: "hidden", marginBottom: 10, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" },
-  err:    { background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "10px 14px", color: "#c0392b", fontSize: 13, marginBottom: 16 },
+  back:   { fontSize: 13, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "0 0 20px", display: "block" },
+  h1:     { fontSize: 24, fontWeight: 800, color: C.gray900, margin: "0 0 4px", letterSpacing: "-0.02em" },
+  sub:    { fontSize: 13, color: C.gray500, margin: "0 0 28px" },
+  sectionTitle: { fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.08em", margin: "24px 0 10px" },
+  card:   { background: C.white, border: `1px solid ${C.gray100}`, borderRadius: 14, overflow: "hidden", marginBottom: 10, boxShadow: SH.subtle },
+  err:    { background: C.red50, border: `1px solid ${C.red100}`, borderRadius: 10, padding: "10px 14px", color: C.red600, fontSize: 13, marginBottom: 16 },
 };
 
 function GameStatusBadge({ game }) {
   const s = game.state;
   const started = s?.trackingStarted;
   const gameOver = s?.gameOver;
-  if (gameOver)  return <span style={{ fontSize: 11, fontWeight: 600, color: "#888", background: "#f0f0f0", borderRadius: 20, padding: "3px 9px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Final</span>;
-  if (started)   return <span style={{ fontSize: 11, fontWeight: 700, color: "#2a7a3b", background: "#eaf6ec", borderRadius: 20, padding: "3px 9px" }}>● Live</span>;
-  return <span style={{ fontSize: 11, fontWeight: 600, color: "#d4820a", background: "#fff8ec", borderRadius: 20, padding: "3px 9px" }}>Scheduled</span>;
+  if (gameOver)  return <span style={{ fontSize: 11, fontWeight: 600, color: C.gray500, background: C.gray75, borderRadius: 20, padding: "3px 9px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Final</span>;
+  if (started)   return <span style={{ fontSize: 11, fontWeight: 700, color: C.green600, background: C.green50, borderRadius: 20, padding: "3px 9px" }}>● Live</span>;
+  return <span style={{ fontSize: 11, fontWeight: 600, color: C.orange600, background: C.orange50, borderRadius: 20, padding: "3px 9px" }}>Scheduled</span>;
 }
 
 function GameRow({ game, navigate, hasPressbox, v2Scores }) {
   const s = game.state;
   const homeTeam = game.home_team;
   const awayTeam = game.away_team;
-  const homeColor = homeTeam?.color || "#444";
-  const awayColor = awayTeam?.color || "#888";
+  const homeColor = homeTeam?.color || C.gray700;
+  const awayColor = awayTeam?.color || C.gray500;
 
   const homeScore = v2Scores?.[game.id]?.[0] ?? 0;
   const awayScore  = v2Scores?.[game.id]?.[1] ?? 0;
@@ -52,33 +53,33 @@ function GameRow({ game, navigate, hasPressbox, v2Scores }) {
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 6 }}>
               <div style={{ fontSize: 17, fontWeight: 700, color: homeColor }}>{homeTeam?.name ?? "Home"}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 20, fontWeight: 700, color: homeScore >= awayScore ? homeColor : "#bbb", fontVariantNumeric: "tabular-nums" }}>{homeScore}</span>
-                <span style={{ fontSize: 14, color: "#ddd" }}>–</span>
-                <span style={{ fontSize: 20, fontWeight: 700, color: awayScore >= homeScore ? awayColor : "#bbb", fontVariantNumeric: "tabular-nums" }}>{awayScore}</span>
+                <span style={{ fontSize: 20, fontWeight: 700, color: homeScore >= awayScore ? homeColor : C.gray350, fontVariantNumeric: "tabular-nums" }}>{homeScore}</span>
+                <span style={{ fontSize: 14, color: C.gray250 }}>–</span>
+                <span style={{ fontSize: 20, fontWeight: 700, color: awayScore >= homeScore ? awayColor : C.gray350, fontVariantNumeric: "tabular-nums" }}>{awayScore}</span>
               </div>
               <div style={{ fontSize: 17, fontWeight: 700, color: awayColor, textAlign: "right" }}>{awayTeam?.name ?? "Away"}</div>
             </div>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: homeColor }}>{homeTeam?.name ?? "Home"}</span>
-              <span style={{ fontSize: 13, color: "#ccc" }}>vs</span>
+              <span style={{ fontSize: 13, color: C.gray300 }}>vs</span>
               <span style={{ fontSize: 15, fontWeight: 700, color: awayColor }}>{awayTeam?.name ?? "Away"}</span>
             </div>
           )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
           <GameStatusBadge game={game} />
-          <span style={{ fontSize: 11, color: "#bbb" }}>{formatDate(game.game_date || game.created_at)}</span>
+          <span style={{ fontSize: 11, color: C.gray350 }}>{formatDate(game.game_date || game.created_at)}</span>
         </div>
       </div>
       <div style={{ padding: "0 16px 12px", display: "flex", gap: 6 }}>
         <button onClick={() => navigate(`/games/${game.id}/view`)}
-          style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}>
+          style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }}>
           View
         </button>
         {hasPressbox && (
           <button onClick={() => window.open(`/games/${game.id}/pressbox`, "_blank")}
-            style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: "1px solid #ddd", borderRadius: 7, cursor: "pointer", color: "#555" }}>
+            style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }}>
             Press Box
           </button>
         )}
@@ -89,7 +90,7 @@ function GameRow({ game, navigate, hasPressbox, v2Scores }) {
 
 function StatLeaders({ playerStats }) {
   if (!playerStats.length) return (
-    <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "20px 0" }}>
+    <div style={{ fontSize: 13, color: C.gray400, textAlign: "center", padding: "20px 0" }}>
       Stat leaders will appear once games are scored.
     </div>
   );
@@ -123,15 +124,15 @@ function StatLeaders({ playerStats }) {
     if (!players.length) return null;
     return (
       <div style={{ flex: 1, minWidth: 200 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>{title}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>{title}</div>
         {players.map((p, i) => (
-            <div key={`${p.player_id ?? p.player_name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #f5f5f5" }}>
-              <span style={{ fontSize: 12, color: "#bbb", width: 16, textAlign: "right" }}>{i + 1}</span>
+            <div key={`${p.player_id ?? p.player_name}-${i}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${C.gray50}` }}>
+              <span style={{ fontSize: 12, color: C.gray350, width: 16, textAlign: "right" }}>{i + 1}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player_name}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.gray900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.player_name}</div>
               </div>
-              <span style={{ fontSize: 16, fontWeight: 700, color: "#111", fontVariantNumeric: "tabular-nums" }}>{pct ? `${p[statKey]}%` : p[statKey]}</span>
-              <span style={{ fontSize: 11, color: "#aaa", width: 28 }}>{statLabel}</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: C.gray900, fontVariantNumeric: "tabular-nums" }}>{pct ? `${p[statKey]}%` : p[statKey]}</span>
+              <span style={{ fontSize: 11, color: C.gray400, width: 28 }}>{statLabel}</span>
             </div>
         ))}
       </div>
@@ -167,12 +168,12 @@ function Standings({ teamStats }) {
   });
   const rows = Object.values(byTeam).sort((a, b) => b.wins - a.wins || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against));
 
-  const colH = { fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", padding: "10px 8px", textAlign: "center" };
-  const cell = { padding: "10px 8px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#111", fontVariantNumeric: "tabular-nums" };
+  const colH = { fontSize: 11, fontWeight: 700, color: C.gray400, textTransform: "uppercase", letterSpacing: "0.06em", padding: "10px 8px", textAlign: "center" };
+  const cell = { padding: "10px 8px", textAlign: "center", fontSize: 13, fontWeight: 600, color: C.gray900, fontVariantNumeric: "tabular-nums" };
 
   return (
-    <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, overflow: "hidden" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr repeat(5, 44px)", borderBottom: "2px solid #f0f0f0" }}>
+    <div style={{ background: C.white, border: `1px solid ${C.gray100}`, borderRadius: 14, overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr repeat(5, 44px)", borderBottom: `2px solid ${C.gray75}` }}>
         <div style={{ ...colH, textAlign: "left", padding: "10px 16px" }}>Team</div>
         <div style={colH}>W</div>
         <div style={colH}>L</div>
@@ -181,16 +182,16 @@ function Standings({ teamStats }) {
         <div style={colH}>+/-</div>
       </div>
       {rows.map((t, i) => (
-        <div key={t.team_id} style={{ display: "grid", gridTemplateColumns: "1fr repeat(5, 44px)", background: i % 2 === 0 ? "#fff" : "#fafafa", borderBottom: i < rows.length - 1 ? "1px solid #f5f5f5" : "none" }}>
+        <div key={t.team_id} style={{ display: "grid", gridTemplateColumns: "1fr repeat(5, 44px)", background: i % 2 === 0 ? C.white : C.gray25, borderBottom: i < rows.length - 1 ? `1px solid ${C.gray50}` : "none" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px" }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.team_color || "#888", flexShrink: 0 }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{t.team_name}</span>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.team_color || C.gray500, flexShrink: 0 }} />
+            <span style={{ fontSize: 14, fontWeight: 600, color: C.gray900 }}>{t.team_name}</span>
           </div>
           <div style={cell}>{t.wins}</div>
           <div style={cell}>{t.losses}</div>
           <div style={cell}>{t.goals_for}</div>
           <div style={cell}>{t.goals_against}</div>
-          <div style={{ ...cell, color: t.goals_for - t.goals_against >= 0 ? "#2a7a3b" : "#c0392b" }}>
+          <div style={{ ...cell, color: t.goals_for - t.goals_against >= 0 ? C.green600 : C.red600 }}>
             {t.goals_for - t.goals_against > 0 ? "+" : ""}{t.goals_for - t.goals_against}
           </div>
         </div>
@@ -288,7 +289,7 @@ export default function SeasonView() {
 
   if (loading) return (
     <div style={{ ...S.page, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ fontSize: 14, color: "#888" }}>Loading…</div>
+      <div style={{ fontSize: 14, color: C.gray500 }}>Loading…</div>
     </div>
   );
 
@@ -308,7 +309,7 @@ export default function SeasonView() {
   return (
     <div style={S.page}>
       {/* Sticky hero */}
-      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "#f5f5f5", borderBottom: "1px solid #e8e8e8" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: C.gray50, borderBottom: `1px solid ${C.gray100}` }}>
         <div style={{ maxWidth: 600, margin: "0 auto", padding: "16px 20px 12px" }}>
           <button style={{ ...S.back, padding: "0 0 8px" }} onClick={() => navigate(`/orgs/${slug}`)}>← {org?.name}</button>
 
@@ -326,7 +327,7 @@ export default function SeasonView() {
         {/* Games */}
         {inProgress.length > 0 && (
           <>
-            <div style={{ ...S.sectionTitle, color: "#2a7a3b" }}>● Live</div>
+            <div style={{ ...S.sectionTitle, color: C.green600 }}>● Live</div>
             {inProgress.map(g => <GameRow key={g.id} game={g} navigate={navigate} hasPressbox={hasPressbox} v2Scores={v2Scores} />)}
           </>
         )}
@@ -346,7 +347,7 @@ export default function SeasonView() {
         )}
 
         {games.length === 0 && (
-          <div style={{ textAlign: "center", padding: "40px 20px", color: "#aaa", fontSize: 14 }}>
+          <div style={{ textAlign: "center", padding: "40px 20px", color: C.gray400, fontSize: 14 }}>
             No games yet for this season.
           </div>
         )}
@@ -361,7 +362,7 @@ export default function SeasonView() {
 
         {/* Stat Leaders */}
         <div style={S.sectionTitle}>Stat Leaders</div>
-        <div style={{ background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, padding: "16px" }}>
+        <div style={{ background: C.white, border: `1px solid ${C.gray100}`, borderRadius: 14, padding: "16px" }}>
           <StatLeaders playerStats={playerStats} />
         </div>
       </div>

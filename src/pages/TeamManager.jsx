@@ -5,22 +5,23 @@ import { useOrgRole } from "../hooks/useOrgRole";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { useOrgEntitlements } from "../hooks/useOrgEntitlements";
 import { entitlementMsg } from "../utils/entitlement";
+import { C, F, SH } from "../styles/tokens";
 
-const PRESET_COLORS = ["#1a6bab","#b84e1a","#2a7a3b","#8b1a8b","#c0392b","#d4820a","#1a7a7a","#555","#1a2e8b","#8b3a1a"];
+const PRESET_COLORS = [C.blue600,C.orange700,C.green600,C.purple600,C.red600,C.orange600,C.teal600,C.gray650,C.navy700,C.orange800];
 
 const S = {
-  page:   { fontFamily: "system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5" },
+  page:   { fontFamily: F.ui, minHeight: "100vh", background: C.gray50 },
   wrap:   { maxWidth: 600, margin: "0 auto", padding: "32px 20px" },
-  back:   { fontSize: 13, color: "#888", background: "none", border: "none", cursor: "pointer", padding: "0 0 20px", display: "block" },
-  h1:     { fontSize: 24, fontWeight: 800, color: "#111", margin: "0 0 24px", letterSpacing: "-0.02em" },
-  label:  { display: "block", fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, marginTop: 16 },
-  input:  { width: "100%", padding: "10px 12px", fontSize: 14, border: "1px solid #e0e0e0", borderRadius: 10, background: "#fff", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" },
-  btn:    { padding: "9px 18px", fontSize: 13, fontWeight: 700, background: "#111", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer" },
-  btnSm:  { padding: "6px 12px", fontSize: 12, fontWeight: 600, background: "#111", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" },
-  btnOut: { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", color: "#555", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer" },
-  btnDanger: { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", color: "#c0392b", border: "1px solid #f0a0a0", borderRadius: 8, cursor: "pointer" },
-  card:   { background: "#fff", border: "1px solid #e8e8e8", borderRadius: 14, overflow: "hidden", marginBottom: 10, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" },
-  err:    { background: "#fff5f5", border: "1px solid #fdd", borderRadius: 10, padding: "10px 14px", color: "#c0392b", fontSize: 13, marginBottom: 16 },
+  back:   { fontSize: 13, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "0 0 20px", display: "block" },
+  h1:     { fontSize: 24, fontWeight: 800, color: C.gray900, margin: "0 0 24px", letterSpacing: "-0.02em" },
+  label:  { display: "block", fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6, marginTop: 16 },
+  input:  { width: "100%", padding: "10px 12px", fontSize: 14, border: `1px solid ${C.gray200}`, borderRadius: 10, background: C.white, boxSizing: "border-box", fontFamily: F.ui },
+  btn:    { padding: "9px 18px", fontSize: 13, fontWeight: 700, background: C.gray900, color: C.white, border: "none", borderRadius: 10, cursor: "pointer" },
+  btnSm:  { padding: "6px 12px", fontSize: 12, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 8, cursor: "pointer" },
+  btnOut: { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", color: C.gray650, border: `1px solid ${C.gray250}`, borderRadius: 8, cursor: "pointer" },
+  btnDanger: { padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "transparent", color: C.red600, border: `1px solid ${C.red300}`, borderRadius: 8, cursor: "pointer" },
+  card:   { background: C.white, border: `1px solid ${C.gray100}`, borderRadius: 14, overflow: "hidden", marginBottom: 10, boxShadow: SH.subtle },
+  err:    { background: C.red50, border: `1px solid ${C.red100}`, borderRadius: 10, padding: "10px 14px", color: C.red600, fontSize: 13, marginBottom: 16 },
 };
 
 // ── Roster import helpers ────────────────────────────────────────────────────
@@ -134,16 +135,16 @@ function ImportRoster({ teamId, orgId, existingPlayers, onImported, onCancel }) 
   const modeTab = (id, label) => (
     <button key={id} onClick={() => { setMode(id); setRows(null); setTextBlob(""); }}
       style={{ padding: "5px 12px", fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: "pointer",
-        background: mode === id ? "#111" : "transparent", color: mode === id ? "#fff" : "#555",
-        border: mode === id ? "none" : "1px solid #ddd" }}>
+        background: mode === id ? C.gray900 : "transparent", color: mode === id ? C.white : C.gray650,
+        border: mode === id ? "none" : `1px solid ${C.gray250}` }}>
       {label}
     </button>
   );
 
   return (
-    <div style={{ background: "#f7f8fa", border: "1px solid #e0e0e0", borderRadius: 12, padding: 14, marginTop: 10 }}>
+    <div style={{ background: C.gray35, border: `1px solid ${C.gray200}`, borderRadius: 12, padding: 14, marginTop: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Import Roster</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em" }}>Import Roster</div>
         <button style={S.btnOut} onClick={onCancel}>Cancel</button>
       </div>
 
@@ -156,11 +157,11 @@ function ImportRoster({ teamId, orgId, existingPlayers, onImported, onCancel }) 
       {/* ── Input panels ── */}
       {!rows && mode === "csv" && (
         <div>
-          <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
+          <div style={{ fontSize: 12, color: C.gray500, marginBottom: 8 }}>
             Upload a CSV — columns: <code>number, name, position</code> (position optional). Header row auto-detected.
           </div>
           <label style={{ display: "inline-block", padding: "8px 14px", fontSize: 12, fontWeight: 600,
-            background: "#111", color: "#fff", borderRadius: 8, cursor: "pointer" }}>
+            background: C.gray900, color: C.white, borderRadius: 8, cursor: "pointer" }}>
             Choose CSV file
             <input type="file" accept=".csv,text/csv" style={{ display: "none" }}
               onChange={e => { handleFile(e.target.files[0]); e.target.value = ""; }} />
@@ -170,13 +171,13 @@ function ImportRoster({ teamId, orgId, existingPlayers, onImported, onCancel }) 
 
       {!rows && mode === "text" && (
         <div>
-          <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>
+          <div style={{ fontSize: 12, color: C.gray500, marginBottom: 6 }}>
             One player per line — <code>#22 First Last</code>. Position can be filled in after preview.
           </div>
           <textarea value={textBlob} onChange={e => setTextBlob(e.target.value)}
             placeholder={"#2 First Last\n#7 First Last\n#11 First Last"}
-            style={{ width: "100%", height: 120, padding: 10, fontSize: 13, fontFamily: "monospace",
-              border: "1px solid #ddd", borderRadius: 8, background: "#fff", resize: "vertical",
+            style={{ width: "100%", height: 120, padding: 10, fontSize: 13, fontFamily: F.mono,
+              border: `1px solid ${C.gray250}`, borderRadius: 8, background: C.white, resize: "vertical",
               boxSizing: "border-box" }} />
           <button style={{ ...S.btnSm, marginTop: 8, opacity: !textBlob.trim() ? 0.4 : 1 }}
             disabled={!textBlob.trim()}
@@ -188,7 +189,7 @@ function ImportRoster({ teamId, orgId, existingPlayers, onImported, onCancel }) 
 
       {!rows && mode === "saved" && (
         <div>
-          <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>
+          <div style={{ fontSize: 12, color: C.gray500, marginBottom: 6 }}>
             Saved teams don't include position — you can fill it in after preview.
           </div>
           <select style={{ ...S.input, maxWidth: 300, marginTop: 0 }} defaultValue=""
@@ -203,34 +204,34 @@ function ImportRoster({ teamId, orgId, existingPlayers, onImported, onCancel }) 
       {rows !== null && (
         <div>
           {rows.length === 0 ? (
-            <div style={{ fontSize: 13, color: "#c0392b", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, color: C.red600, marginBottom: 8 }}>
               No players found — check the format and try again.
             </div>
           ) : (
             <>
-              <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>
+              <div style={{ fontSize: 12, color: C.gray500, marginBottom: 6 }}>
                 {rows.length} player{rows.length !== 1 ? "s" : ""} · Edit the Pos. column as needed
               </div>
               {dupeNums.length > 0 && (
-                <div style={{ fontSize: 11, color: "#7a5c00", background: "#fffbf0",
-                  border: "1px solid #e0d080", borderRadius: 6, padding: "5px 10px", marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: C.amber800, background: C.amber50,
+                  border: `1px solid ${C.amber320}`, borderRadius: 6, padding: "5px 10px", marginBottom: 8 }}>
                   Already on roster: {dupeNums.join(", ")}
                 </div>
               )}
-              <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid #e5e5e5", borderRadius: 8, background: "#fff" }}>
+              <div style={{ maxHeight: 260, overflowY: "auto", border: `1px solid ${C.gray150}`, borderRadius: 8, background: C.white }}>
                 {rows.map((r, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
-                    borderBottom: i < rows.length - 1 ? "1px solid #f0f0f0" : "none" }}>
-                    <span style={{ fontSize: 12, color: "#bbb", width: 32, textAlign: "right", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+                    borderBottom: i < rows.length - 1 ? `1px solid ${C.gray75}` : "none" }}>
+                    <span style={{ fontSize: 12, color: C.gray350, width: 32, textAlign: "right", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
                       {r.number ? `#${r.number}` : "—"}
                     </span>
-                    <span style={{ flex: 1, fontSize: 13, color: "#111" }}>{r.name}</span>
+                    <span style={{ flex: 1, fontSize: 13, color: C.gray900 }}>{r.name}</span>
                     <input value={r.position || ""} placeholder="Pos."
                       onChange={e => setRows(prev => prev.map((row, j) => j === i ? { ...row, position: e.target.value || null } : row))}
-                      style={{ width: 52, padding: "3px 6px", fontSize: 12, border: "1px solid #e0e0e0",
-                        borderRadius: 6, fontFamily: "system-ui, sans-serif" }} />
+                      style={{ width: 52, padding: "3px 6px", fontSize: 12, border: `1px solid ${C.gray200}`,
+                        borderRadius: 6, fontFamily: F.ui }} />
                     <button onClick={() => setRows(prev => prev.filter((_, j) => j !== i))}
-                      style={{ fontSize: 11, color: "#c0392b", background: "none", border: "none",
+                      style={{ fontSize: 11, color: C.red600, background: "none", border: "none",
                         cursor: "pointer", padding: "2px 4px", flexShrink: 0, lineHeight: 1 }}>✕</button>
                   </div>
                 ))}
@@ -259,11 +260,11 @@ function ColorPicker({ value, onChange }) {
       {PRESET_COLORS.map(c => (
         <div key={c} onClick={() => onChange(c)}
           style={{ width: 24, height: 24, borderRadius: "50%", background: c, cursor: "pointer",
-            border: value === c ? "3px solid #111" : "2px solid transparent",
-            boxSizing: "border-box", boxShadow: value === c ? "none" : "0 0 0 1px #ddd" }} />
+            border: value === c ? `3px solid ${C.gray900}` : "2px solid transparent",
+            boxSizing: "border-box", boxShadow: value === c ? "none" : `0 0 0 1px ${C.gray250}` }} />
       ))}
       <input type="color" value={value} onChange={e => onChange(e.target.value)}
-        style={{ width: 28, height: 24, border: "1px solid #ddd", borderRadius: 6, cursor: "pointer", padding: 2 }} />
+        style={{ width: 28, height: 24, border: `1px solid ${C.gray250}`, borderRadius: 6, cursor: "pointer", padding: 2 }} />
     </div>
   );
 }
@@ -314,27 +315,27 @@ function OrgColorSection({ orgId, initialColor, onSaved, canManage }) {
   if (!canManage) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-        <div style={{ width: 18, height: 18, borderRadius: "50%", background: color, border: "2px solid #e0e0e0", flexShrink: 0 }} />
-        <span style={{ fontSize: 12, color: "#888" }}>Org color</span>
+        <div style={{ width: 18, height: 18, borderRadius: "50%", background: color, border: `2px solid ${C.gray200}`, flexShrink: 0 }} />
+        <span style={{ fontSize: 12, color: C.gray500 }}>Org color</span>
       </div>
     );
   }
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f8f8f8", borderRadius: 10, border: "1px solid #e8e8e8" }}>
-        <div style={{ width: 20, height: 20, borderRadius: "50%", background: color, border: "2px solid #e0e0e0", flexShrink: 0 }} />
-        <span style={{ fontSize: 12, color: "#555", flex: 1 }}>
-          Org color {saving && <span style={{ color: "#aaa" }}>· saving…</span>}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: C.gray40, borderRadius: 10, border: `1px solid ${C.gray100}` }}>
+        <div style={{ width: 20, height: 20, borderRadius: "50%", background: color, border: `2px solid ${C.gray200}`, flexShrink: 0 }} />
+        <span style={{ fontSize: 12, color: C.gray650, flex: 1 }}>
+          Org color {saving && <span style={{ color: C.gray400 }}>· saving…</span>}
         </span>
         <button onClick={() => setOpen(v => !v)} style={{ ...S.btnOut, padding: "4px 10px", fontSize: 11 }}>
           {open ? "Done" : "Change"}
         </button>
       </div>
       {open && (
-        <div style={{ padding: "10px 12px", background: "#f8f8f8", borderRadius: "0 0 10px 10px", borderTop: "none", border: "1px solid #e8e8e8", marginTop: -1 }}>
+        <div style={{ padding: "10px 12px", background: C.gray40, borderRadius: "0 0 10px 10px", borderTop: "none", border: `1px solid ${C.gray100}`, marginTop: -1 }}>
           <ColorPicker value={color} onChange={handleChange} />
-          {error && <div style={{ fontSize: 11, color: "#c0392b", marginTop: 6 }}>{error}</div>}
+          {error && <div style={{ fontSize: 11, color: C.red600, marginTop: 6 }}>{error}</div>}
         </div>
       )}
     </div>
@@ -352,7 +353,7 @@ function PlayerForm({ teamId, initial, onSave, onCancel, saving }) {
   }
 
   return (
-    <div style={{ background: "#fafafa", border: "1px solid #e8e8e8", borderRadius: 10, padding: 14, marginBottom: 8 }}>
+    <div style={{ background: C.gray25, border: `1px solid ${C.gray100}`, borderRadius: 10, padding: 14, marginBottom: 8 }}>
       <div style={{ display: "grid", gridTemplateColumns: "60px 1fr 80px", gap: 8, marginBottom: 10 }}>
         <div>
           <span style={{ ...S.label, marginTop: 0 }}>#</span>
@@ -595,16 +596,16 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
         style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
         <div style={{ width: 32, height: 32, borderRadius: "50%", background: team.color, flexShrink: 0 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>{team.name}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.gray900 }}>{team.name}</div>
           {players !== null && (
-            <div style={{ fontSize: 12, color: "#aaa", marginTop: 1 }}>{players.length} player{players.length !== 1 ? "s" : ""}</div>
+            <div style={{ fontSize: 12, color: C.gray400, marginTop: 1 }}>{players.length} player{players.length !== 1 ? "s" : ""}</div>
           )}
         </div>
-        <div style={{ fontSize: 14, color: "#ccc", transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</div>
+        <div style={{ fontSize: 14, color: C.gray300, transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</div>
       </div>
 
       {expanded && (
-        <div style={{ borderTop: "1px solid #f0f0f0", padding: "14px 16px" }}>
+        <div style={{ borderTop: `1px solid ${C.gray75}`, padding: "14px 16px" }}>
           {editing ? (
             <TeamForm initial={team} saving={saving}
               onSave={handleSaveTeam}
@@ -618,7 +619,7 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
                     <button style={S.btnDanger} onClick={() => setConfirmDelete(true)}>Delete</button>
                   ) : (
                     <>
-                      <button style={{ ...S.btnDanger, background: "#c0392b", color: "#fff" }} onClick={() => onDelete(team.id)}>
+                      <button style={{ ...S.btnDanger, background: C.red600, color: C.white }} onClick={() => onDelete(team.id)}>
                         Confirm delete
                       </button>
                       <button style={S.btnOut} onClick={() => setConfirmDelete(false)}>Cancel</button>
@@ -635,11 +636,11 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
               />
 
               {/* Players list */}
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Roster</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Roster</div>
 
               {playerError && <div style={S.err}>{playerError}</div>}
 
-              {loadingPlayers && <div style={{ fontSize: 13, color: "#aaa", padding: "8px 0" }}>Loading…</div>}
+              {loadingPlayers && <div style={{ fontSize: 13, color: C.gray400, padding: "8px 0" }}>Loading…</div>}
 
               {players !== null && players.length > 0 && (
                 <div style={{ marginBottom: 10 }}>
@@ -649,12 +650,12 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
                         onSave={(fields) => handleUpdatePlayer(p.id, fields)}
                         onCancel={() => setEditingPlayerId(null)} />
                     ) : (
-                      <div key={p.id} style={{ display: "flex", alignItems: "center", padding: "7px 0", borderBottom: "1px solid #f5f5f5", gap: 8 }}>
+                      <div key={p.id} style={{ display: "flex", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${C.gray50}`, gap: 8 }}>
                         {(p.jersey_num ?? p.number) != null && (
-                          <span style={{ fontSize: 12, color: "#bbb", width: 24, textAlign: "right", flexShrink: 0 }}>#{p.jersey_num ?? p.number}</span>
+                          <span style={{ fontSize: 12, color: C.gray350, width: 24, textAlign: "right", flexShrink: 0 }}>#{p.jersey_num ?? p.number}</span>
                         )}
-                        <span style={{ flex: 1, fontSize: 14, color: "#111" }}>{p.name}</span>
-                        {p.position && <span style={{ fontSize: 11, color: "#aaa" }}>{p.position}</span>}
+                        <span style={{ flex: 1, fontSize: 14, color: C.gray900 }}>{p.name}</span>
+                        {p.position && <span style={{ fontSize: 11, color: C.gray400 }}>{p.position}</span>}
                         {canManage && (
                           <div style={{ display: "flex", gap: 4 }}>
                             <button style={{ ...S.btnOut, padding: "3px 8px", fontSize: 11 }} onClick={() => setEditingPlayerId(p.id)}>Edit</button>
@@ -668,7 +669,7 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
               )}
 
               {players !== null && players.length === 0 && (
-                <div style={{ fontSize: 13, color: "#aaa", marginBottom: 10 }}>No players yet.</div>
+                <div style={{ fontSize: 13, color: C.gray400, marginBottom: 10 }}>No players yet.</div>
               )}
 
               {canManage && addMode === null && !importingRoster && !combining && (
@@ -686,53 +687,53 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
 
               {/* Combine players — merge two roster entries into one */}
               {canManage && combining && (
-                <div style={{ background: "#f7f8fa", border: "1px solid #e0e0e0", borderRadius: 12, padding: 12, marginTop: 4 }}>
+                <div style={{ background: C.gray35, border: `1px solid ${C.gray200}`, borderRadius: 12, padding: 12, marginTop: 4 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Combine players</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em" }}>Combine players</div>
                     <button style={S.btnOut} onClick={() => setCombining(null)}>Cancel</button>
                   </div>
 
                   {combining.step === "pick" && (
                     <>
-                      <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>
+                      <div style={{ fontSize: 12, color: C.gray500, marginBottom: 8 }}>
                         Select the two entries that are the same player (e.g. a jersey change or an in-game placeholder).
                       </div>
-                      <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #e5e5e5", borderRadius: 8, background: "#fff", marginBottom: 10 }}>
+                      <div style={{ maxHeight: 200, overflowY: "auto", border: `1px solid ${C.gray150}`, borderRadius: 8, background: C.white, marginBottom: 10 }}>
                         {players.map(p => {
                           const sel = combining.selected.some(s => s.id === p.id);
                           return (
                             <div key={p.id}
-                              style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderBottom: "1px solid #f5f5f5", cursor: "pointer", background: sel ? "#eef4fb" : "transparent" }}
+                              style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderBottom: `1px solid ${C.gray50}`, cursor: "pointer", background: sel ? C.blue50 : "transparent" }}
                               onClick={() => toggleCombineSelect(p)}>
                               <input type="checkbox" readOnly checked={sel} />
-                              <span style={{ fontSize: 12, color: "#bbb", width: 28, textAlign: "right", fontFamily: "monospace", flexShrink: 0 }}>
+                              <span style={{ fontSize: 12, color: C.gray350, width: 28, textAlign: "right", fontFamily: F.mono, flexShrink: 0 }}>
                                 {effNum(p) != null ? `#${effNum(p)}` : "—"}
                               </span>
-                              <span style={{ flex: 1, fontSize: 13, color: "#111" }}>{p.name}</span>
+                              <span style={{ flex: 1, fontSize: 13, color: C.gray900 }}>{p.name}</span>
                             </div>
                           );
                         })}
                       </div>
                       {combining.selected.length === 2 && (
                         <>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 6 }}>Final jersey number</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: C.gray650, marginBottom: 6 }}>Final jersey number</div>
                           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                             {combining.selected.map((p, i) => (
                               <button key={p.id}
-                                style={{ ...S.btnOut, fontSize: 12, ...(combining.finalIdx === i ? { background: "#111", color: "#fff", borderColor: "#111" } : {}) }}
+                                style={{ ...S.btnOut, fontSize: 12, ...(combining.finalIdx === i ? { background: C.gray900, color: C.white, borderColor: C.gray900 } : {}) }}
                                 onClick={() => setCombining(prev => ({ ...prev, finalIdx: i }))}>
                                 #{effNum(p)}
                               </button>
                             ))}
                           </div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 6 }}>Final name</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: C.gray650, marginBottom: 6 }}>Final name</div>
                           <input
                             style={{ ...S.input, fontSize: 13, padding: "7px 10px", marginBottom: 10 }}
                             value={combining.finalName}
                             onChange={e => setCombining(prev => ({ ...prev, finalName: e.target.value, error: null }))}
                             placeholder="Player name"
                           />
-                          {combining.error && <div style={{ fontSize: 12, color: "#c0392b", marginBottom: 8 }}>{combining.error}</div>}
+                          {combining.error && <div style={{ fontSize: 12, color: C.red600, marginBottom: 8 }}>{combining.error}</div>}
                           <button style={S.btnSm} onClick={handleCombineReview}>Review merge →</button>
                         </>
                       )}
@@ -744,11 +745,11 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
                     const remove = combining.selected[1 - combining.finalIdx];
                     return (
                       <>
-                        <div style={{ fontSize: 13, color: "#111", marginBottom: 8 }}>
+                        <div style={{ fontSize: 13, color: C.gray900, marginBottom: 8 }}>
                           Merging <strong>#{effNum(remove)} {remove.name}</strong> into{" "}
                           <strong>#{effNum(keep)} {combining.finalName}</strong>
                         </div>
-                        <div style={{ fontSize: 12, color: "#555", background: "#fff", border: "1px solid #e5e5e5", borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>
+                        <div style={{ fontSize: 12, color: C.gray650, background: C.white, border: `1px solid ${C.gray150}`, borderRadius: 8, padding: "8px 10px", marginBottom: 8 }}>
                           {combining.impact === null
                             ? "Calculating stat impact…"
                             : <>
@@ -761,15 +762,15 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
                               </>
                           }
                         </div>
-                        <div style={{ fontSize: 12, color: "#c0392b", marginBottom: 10 }}>
+                        <div style={{ fontSize: 12, color: C.red600, marginBottom: 10 }}>
                           This rewrites this team's historical games — finalized box scores will show
                           #{effNum(keep)} retroactively. <strong>This cannot be undone.</strong>
                         </div>
-                        {combining.error && <div style={{ fontSize: 12, color: "#c0392b", marginBottom: 8 }}>{combining.error}</div>}
+                        {combining.error && <div style={{ fontSize: 12, color: C.red600, marginBottom: 8 }}>{combining.error}</div>}
                         <div style={{ display: "flex", gap: 8 }}>
                           <button style={S.btnOut} onClick={() => setCombining(prev => ({ ...prev, step: "pick", impact: null, error: null }))}>← Back</button>
                           <button
-                            style={{ ...S.btnSm, background: "#c0392b", opacity: combining.saving ? 0.6 : 1 }}
+                            style={{ ...S.btnSm, background: C.red600, opacity: combining.saving ? 0.6 : 1 }}
                             disabled={combining.saving}
                             onClick={handleCombineMerge}>
                             {combining.saving ? "Merging…" : "Merge players ✓"}
@@ -789,28 +790,28 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
                   ? available.filter(p => p.name.toLowerCase().includes(pickSearch.toLowerCase()))
                   : available;
                 return (
-                  <div style={{ background: "#f7f8fa", border: "1px solid #e0e0e0", borderRadius: 12, padding: 12, marginTop: 4 }}>
+                  <div style={{ background: C.gray35, border: `1px solid ${C.gray200}`, borderRadius: 12, padding: 12, marginTop: 4 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em" }}>Add from org pool</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em" }}>Add from org pool</div>
                       <button style={S.btnOut} onClick={() => { setAddMode(null); setPickingPlayer(null); setPickSearch(""); }}>Cancel</button>
                     </div>
                     {orgPlayers === null ? (
-                      <div style={{ fontSize: 13, color: "#aaa" }}>Loading…</div>
+                      <div style={{ fontSize: 13, color: C.gray400 }}>Loading…</div>
                     ) : pickingPlayer ? (
                       <div>
-                        <div style={{ fontSize: 13, color: "#111", marginBottom: 8 }}>
+                        <div style={{ fontSize: 13, color: C.gray900, marginBottom: 8 }}>
                           Adding <strong>{pickingPlayer.name}</strong> to {team.name}
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                          <span style={{ fontSize: 12, color: "#888" }}>Jersey # for this team</span>
+                          <span style={{ fontSize: 12, color: C.gray500 }}>Jersey # for this team</span>
                           <input type="number" autoFocus
-                            style={{ width: 70, padding: "5px 8px", fontSize: 13, border: "1px solid #ddd", borderRadius: 7, fontFamily: "monospace" }}
+                            style={{ width: 70, padding: "5px 8px", fontSize: 13, border: `1px solid ${C.gray250}`, borderRadius: 7, fontFamily: F.mono }}
                             value={pickJersey}
                             onChange={e => setPickJersey(e.target.value)}
                             onKeyDown={e => e.key === "Enter" && handlePickPlayer()}
                             placeholder={pickingPlayer.number != null ? `${pickingPlayer.number}` : "#"}
                           />
-                          <span style={{ fontSize: 11, color: "#bbb" }}>leave blank to use #{pickingPlayer.number ?? "—"}</span>
+                          <span style={{ fontSize: 11, color: C.gray350 }}>leave blank to use #{pickingPlayer.number ?? "—"}</span>
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button style={S.btnOut} onClick={() => { setPickingPlayer(null); setPickJersey(""); }}>← Back</button>
@@ -829,21 +830,21 @@ function TeamCard({ team, orgId, canManage, onUpdate, onDelete }) {
                           autoFocus
                         />
                         {filtered.length === 0 ? (
-                          <div style={{ fontSize: 12, color: "#bbb", padding: "4px 0" }}>
+                          <div style={{ fontSize: 12, color: C.gray350, padding: "4px 0" }}>
                             {available.length === 0 ? "All org players are already on this team." : "No matches."}
                           </div>
                         ) : (
-                          <div style={{ maxHeight: 200, overflowY: "auto", border: "1px solid #e5e5e5", borderRadius: 8, background: "#fff" }}>
+                          <div style={{ maxHeight: 200, overflowY: "auto", border: `1px solid ${C.gray150}`, borderRadius: 8, background: C.white }}>
                             {filtered.map(p => (
                               <div key={p.id}
-                                style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderBottom: "1px solid #f5f5f5", cursor: "pointer" }}
+                                style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderBottom: `1px solid ${C.gray50}`, cursor: "pointer" }}
                                 onClick={() => { setPickingPlayer(p); setPickJersey(""); }}>
-                                <span style={{ fontSize: 12, color: "#bbb", width: 28, textAlign: "right", fontFamily: "monospace", flexShrink: 0 }}>
+                                <span style={{ fontSize: 12, color: C.gray350, width: 28, textAlign: "right", fontFamily: F.mono, flexShrink: 0 }}>
                                   {p.number != null ? `#${p.number}` : "—"}
                                 </span>
-                                <span style={{ flex: 1, fontSize: 13, color: "#111" }}>{p.name}</span>
-                                {p.position && <span style={{ fontSize: 11, color: "#aaa" }}>{p.position}</span>}
-                                <span style={{ fontSize: 11, color: "#1a6bab", fontWeight: 600 }}>Select</span>
+                                <span style={{ flex: 1, fontSize: 13, color: C.gray900 }}>{p.name}</span>
+                                {p.position && <span style={{ fontSize: 11, color: C.gray400 }}>{p.position}</span>}
+                                <span style={{ fontSize: 11, color: C.blue600, fontWeight: 600 }}>Select</span>
                               </div>
                             ))}
                           </div>
@@ -927,16 +928,16 @@ function TeamLogoSection({ teamId, orgId, initialLogoUrl, canManage, onSaved }) 
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#f8f8f8", borderRadius: 10, border: "1px solid #e8e8e8" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.gray40, borderRadius: 10, border: `1px solid ${C.gray100}` }}>
         {logoUrl ? (
-          <img src={`${logoUrl}?t=${cacheBust}`} alt="Team logo" style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 4, border: "1px solid #e0e0e0", background: "#fff" }} />
+          <img src={`${logoUrl}?t=${cacheBust}`} alt="Team logo" style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 4, border: `1px solid ${C.gray200}`, background: C.white }} />
         ) : (
-          <div style={{ width: 32, height: 32, borderRadius: 4, border: "1px dashed #ccc", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontSize: 16, color: "#bbb" }}>🏑</span>
+          <div style={{ width: 32, height: 32, borderRadius: 4, border: `1px dashed ${C.gray300}`, background: C.gray75, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 16, color: C.gray350 }}>🏑</span>
           </div>
         )}
-        <span style={{ fontSize: 12, color: "#555", flex: 1 }}>
-          Team logo {uploading && <span style={{ color: "#aaa" }}>· uploading…</span>}
+        <span style={{ fontSize: 12, color: C.gray650, flex: 1 }}>
+          Team logo {uploading && <span style={{ color: C.gray400 }}>· uploading…</span>}
         </span>
         {canManage && (
           <div style={{ display: "flex", gap: 6 }}>
@@ -946,14 +947,14 @@ function TeamLogoSection({ teamId, orgId, initialLogoUrl, canManage, onSaved }) 
             </button>
             {logoUrl && (
               <button onClick={handleRemove} disabled={uploading}
-                style={{ ...S.btnOut, padding: "4px 10px", fontSize: 11, color: "#c0392b", borderColor: "#f0c0c0" }}>
+                style={{ ...S.btnOut, padding: "4px 10px", fontSize: 11, color: C.red600, borderColor: C.red200 }}>
                 Remove
               </button>
             )}
           </div>
         )}
       </div>
-      {error && <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4, paddingLeft: 4 }}>{error}</div>}
+      {error && <div style={{ fontSize: 11, color: C.red600, marginTop: 4, paddingLeft: 4 }}>{error}</div>}
       <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"
         style={{ display: "none" }} onChange={handleFile} />
     </div>
@@ -999,16 +1000,16 @@ function OrgLogoSection({ orgId, initialLogoUrl, canManage, onSaved }) {
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#f8f8f8", borderRadius: 10, border: "1px solid #e8e8e8" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.gray40, borderRadius: 10, border: `1px solid ${C.gray100}` }}>
         {logoUrl ? (
-          <img src={`${logoUrl}?t=${cacheBust}`} alt="Org logo" style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 4, border: "1px solid #e0e0e0", background: "#fff" }} />
+          <img src={`${logoUrl}?t=${cacheBust}`} alt="Org logo" style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 4, border: `1px solid ${C.gray200}`, background: C.white }} />
         ) : (
-          <div style={{ width: 32, height: 32, borderRadius: 4, border: "1px dashed #ccc", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontSize: 16, color: "#bbb" }}>🏑</span>
+          <div style={{ width: 32, height: 32, borderRadius: 4, border: `1px dashed ${C.gray300}`, background: C.gray75, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 16, color: C.gray350 }}>🏑</span>
           </div>
         )}
-        <span style={{ fontSize: 12, color: "#555", flex: 1 }}>
-          Team logo {uploading && <span style={{ color: "#aaa" }}>· uploading…</span>}
+        <span style={{ fontSize: 12, color: C.gray650, flex: 1 }}>
+          Team logo {uploading && <span style={{ color: C.gray400 }}>· uploading…</span>}
         </span>
         {canManage && (
           <div style={{ display: "flex", gap: 6 }}>
@@ -1018,14 +1019,14 @@ function OrgLogoSection({ orgId, initialLogoUrl, canManage, onSaved }) {
             </button>
             {logoUrl && (
               <button onClick={handleRemove} disabled={uploading}
-                style={{ ...S.btnOut, padding: "4px 10px", fontSize: 11, color: "#c0392b", borderColor: "#f0c0c0" }}>
+                style={{ ...S.btnOut, padding: "4px 10px", fontSize: 11, color: C.red600, borderColor: C.red200 }}>
                 Remove
               </button>
             )}
           </div>
         )}
       </div>
-      {error && <div style={{ fontSize: 11, color: "#c0392b", marginTop: 4, paddingLeft: 4 }}>{error}</div>}
+      {error && <div style={{ fontSize: 11, color: C.red600, marginTop: 4, paddingLeft: 4 }}>{error}</div>}
       <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"
         style={{ display: "none" }} onChange={handleFile} />
     </div>
@@ -1101,7 +1102,7 @@ export default function TeamManager() {
 
   if (loading) return (
     <div style={{ ...S.page, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ fontSize: 14, color: "#888" }}>Loading…</div>
+      <div style={{ fontSize: 14, color: C.gray500 }}>Loading…</div>
     </div>
   );
 
@@ -1114,7 +1115,7 @@ export default function TeamManager() {
           <div>
             <h1 style={{ ...S.h1, margin: 0 }}>Teams</h1>
             {teamEntitlement?.plan_limit !== null && teamEntitlement && (
-              <div style={{ fontSize: 12, color: teamEntitlement.at_limit ? "#c0392b" : "#aaa", marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+              <div style={{ fontSize: 12, color: teamEntitlement.at_limit ? C.red600 : C.gray400, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
                 {teamEntitlement.current_usage} / {teamEntitlement.plan_limit} active teams
               </div>
             )}
@@ -1139,15 +1140,15 @@ export default function TeamManager() {
         />
 
         {showNewTeam && (
-          <div style={{ background: "#fff", border: "1px solid #e0e0e0", borderRadius: 14, padding: 18, marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>New Team</div>
+          <div style={{ background: C.white, border: `1px solid ${C.gray200}`, borderRadius: 14, padding: 18, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>New Team</div>
             <TeamForm saving={saving} onSave={handleCreateTeam} onCancel={() => setShowNewTeam(false)} />
           </div>
         )}
 
         {teams.length === 0 && !showNewTeam ? (
           <div style={{ textAlign: "center", padding: "48px 20px" }}>
-            <div style={{ fontSize: 14, color: "#888", marginBottom: 20 }}>No teams yet.</div>
+            <div style={{ fontSize: 14, color: C.gray500, marginBottom: 20 }}>No teams yet.</div>
             {isCoach && (
               <button style={{ ...S.btn, padding: "11px 24px", fontSize: 14 }} onClick={() => setShowNewTeam(true)}>
                 + Create first team

@@ -4,22 +4,23 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../contexts/AuthContext";
 import { PLAN_COLOR } from "../constants/lacrosse";
+import { C, F } from "../styles/tokens";
 
 const S = {
-  page:       { maxWidth: 480, margin: "0 auto", padding: "28px 16px 40px", fontFamily: "system-ui, sans-serif" },
-  heading:    { fontSize: 22, fontWeight: 800, color: "#111", letterSpacing: "-0.02em", marginBottom: 24 },
-  card:       { background: "#fff", border: "1px solid #e8e8e8", borderRadius: 12, padding: "20px 20px", marginBottom: 16 },
-  cardTitle:  { fontSize: 12, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 14 },
+  page:       { maxWidth: 480, margin: "0 auto", padding: "28px 16px 40px", fontFamily: F.ui },
+  heading:    { fontSize: 22, fontWeight: 800, color: C.gray900, letterSpacing: "-0.02em", marginBottom: 24 },
+  card:       { background: C.white, border: `1px solid ${C.gray100}`, borderRadius: 12, padding: "20px 20px", marginBottom: 16 },
+  cardTitle:  { fontSize: 12, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 14 },
   row:        { display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 },
-  label:      { fontSize: 12, fontWeight: 600, color: "#888" },
-  value:      { fontSize: 14, color: "#111" },
-  input:      { width: "100%", fontSize: 14, padding: "8px 10px", border: "1px solid #ddd", borderRadius: 8, outline: "none", boxSizing: "border-box", fontFamily: "system-ui, sans-serif" },
-  btn:        { padding: "8px 16px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "system-ui, sans-serif" },
-  btnPrimary: { background: "#111", color: "#fff" },
-  btnDanger:  { background: "#fff", color: "#c0392b", border: "1px solid #e0b0b0" },
-  success:    { fontSize: 12, color: "#2a7a3b", marginTop: 6 },
-  error:      { fontSize: 12, color: "#c0392b", marginTop: 6 },
-  divider:    { height: 1, background: "#f0f0f0", margin: "14px 0" },
+  label:      { fontSize: 12, fontWeight: 600, color: C.gray500 },
+  value:      { fontSize: 14, color: C.gray900 },
+  input:      { width: "100%", fontSize: 14, padding: "8px 10px", border: `1px solid ${C.gray250}`, borderRadius: 8, outline: "none", boxSizing: "border-box", fontFamily: F.ui },
+  btn:        { padding: "8px 16px", fontSize: 13, fontWeight: 600, borderRadius: 8, border: "none", cursor: "pointer", fontFamily: F.ui },
+  btnPrimary: { background: C.gray900, color: C.white },
+  btnDanger:  { background: C.white, color: C.red600, border: `1px solid ${C.red250}` },
+  success:    { fontSize: 12, color: C.green600, marginTop: 6 },
+  error:      { fontSize: 12, color: C.red600, marginTop: 6 },
+  divider:    { height: 1, background: C.gray75, margin: "14px 0" },
 };
 
 function Field({ label, value }) {
@@ -32,9 +33,9 @@ function Field({ label, value }) {
 }
 
 const PERSONAL_PLAN_COLOR = {
-  free:  { bg: "#f5f5f5",  color: "#888" },
-  basic: { bg: "#eef4fb",  color: "#1a6bab" },
-  plus:  { bg: "#eaf6ec",  color: "#2a7a3b" },
+  free:  { bg: C.gray50,  color: C.gray500 },
+  basic: { bg: C.blue50,  color: C.blue600 },
+  plus:  { bg: C.green50,  color: C.green600 },
 };
 
 export default function Profile() {
@@ -128,7 +129,7 @@ export default function Profile() {
       <div style={S.heading}>Profile</div>
 
       {checkoutSuccess && (
-        <div style={{ background: "#eaf6ec", border: "1px solid #b7dfc1", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#2a7a3b", fontWeight: 600 }}>
+        <div style={{ background: C.green50, border: `1px solid ${C.green210}`, borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: C.green600, fontWeight: 600 }}>
           Payment successful — your plan has been updated. It may take a moment to reflect.
         </div>
       )}
@@ -166,10 +167,10 @@ export default function Profile() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "2px 9px", background: pc.bg, color: pc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{personalPlan}</span>
                   {personalStatus !== "active" && (
-                    <span style={{ fontSize: 12, color: personalStatus === "past_due" ? "#d4820a" : "#c0392b" }}>{personalStatus.replace("_", " ")}</span>
+                    <span style={{ fontSize: 12, color: personalStatus === "past_due" ? C.orange600 : C.red600 }}>{personalStatus.replace("_", " ")}</span>
                   )}
                   {hasPersonalSub && (
-                    <button onClick={() => openPortal(null)} style={{ fontSize: 11, color: "#1a6bab", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                    <button onClick={() => openPortal(null)} style={{ fontSize: 11, color: C.blue600, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
                       Manage →
                     </button>
                   )}
@@ -184,12 +185,12 @@ export default function Profile() {
                     <span style={S.label}>Org plan ({orgMembership.org?.name})</span>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "2px 9px", background: opc.bg, color: opc.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{orgPlan}</span>
-                      <span style={{ fontSize: 12, color: "#aaa" }}>{orgMembership.role?.replace("org_", "")}</span>
+                      <span style={{ fontSize: 12, color: C.gray400 }}>{orgMembership.role?.replace("org_", "")}</span>
                       {orgStatus !== "active" && (
-                        <span style={{ fontSize: 12, color: orgStatus === "past_due" ? "#d4820a" : "#c0392b" }}>{orgStatus.replace("_", " ")}</span>
+                        <span style={{ fontSize: 12, color: orgStatus === "past_due" ? C.orange600 : C.red600 }}>{orgStatus.replace("_", " ")}</span>
                       )}
                       {isOrgAdmin && (
-                        <button onClick={() => openPortal(orgMembership.org_id)} style={{ fontSize: 11, color: "#1a6bab", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                        <button onClick={() => openPortal(orgMembership.org_id)} style={{ fontSize: 11, color: C.blue600, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
                           Manage →
                         </button>
                       )}
@@ -198,7 +199,7 @@ export default function Profile() {
                 );
               })()}
               <div style={{ marginTop: 8 }}>
-                <Link to="/pricing" style={{ fontSize: 13, color: "#1a6bab", fontWeight: 600, textDecoration: "none" }}>View plans →</Link>
+                <Link to="/pricing" style={{ fontSize: 13, color: C.blue600, fontWeight: 600, textDecoration: "none" }}>View plans →</Link>
               </div>
             </>
           );
@@ -208,7 +209,7 @@ export default function Profile() {
       {/* ── Display name ── */}
       <div style={S.card}>
         <div style={S.cardTitle}>Display name</div>
-        <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: C.gray500, marginBottom: 12 }}>
           Shown in place of your username wherever your name appears.
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

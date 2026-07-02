@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../contexts/AuthContext";
 import SeoMeta from "../hooks/useSeoMeta";
+import { C, F } from "../styles/tokens";
 
 const SECTIONS = [
   { id: "start",    label: "Getting Started" },
@@ -21,50 +22,50 @@ const SECTIONS = [
 ];
 
 const S = {
-  page:      { maxWidth: 700, margin: "0 auto", padding: "36px 16px 64px", fontFamily: "system-ui, sans-serif" },
+  page:      { maxWidth: 700, margin: "0 auto", padding: "36px 16px 64px", fontFamily: F.ui },
 
-  hero:      { marginBottom: 40, paddingBottom: 36, borderBottom: "1px solid #f0f0f0" },
-  heroTitle: { fontSize: 28, fontWeight: 900, letterSpacing: "-0.03em", color: "#111", margin: "0 0 10px 0" },
-  heroSub:   { fontSize: 15, color: "#555", lineHeight: 1.65, margin: "0 0 22px 0", maxWidth: 520 },
+  hero:      { marginBottom: 40, paddingBottom: 36, borderBottom: `1px solid ${C.gray75}` },
+  heroTitle: { fontSize: 28, fontWeight: 900, letterSpacing: "-0.03em", color: C.gray900, margin: "0 0 10px 0" },
+  heroSub:   { fontSize: 15, color: C.gray650, lineHeight: 1.65, margin: "0 0 22px 0", maxWidth: 520 },
   heroBtns:  { display: "flex", gap: 8, flexWrap: "wrap" },
-  btnDark:   { background: "#111", color: "#fff", fontSize: 13, fontWeight: 600, borderRadius: 9, padding: "9px 18px", border: "none", cursor: "pointer", fontFamily: "system-ui, sans-serif" },
-  btnLight:  { background: "none", color: "#555", fontSize: 13, fontWeight: 600, borderRadius: 9, padding: "9px 18px", border: "1px solid #d0d0d0", cursor: "pointer", fontFamily: "system-ui, sans-serif" },
+  btnDark:   { background: C.gray900, color: C.white, fontSize: 13, fontWeight: 600, borderRadius: 9, padding: "9px 18px", border: "none", cursor: "pointer", fontFamily: F.ui },
+  btnLight:  { background: "none", color: C.gray650, fontSize: 13, fontWeight: 600, borderRadius: 9, padding: "9px 18px", border: `1px solid ${C.gray275}`, cursor: "pointer", fontFamily: F.ui },
 
-  toc:       { background: "#f7f7f7", border: "1px solid #e8e8e8", borderRadius: 12, padding: "16px 20px", marginBottom: 44 },
-  tocLabel:  { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#aaa", marginBottom: 10 },
+  toc:       { background: C.gray45, border: `1px solid ${C.gray100}`, borderRadius: 12, padding: "16px 20px", marginBottom: 44 },
+  tocLabel:  { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.gray400, marginBottom: 10 },
   tocGrid:   { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 16px" },
-  tocLink:   { fontSize: 13, color: "#1a6bab", textDecoration: "none", lineHeight: 2.1, cursor: "pointer" },
+  tocLink:   { fontSize: 13, color: C.blue600, textDecoration: "none", lineHeight: 2.1, cursor: "pointer" },
 
   section:   { marginBottom: 52, scrollMarginTop: 60 },
-  h2:        { fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: "#111", margin: "0 0 6px 0" },
-  lead:      { fontSize: 14, color: "#666", lineHeight: 1.65, margin: "0 0 18px 0" },
+  h2:        { fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: C.gray900, margin: "0 0 6px 0" },
+  lead:      { fontSize: 14, color: C.gray600, lineHeight: 1.65, margin: "0 0 18px 0" },
 
-  card:      { background: "#fff", border: "1px solid #e8e8e8", borderRadius: 12, padding: "16px 18px", marginBottom: 10 },
-  cardTitle: { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999", margin: "0 0 9px 0" },
-  cardBody:  { fontSize: 14, color: "#444", lineHeight: 1.65, margin: 0 },
+  card:      { background: C.white, border: `1px solid ${C.gray100}`, borderRadius: 12, padding: "16px 18px", marginBottom: 10 },
+  cardTitle: { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.gray450, margin: "0 0 9px 0" },
+  cardBody:  { fontSize: 14, color: C.gray700, lineHeight: 1.65, margin: 0 },
 
-  divider:   { height: 1, background: "#f0f0f0", margin: "0 0 52px 0" },
+  divider:   { height: 1, background: C.gray75, margin: "0 0 52px 0" },
 
   steps:     { display: "flex", flexDirection: "column", gap: 3, margin: "12px 0" },
-  step:      { display: "flex", alignItems: "flex-start", gap: 11, padding: "11px 14px", background: "#f7f7f7", borderRadius: 8 },
-  stepNum:   { width: 20, height: 20, borderRadius: "50%", background: "#111", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 },
-  stepMain:  { fontSize: 14, color: "#333", lineHeight: 1.5, fontWeight: 500 },
-  stepSub:   { fontSize: 12, color: "#888", marginTop: 2, lineHeight: 1.4 },
+  step:      { display: "flex", alignItems: "flex-start", gap: 11, padding: "11px 14px", background: C.gray45, borderRadius: 8 },
+  stepNum:   { width: 20, height: 20, borderRadius: "50%", background: C.gray900, color: C.white, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 },
+  stepMain:  { fontSize: 14, color: C.gray750, lineHeight: 1.5, fontWeight: 500 },
+  stepSub:   { fontSize: 12, color: C.gray500, marginTop: 2, lineHeight: 1.4 },
 
   table:     { width: "100%", borderCollapse: "collapse", fontSize: 13 },
-  th:        { textAlign: "left", padding: "7px 10px", borderBottom: "2px solid #e8e8e8", fontWeight: 700, color: "#666", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" },
-  td:        { padding: "8px 10px", borderBottom: "1px solid #f0f0f0", color: "#444", verticalAlign: "top" },
+  th:        { textAlign: "left", padding: "7px 10px", borderBottom: `2px solid ${C.gray100}`, fontWeight: 700, color: C.gray600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" },
+  td:        { padding: "8px 10px", borderBottom: `1px solid ${C.gray75}`, color: C.gray700, verticalAlign: "top" },
 
-  tip:       { background: "#fffbec", border: "1px solid #f5e9b8", borderRadius: 10, padding: "11px 15px", marginBottom: 8, fontSize: 13, color: "#664d00", lineHeight: 1.55 },
-  tipLabel:  { fontWeight: 700, color: "#8a6400", marginRight: 6 },
+  tip:       { background: C.amber55, border: `1px solid ${C.amber160}`, borderRadius: 10, padding: "11px 15px", marginBottom: 8, fontSize: 13, color: C.amber860, lineHeight: 1.55 },
+  tipLabel:  { fontWeight: 700, color: C.amber700, marginRight: 6 },
 
   grid2:     { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 },
   grid3:     { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 },
 
-  code:      { background: "#f0f0f0", borderRadius: 4, padding: "1px 6px", fontFamily: "monospace", fontSize: 12 },
-  codeBlock: { display: "block", background: "#f5f5f5", borderRadius: 8, padding: "10px 14px", marginTop: 8, fontFamily: "monospace", fontSize: 13, lineHeight: 1.8, color: "#333" },
+  code:      { background: C.gray75, borderRadius: 4, padding: "1px 6px", fontFamily: F.mono, fontSize: 12 },
+  codeBlock: { display: "block", background: C.gray50, borderRadius: 8, padding: "10px 14px", marginTop: 8, fontFamily: F.mono, fontSize: 13, lineHeight: 1.8, color: C.gray750 },
 
-  screenshot:     { margin: "14px 0", borderRadius: 10, overflow: "hidden", border: "1px solid #e8e8e8", display: "flex", justifyContent: "center", background: "#f5f5f5" },
+  screenshot:     { margin: "14px 0", borderRadius: 10, overflow: "hidden", border: `1px solid ${C.gray100}`, display: "flex", justifyContent: "center", background: C.gray50 },
   screenshotImg:  { display: "block", width: "100%", height: "auto" },
   screenshotImgSm:{ display: "block", width: "100%", height: "auto", maxWidth: 360 },
 };
@@ -264,27 +265,27 @@ export default function Guide() {
             Tap <strong>+ New Game</strong> and choose between two game types:
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
-            <div style={{ background: "#f7f7f7", borderRadius: 9, padding: "14px 16px" }}>
+            <div style={{ background: C.gray45, borderRadius: 9, padding: "14px 16px" }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Personal game</div>
-              <ul style={{ margin: 0, paddingLeft: 16, fontSize: 13, color: "#555", lineHeight: 2 }}>
+              <ul style={{ margin: 0, paddingLeft: 16, fontSize: 13, color: C.gray650, lineHeight: 2 }}>
                 <li>Standalone — just yours</li>
                 <li>Enter rosters manually or load a saved team</li>
                 <li>Stats available per game</li>
                 <li>No season or org required</li>
                 <li>Can be moved to an org later</li>
               </ul>
-              <div style={{ marginTop: 10, fontSize: 12, color: "#888" }}>Best for: pickup games, one-off scrimmages, or getting started.</div>
+              <div style={{ marginTop: 10, fontSize: 12, color: C.gray500 }}>Best for: pickup games, one-off scrimmages, or getting started.</div>
             </div>
-            <div style={{ background: "#f7f7f7", borderRadius: 9, padding: "14px 16px" }}>
+            <div style={{ background: C.gray45, borderRadius: 9, padding: "14px 16px" }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Org game</div>
-              <ul style={{ margin: 0, paddingLeft: 16, fontSize: 13, color: "#555", lineHeight: 2 }}>
+              <ul style={{ margin: 0, paddingLeft: 16, fontSize: 13, color: C.gray650, lineHeight: 2 }}>
                 <li>Linked to an organization</li>
                 <li>Uses registered team rosters</li>
                 <li>Stats roll up across the full season</li>
                 <li>Shared with org members</li>
                 <li>Optionally tied to a season</li>
               </ul>
-              <div style={{ marginTop: 10, fontSize: 12, color: "#888" }}>Best for: league play, club programs, or any tracked season.</div>
+              <div style={{ marginTop: 10, fontSize: 12, color: C.gray500 }}>Best for: league play, club programs, or any tracked season.</div>
             </div>
           </div>
         </div>
@@ -395,7 +396,7 @@ export default function Guide() {
               ].map(([event, followups]) => (
                 <tr key={event}>
                   <td style={{ ...S.td, fontWeight: 600 }}>{event}</td>
-                  <td style={{ ...S.td, color: "#666", fontSize: 12 }}>{followups}</td>
+                  <td style={{ ...S.td, color: C.gray600, fontSize: 12 }}>{followups}</td>
                 </tr>
               ))}
             </tbody>
@@ -685,7 +686,7 @@ export default function Guide() {
               ].map(([role, desc]) => (
                 <tr key={role}>
                   <td style={{ ...S.td, fontWeight: 600 }}>{role}</td>
-                  <td style={{ ...S.td, color: "#666", fontSize: 12 }}>{desc}</td>
+                  <td style={{ ...S.td, color: C.gray600, fontSize: 12 }}>{desc}</td>
                 </tr>
               ))}
             </tbody>
@@ -711,7 +712,7 @@ export default function Guide() {
         <h2 style={S.h2}>Plans</h2>
         <p style={S.lead}>LaxStats is free to try. Paid plans unlock more games and org features.</p>
 
-        <div style={{ marginBottom: 6, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999" }}>Personal plans</div>
+        <div style={{ marginBottom: 6, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.gray450 }}>Personal plans</div>
         <div style={S.grid3}>
           {[
             { name: "Free",  price: "$0",     desc: "3 personal games" },
@@ -721,12 +722,12 @@ export default function Guide() {
             <div key={p.name} style={{ ...S.card, textAlign: "center", marginBottom: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{p.name}</div>
               <div style={{ fontSize: 19, fontWeight: 800, marginBottom: 4 }}>{p.price}</div>
-              <div style={{ fontSize: 12, color: "#888" }}>{p.desc}</div>
+              <div style={{ fontSize: 12, color: C.gray500 }}>{p.desc}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ margin: "16px 0 6px 0", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999" }}>Org plans</div>
+        <div style={{ margin: "16px 0 6px 0", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: C.gray450 }}>Org plans</div>
         <div style={S.grid2}>
           {[
             { name: "Pro", price: "$10/mo", desc: "Registered teams, seasons, season stats, Press Box" },
@@ -735,7 +736,7 @@ export default function Guide() {
             <div key={p.name} style={{ ...S.card, textAlign: "center", marginBottom: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{p.name} Org</div>
               <div style={{ fontSize: 19, fontWeight: 800, marginBottom: 4 }}>{p.price}</div>
-              <div style={{ fontSize: 12, color: "#888" }}>{p.desc}</div>
+              <div style={{ fontSize: 12, color: C.gray500 }}>{p.desc}</div>
             </div>
           ))}
         </div>
@@ -808,9 +809,9 @@ export default function Guide() {
               <tbody>
                 {rows.map(([abbr, name, desc]) => (
                   <tr key={abbr}>
-                    <td style={{ ...S.td, fontWeight: 700, fontFamily: "monospace", fontSize: 12 }}>{abbr}</td>
+                    <td style={{ ...S.td, fontWeight: 700, fontFamily: F.mono, fontSize: 12 }}>{abbr}</td>
                     <td style={{ ...S.td, fontWeight: 600 }}>{name}</td>
-                    <td style={{ ...S.td, color: "#666" }}>{desc}</td>
+                    <td style={{ ...S.td, color: C.gray600 }}>{desc}</td>
                   </tr>
                 ))}
               </tbody>
