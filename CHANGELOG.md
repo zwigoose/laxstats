@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.21.6] — 2026-07-01
+
+### Changed
+- **Internal** — added Claude Design sync setup (`.design-sync/`): component previews, bundle entry, and typography baseline for syncing the component library to claude.ai/design; decoupled `GameTimeline`/`GameLiveStream` from the scorekeeper module (import `qLabel` from its `utils/stats` definition site) so they no longer pull the Supabase client into non-app bundles; `HeroCard` footer icon now hides gracefully if its asset fails to load; zero visual change
+
+---
+
 ## [2.21.5] — 2026-07-01
 
 ### Changed
