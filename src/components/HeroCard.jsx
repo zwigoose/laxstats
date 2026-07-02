@@ -110,7 +110,7 @@ export default function HeroCard({ teams, teamColors, totalScores, playerStats, 
 
           {/* Bottom branding */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "10px 0 14px", borderTop: `1px solid ${C.gray830}` }}>
-            <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 16, height: 16, objectFit: "contain", opacity: 0.5 }} />
+            <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 16, height: 16, objectFit: "contain", opacity: 0.5 }} onError={e => { e.currentTarget.style.display = "none"; }} />
             <span style={{ fontSize: 11, color: C.gray700, fontWeight: 600, letterSpacing: "0.06em" }}>LAXSTATS.APP</span>
           </div>
         </div>

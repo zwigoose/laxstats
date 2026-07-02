@@ -1,0 +1,16 @@
+/* Typography baseline the LaxStats app shell provides via src/index.css
+   (:root { font: … var(--sans) }). Components assume a sans-serif inheritance
+   context; without this, text lacking an explicit inline fontFamily falls
+   back to the browser serif default. Only the font baseline ships — the rest
+   of index.css is app chrome (#root width, template colors) that must not
+   leak into designs. */
+:root {
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: 0.18px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body {
+  margin: 0;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+}
