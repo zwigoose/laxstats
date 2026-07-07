@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.22.3] — 2026-07-07
+
+### Added
+- Event-stream fixture corpus (`src/test/fixtures/eventStreams/`) and characterization tests locking in current quarter-replay, score-recompute, and game-status derivation behavior — Phase 0 (safety net) of the event-sourcing refactor; no behavior changes
+
+---
+
 ## [2.22.2] — 2026-07-07
 
 ### Fixed
