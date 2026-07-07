@@ -10,6 +10,7 @@ import { TeamCard, TeamForm, ColorPicker, OrgColorSection, OrgLogoSection, PRESE
 import { PLAN_COLOR } from "../constants/lacrosse";
 import { useOrgEntitlements } from "../hooks/useOrgEntitlements";
 import { entitlementMsg } from "../utils/entitlement";
+import { setGameVisibility } from "../services/games";
 import { C, F, SH } from "../styles/tokens";
 
 
@@ -67,11 +68,12 @@ const S = {
 };
 
 // ── Org game card ─────────────────────────────────────────────────────────────
-function OrgGameCard({ game, canScore, v2Scores, hasPressbox }) {
+function OrgGameCard({ game, canScore, v2Scores, hasPressbox, onToggleVisibility }) {
   const navigate = useNavigate();
   const info = getGameInfo(game, v2Scores);
   const c0 = info?.t0?.color || C.gray700;
   const c1 = info?.t1?.color || C.gray500;
+  const pub = !!game.is_public;
 
   return (
     <div style={S.card}>
@@ -99,6 +101,17 @@ function OrgGameCard({ game, canScore, v2Scores, hasPressbox }) {
                 : <span style={{ fontSize: 11, fontWeight: 700, color: C.orange600, background: C.orange50, borderRadius: 20, padding: "2px 8px" }}>● Pending</span>
             }
             {info?.gameDate && <span style={{ fontSize: 11, color: C.gray350 }}>{formatDate(info.gameDate)}</span>}
+            {onToggleVisibility && (
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <button onClick={() => onToggleVisibility(game.id, !pub)} aria-pressed={pub}
+                  title={pub ? "Public — anyone can view this game. Tap to hide it from non-members." : "Hidden — only org members can view this game. Tap to make it public."}
+                  style={{ width: 32, height: 18, borderRadius: 18, border: "none", cursor: "pointer", padding: 0,
+                    background: pub ? "#22a447" : "#cbd0d6", position: "relative", transition: "background .15s", flex: "0 0 auto" }}>
+                  <span style={{ position: "absolute", top: 2, left: pub ? 16 : 2, width: 14, height: 14, borderRadius: 14, background: C.white, boxShadow: "0 1px 2px rgba(0,0,0,.25)", transition: "left .15s" }} />
+                </button>
+                <span style={{ fontSize: 11, fontWeight: 600, color: pub ? C.gray650 : C.gray400 }}>{pub ? "Public" : "Hidden"}</span>
+              </span>
+            )}
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <button style={S.btnOutline} onClick={() => navigate(`/games/${game.id}/view`)}>View</button>
@@ -118,7 +131,7 @@ function OrgGameCard({ game, canScore, v2Scores, hasPressbox }) {
 }
 
 // ── Games tab ─────────────────────────────────────────────────────────────────
-function GamesTab({ org, canScore, orgMembership }) {
+function GamesTab({ org, canScore, canManageVisibility, orgMembership }) {
   const navigate = useNavigate();
   const [games, setGames]         = useState([]);
   const [v2Scores, setV2Scores]   = useState({});
@@ -131,7 +144,7 @@ function GamesTab({ org, canScore, orgMembership }) {
       .then(({ data: limit }) => setHasPressbox(limit !== 0));
 
     supabase.from("games")
-      .select("id, created_at, name, state, schema_ver, game_date, user_id, org_id, away_org_id, pressbox_enabled")
+      .select("id, created_at, name, state, schema_ver, game_date, user_id, org_id, away_org_id, pressbox_enabled, is_public")
       .or(`org_id.eq.${org.id},away_org_id.eq.${org.id}`).order("created_at", { ascending: false })
       .then(async ({ data }) => {
         const games = data || [];
@@ -155,6 +168,15 @@ function GamesTab({ org, canScore, orgMembership }) {
 
   if (loading) return <div style={S.loading}>Loading…</div>;
 
+  async function handleToggleVisibility(id, isPublic) {
+    const before = games;
+    setGames(prev => prev.map(g => g.id === id ? { ...g, is_public: isPublic } : g));
+    const { error } = await setGameVisibility(id, isPublic);
+    if (error) setGames(before);
+  }
+  // Only home-org admins/coaches control visibility (not away-org members)
+  const toggleFor = g => (canManageVisibility && g.org_id === org.id ? handleToggleVisibility : null);
+
   const live    = games.filter(g => { const i = getGameInfo(g, v2Scores); return i?.started && !i?.gameOver; });
   const pending = games.filter(g => { const i = getGameInfo(g, v2Scores); return !i?.started; });
   const final   = games.filter(g => { const i = getGameInfo(g, v2Scores); return i?.gameOver; });
@@ -167,12 +189,12 @@ function GamesTab({ org, canScore, orgMembership }) {
         </div>
       )}
       {games.length === 0 && <div style={{ color: C.gray400, fontSize: 14, padding: "32px 0", textAlign: "center" }}>No games yet.</div>}
-      {live.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} hasPressbox={hasPressbox || !!g.pressbox_enabled} />)}
-      {pending.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} hasPressbox={hasPressbox || !!g.pressbox_enabled} />)}
+      {live.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} hasPressbox={hasPressbox || !!g.pressbox_enabled} onToggleVisibility={toggleFor(g)} />)}
+      {pending.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} hasPressbox={hasPressbox || !!g.pressbox_enabled} onToggleVisibility={toggleFor(g)} />)}
       {final.length > 0 && (
         <>
           <div style={S.sectionHead}>Completed</div>
-          {final.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} hasPressbox={hasPressbox || !!g.pressbox_enabled} />)}
+          {final.map(g => <OrgGameCard key={g.id} game={g} canScore={canScore} v2Scores={v2Scores} hasPressbox={hasPressbox || !!g.pressbox_enabled} onToggleVisibility={toggleFor(g)} />)}
         </>
       )}
     </div>
@@ -1235,7 +1257,7 @@ export default function OrgDashboard() {
       )}
 
       <div style={S.body}>
-        {tab === "games"   && <GamesTab   org={org} canScore={canScore} orgMembership={orgMembership} />}
+        {tab === "games"   && <GamesTab   org={org} canScore={canScore} canManageVisibility={role === "org_admin" || role === "coach"} orgMembership={orgMembership} />}
         {tab === "seasons" && <SeasonsTab org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} />}
         {tab === "teams"   && <TeamsTab   org={org} slug={slug} isOrgAdmin={isOrgAdmin} entitlements={entitlements} onOrgColorChange={color => setOrg(prev => ({ ...prev, color }))} onOrgLogoChange={logoUrl => setOrg(prev => ({ ...prev, logo_url: logoUrl }))} />}
         {tab === "players" && <PlayersTab org={org} isOrgAdmin={isOrgAdmin} />}

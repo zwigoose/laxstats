@@ -20,7 +20,7 @@ When the game is over, the full box score, player stats, and event timeline are 
 
 **Scoring via an invite link does not.** If the game owner sends you a scorer invite link, you can open the scorekeeper directly in any browser. No login, no account, no app download.
 
-**Viewing a game does not.** The Live View and Press Box for any game are public links — share them with coaches, parents, players, or anyone following along.
+**Viewing a game does not — if the game is visible to you.** Games flagged **Public** have shareable Live View and Press Box links that work for anyone — coaches, parents, players — with no account. Org games are **public by default** (org admins and coaches can hide individual games); personal games are **private by default** until the owner flips the game's Public toggle on the home screen.
 
 ---
 
@@ -103,8 +103,9 @@ Tap **End Q# →** at the bottom of the Track screen. After Q4 the app starts ov
 
 ## Sharing
 
-- **Live View** — `/games/:id/view` — score, stats, and timeline updating in real time. Public.
-- **Press Box** — `/games/:id/pressbox` — full-width dashboard with score by quarter, team stats, player stats, event log, and timeline. Designed for a tablet or laptop at the press table. Public.
+- **Game visibility** — every game has a **Public / Private** flag. Personal games default to private (toggle on the home-screen card); org games default to public (toggle on the org dashboard, org admins and coaches only). Non-public games are visible only to the owner, org members, and invited scorers; public games can be followed by anyone with the link and appear on the logged-out home page.
+- **Live View** — `/games/:id/view` — score, stats, and timeline updating in real time. Shareable for any public game.
+- **Press Box** — `/games/:id/pressbox` — full-width dashboard with score by quarter, team stats, player stats, event log, and timeline. Designed for a tablet or laptop at the press table. Same visibility as Live View.
 - **Hero Card** — once a game is final, generate a shareable PNG graphic with the score, team colors, logos, and player of the game — one tap to download.
 - **Invite scorer** — generate a 24-hour link from the scorekeeper header to bring in a second scorer. No account required for the recipient.
 
