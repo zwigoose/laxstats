@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { deriveQuarterState } from "../services/gameEvents";
-import { dbRowToEntry } from "../hooks/useGameEvents";
+import { dbRowToEntry } from "../hooks/useGameLog";
 import { getGameInfo } from "../utils/game";
 
 import emptyPretracking from "./fixtures/eventStreams/empty-pretracking.json";

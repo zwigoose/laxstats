@@ -9,7 +9,7 @@ import {
 } from "../services/games";
 import { useAuth } from "../contexts/AuthContext";
 import LaxStats from "../components/LaxStats";
-import { useGameEvents } from "../hooks/useGameEvents";
+import { useGameLog } from "../hooks/useGameLog";
 import { updateGameEventsPlayer } from "../services/gameEvents";
 import { C, F } from "../styles/tokens";
 
@@ -83,7 +83,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     syncStatus,
     error:              eventsError,
     channelStatus,
-  } = useGameEvents(id, userId);
+  } = useGameLog(id, userId);
 
   // Build initialState: teams/config from games.state, quarter state from
   // game_meta_events (via derivedQuarterState), log from game_events rows.

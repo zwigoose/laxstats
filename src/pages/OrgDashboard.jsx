@@ -5,7 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useOrgRole } from "../hooks/useOrgRole";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { qLabel } from "../components/LaxStats";
-import { dbRowToEntry } from "../hooks/useGameEvents";
+import { dbRowToEntry } from "../hooks/useGameLog";
 import { TeamCard, TeamForm, ColorPicker, OrgColorSection, OrgLogoSection, PRESET_COLORS } from "./TeamManager";
 import { PLAN_COLOR } from "../constants/lacrosse";
 import { useOrgEntitlements } from "../hooks/useOrgEntitlements";

@@ -5,7 +5,7 @@ import {
   buildPlayerStats, buildTeamTotals, buildScoringTimeline,
   qLabel, entryDisplayInfo,
 } from "../components/LaxStats";
-import { dbRowToEntry } from "../hooks/useGameEvents";
+import { dbRowToEntry } from "../hooks/useGameLog";
 import { deriveQuarterState } from "../services/gameEvents";
 import { useDocTitle } from "../hooks/useDocTitle";
 import GameTimeline from "../components/GameTimeline";

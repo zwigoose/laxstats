@@ -13,6 +13,18 @@ export async function insertGameEvents(rows, db = _supabase) {
   return db.from("game_events").insert(rows).select();
 }
 
+/**
+ * Idempotent append: rows carry client-generated ids, so a retried flush
+ * (offline sync, reconnect race) is a no-op — duplicates are silently
+ * skipped and only newly inserted rows come back.
+ */
+export async function appendGameEvents(rows, db = _supabase) {
+  return db
+    .from("game_events")
+    .upsert(rows, { onConflict: "id", ignoreDuplicates: true })
+    .select();
+}
+
 export async function softDeleteGameEvents(gameId, groupId, userId, db = _supabase) {
   return db
     .from("game_events")
@@ -20,6 +32,14 @@ export async function softDeleteGameEvents(gameId, groupId, userId, db = _supaba
     .eq("game_id", gameId)
     .eq("group_id", groupId)
     .is("deleted_at", null);
+}
+
+/**
+ * Soft-delete via RPC gated by can_score_game — unlike the direct UPDATE
+ * above, this lets a secondary scorer delete the primary scorer's entries.
+ */
+export async function softDeleteEventGroup(gameId, groupId, db = _supabase) {
+  return db.rpc("soft_delete_event_group", { p_game_id: gameId, p_group_id: groupId });
 }
 
 export async function dismissDuplicateFlag(gameId, groupId, db = _supabase) {

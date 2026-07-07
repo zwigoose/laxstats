@@ -1,15 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase as _supabase } from "../lib/supabase";
 import {
-  fetchGameEvents, insertGameEvents, softDeleteGameEvents, dismissDuplicateFlag,
+  fetchGameEvents, appendGameEvents, softDeleteEventGroup, dismissDuplicateFlag,
   fetchMetaEvents, insertMetaEvent, deriveQuarterState,
 } from "../services/gameEvents";
-import {
-  enqueueEvents, enqueueDelete, enqueueMetaEvent,
-  getPendingEvents, getPendingDeletes, getPendingMetaEvents,
-  removeEvent, removeDelete, removeMetaEvent,
-  getPendingCount,
-} from "../services/offlineQueue";
+import { enqueueOp, getPendingOps, removeOp, getPendingCount } from "../services/outbox";
 import { useOnlineStatus } from "./useOnlineStatus";
 
 // ── Translation: DB row ↔ LaxStats log entry ─────────────────────────────────
@@ -48,12 +43,13 @@ export function dbRowToEntry(row) {
 
 /**
  * Translate a LaxStats log entry into a game_events insert payload.
- * groupId on the entry must already be a UUID (set by commitEntries in v2 mode).
- * client_created_at is set here — the scorer's local wall clock at the moment
- * of commit, not at DB insert time.
+ * groupId on the entry must already be a UUID (set by commitEntries), and
+ * dbId/clientCreatedAt are stamped once by commitGroup at commit time — the
+ * client-generated id is what makes retried flushes idempotent.
  */
 export function entryToDbRow(entry, gameId, userId) {
   return {
+    id:                 entry.dbId,
     game_id:            gameId,
     group_id:           entry.groupId,
     quarter:            entry.quarter,
@@ -72,7 +68,7 @@ export function entryToDbRow(entry, gameId, userId) {
     foul_name:          entry.foulName       ?? null,
     is_emo:             entry.emo            ?? false,
     created_by:         userId,
-    client_created_at:  new Date().toISOString(),
+    client_created_at:  entry.clientCreatedAt ?? entry.createdAt ?? new Date().toISOString(),
   };
 }
 
@@ -89,28 +85,33 @@ function isNetworkError(err) {
   );
 }
 
+// Marker resolved to waiters when their op stays queued behind a network
+// failure — the commit succeeded locally and will sync on reconnect.
+const QUEUED = Symbol("queued");
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 /**
- * Manages the game_events event log for a game.
+ * Manages the game_events event log for a game (event-sourcing Phase 2).
  *
- * Returns:
- *   entries            — log entries in LaxStats format, sorted by seq
- *   loading            — initial load state
- *   commitGroup        — async (stampedEntries) → writes to game_events; queues locally
- *                        when offline so no events are lost
- *   softDeleteGroup    — async (groupIdUuid) → soft-deletes group; queues when offline
- *   commitMetaEvent    — async (type, fromQuarter, toQuarter) → writes to game_meta_events;
- *                        queues when offline; resolves after DB confirmation
- *   derivedQuarterState — { currentQuarter, completedQuarters, gameOver } from DB rows
- *   isPrimary          — true if this session is the designated primary scorer
- *   presenceList       — [{userId, joinedAt}, ...] sorted by join order
- *   isOnline           — current network status
- *   pendingCount       — number of operations waiting to sync
- *   syncStatus         — "idle" | "syncing" | "synced" | "error"
- *   error              — last error string or null
+ * All writes are outbox-first: commitGroup / commitMetaEvent /
+ * softDeleteGroup enqueue an op in IndexedDB, then flush the outbox if
+ * online. There is one code path whether online or offline — the only
+ * difference is whether the flush runs now or on reconnect. Appends carry
+ * client-generated row ids, so a crashed or retried flush can re-run every
+ * op safely (duplicates are ignored server-side).
+ *
+ * A hard (non-network) flush failure — e.g. the DB rejecting an unknown
+ * event type — drops the op and surfaces the error rather than jamming the
+ * queue forever.
+ *
+ * Returns the same contract as the old useGameEvents:
+ *   entries, loading, commitGroup, softDeleteGroup, commitMetaEvent,
+ *   dismissDuplicate, broadcastMeta, derivedQuarterState, isPrimary,
+ *   presenceList, remoteQuarterState, isOnline, pendingCount, syncStatus,
+ *   error, channelStatus, reload
  */
-export function useGameEvents(gameId, userId, db = _supabase) {
+export function useGameLog(gameId, userId, db = _supabase) {
   const [entries, setEntries]                       = useState([]);
   const [loading, setLoading]                       = useState(true);
   const [presenceList, setPresenceList]             = useState([]);
@@ -119,13 +120,20 @@ export function useGameEvents(gameId, userId, db = _supabase) {
   const [error, setError]                           = useState(null);
 
   const channelRef    = useRef(null);
-  const isSyncingRef  = useRef(false);
+  const flushingRef   = useRef(false);
+  const rerunFlushRef = useRef(false);
+  const waitersRef    = useRef(new Map()); // opId → { resolve, reject }
   const [channelStatus, setChannelStatus] = useState("idle");
 
   // ── Offline / sync state ──────────────────────────────────────────
   const isOnline = useOnlineStatus();
   const [pendingCount, setPendingCount] = useState(0);
   const [syncStatus, setSyncStatus]     = useState("idle");
+
+  const refreshPendingCount = useCallback(() => {
+    if (!gameId) return;
+    getPendingCount(gameId).then(setPendingCount).catch(() => {});
+  }, [gameId]);
 
   // ── Initial load ─────────────────────────────────────────────────
   useEffect(() => {
@@ -149,10 +157,7 @@ export function useGameEvents(gameId, userId, db = _supabase) {
   }
 
   // ── Pending-count bootstrap ──────────────────────────────────────
-  useEffect(() => {
-    if (!gameId) return;
-    getPendingCount(gameId).then(setPendingCount).catch(() => {});
-  }, [gameId]);
+  useEffect(() => { refreshPendingCount(); }, [refreshPendingCount]);
 
   // ── Realtime + Presence ──────────────────────────────────────────
   useEffect(() => {
@@ -289,131 +294,177 @@ export function useGameEvents(gameId, userId, db = _supabase) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId, userId]);
 
-  // ── Sync pending queue → server ──────────────────────────────────
-  const syncPending = useCallback(async () => {
-    if (!gameId || !userId) return;
-    if (isSyncingRef.current) return;
-
-    const [pendingEvs, pendingDels, pendingMetas] = await Promise.all([
-      getPendingEvents(gameId),
-      getPendingDeletes(gameId),
-      getPendingMetaEvents(gameId),
-    ]);
-
-    if (!pendingEvs.length && !pendingDels.length && !pendingMetas.length) return;
-
-    isSyncingRef.current = true;
-    setSyncStatus("syncing");
-
-    try {
-      // Flush event inserts in creation order so the DB sequence reflects
-      // the real-time order in which the scorer logged them.
-      for (const item of pendingEvs) {
-        const rows = item.entries.map(e => entryToDbRow(e, gameId, userId));
-        const { data: inserted, error: err } = await insertGameEvents(rows, db);
-        if (err) throw err;
+  // ── Op execution ──────────────────────────────────────────────────
+  // Performs one outbox op against the server and emits its broadcast.
+  // Throws on failure; the flush loop decides queue-vs-drop.
+  async function performOp(op) {
+    if (op.kind === "append") {
+      const rows = op.entries.map(e => entryToDbRow(e, gameId, userId));
+      const { data: inserted, error: err } = await appendGameEvents(rows, db);
+      if (err) throw err;
+      // Empty result = every row already existed (an earlier attempt landed
+      // before we crashed/retried) — the broadcast went out then, or the
+      // co-scorers' postgres_changes fallback covered it.
+      if (inserted?.length) {
+        // Merge our own rows (now carrying server seq) into entries — the
+        // realtime handlers skip own events, so this is their only way in
+        // short of a full reload.
+        const incoming = inserted.map(dbRowToEntry);
+        setEntries(prev => {
+          const existingIds = new Set(prev.map(e => e.dbId));
+          const toAdd = incoming.filter(e => !existingIds.has(e.dbId));
+          if (!toAdd.length) return prev;
+          return [...prev, ...toAdd].sort((a, b) => a.seq - b.seq);
+        });
         channelRef.current?.send({
           type:    "broadcast",
           event:   "new_events",
-          payload: { scorerId: userId, entries: inserted ?? rows },
+          payload: { scorerId: userId, entries: inserted },
         });
-        await removeEvent(item.queueId);
-        setPendingCount(prev => Math.max(0, prev - 1));
       }
+      return inserted;
+    }
 
-      // Flush meta events in creation order (they may have been queued between event inserts)
-      for (const item of pendingMetas) {
-        const { data, error: err } = await insertMetaEvent(item.row, db);
-        if (err) throw err;
-        // Update derived state with the newly persisted row
-        if (data) {
-          setDerivedQuarterState(prev => {
-            if (!prev) return deriveQuarterState([data]);
-            return _metaRowsToDerived(prev, data);
-          });
+    if (op.kind === "meta") {
+      const { data, error: err } = await insertMetaEvent(op.row, db);
+      if (err) throw err;
+      if (data) {
+        setDerivedQuarterState(prev => {
+          if (!prev) return deriveQuarterState([data]);
+          return _metaRowsToDerived(prev, data);
+        });
+      }
+      const broadcastPayload = _metaRowToBroadcastPayload(data ?? op.row);
+      channelRef.current?.send({
+        type:    "broadcast",
+        event:   "meta_update",
+        payload: { scorerId: userId, ...broadcastPayload },
+      });
+      return data;
+    }
+
+    if (op.kind === "soft_delete") {
+      const { error: err } = await softDeleteEventGroup(gameId, op.groupId, db);
+      if (err) throw err;
+      channelRef.current?.send({
+        type:    "broadcast",
+        event:   "delete_group",
+        payload: { scorerId: userId, groupId: op.groupId },
+      });
+      return undefined;
+    }
+
+    throw new Error(`unknown outbox op kind: ${op.kind}`);
+  }
+
+  function settleWaiter(opId, outcome) {
+    const w = waitersRef.current.get(opId);
+    if (!w) return;
+    waitersRef.current.delete(opId);
+    if (outcome.error) w.reject(outcome.error);
+    else w.resolve(outcome.value);
+  }
+
+  // ── Flush the outbox in strict FIFO order ─────────────────────────
+  const flushOutbox = useCallback(async () => {
+    if (!gameId || !userId) return;
+    if (flushingRef.current) { rerunFlushRef.current = true; return; }
+    flushingRef.current = true;
+
+    let flushedAny = false;
+    try {
+      // Re-read after each batch: ops enqueued mid-flush get picked up here
+      // instead of waiting for the next reconnect.
+      for (;;) {
+        rerunFlushRef.current = false;
+        const ops = await getPendingOps(gameId);
+        if (!ops.length) break;
+        setSyncStatus("syncing");
+
+        for (const op of ops) {
+          try {
+            const value = await performOp(op);
+            await removeOp(op.opId);
+            settleWaiter(op.opId, { value });
+            flushedAny = true;
+          } catch (err) {
+            if (isNetworkError(err)) {
+              // Leave this op (and everything after it) queued for reconnect.
+              // The local commit already succeeded — resolve its waiter.
+              settleWaiter(op.opId, { value: QUEUED });
+              setSyncStatus("idle");
+              refreshPendingCount();
+              return;
+            }
+            // Hard failure (e.g. DB validation): drop the op so it can't jam
+            // the queue, surface the error, and keep flushing the rest.
+            await removeOp(op.opId);
+            settleWaiter(op.opId, { error: err });
+            setError(err.message);
+            setSyncStatus("error");
+          }
         }
-        // Broadcast so online co-scorers see the quarter advance immediately.
-        const broadcastPayload = _metaRowToBroadcastPayload(item.row);
-        channelRef.current?.send({
-          type:    "broadcast",
-          event:   "meta_update",
-          payload: { scorerId: userId, ...broadcastPayload },
-        });
-        await removeMetaEvent(item.queueId);
-        setPendingCount(prev => Math.max(0, prev - 1));
+
+        if (!rerunFlushRef.current) break;
       }
 
-      // Flush soft-deletes after inserts so any "delete an offline-created
-      // event" pair is applied in the correct order: create then delete.
-      for (const item of pendingDels) {
-        await softDeleteGameEvents(gameId, item.groupId, userId, db);
-        channelRef.current?.send({
-          type:    "broadcast",
-          event:   "delete_group",
-          payload: { scorerId: userId, groupId: item.groupId },
-        });
-        await removeDelete(item.queueId);
-        setPendingCount(prev => Math.max(0, prev - 1));
+      if (flushedAny) {
+        setSyncStatus(s => (s === "error" ? s : "synced"));
+        setTimeout(() => setSyncStatus(s => (s === "synced" ? "idle" : s)), 3000);
       }
-
-      setSyncStatus("synced");
-      setTimeout(() => setSyncStatus(s => (s === "synced" ? "idle" : s)), 3000);
-      // Reload from DB so entries get correct seq/dbId values from the server.
-      load();
-    } catch (err) {
-      setSyncStatus("error");
-      setError(err.message);
     } finally {
-      isSyncingRef.current = false;
+      flushingRef.current = false;
+      refreshPendingCount();
     }
   // load is a stable closure over gameId/db; intentionally excluded from deps.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId, userId]);
+  }, [gameId, userId, refreshPendingCount]);
 
-  // Trigger sync whenever we (re)connect.  Also runs once on mount so events
-  // queued during a previous offline session are flushed immediately.
+  // Flush whenever we (re)connect. Also runs once on mount so ops queued
+  // during a previous session are flushed immediately.
   useEffect(() => {
-    if (isOnline) syncPending();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline, syncPending]);
+    if (isOnline) flushOutbox();
+  }, [isOnline, flushOutbox]);
+
+  // Enqueue an op and, when online, wait for its flush attempt. Resolves with
+  // the op's server result, QUEUED if a network failure left it queued, or
+  // rejects on a hard failure.
+  const commitOp = useCallback(async (op) => {
+    const opId = await enqueueOp({ gameId, ...op });
+    refreshPendingCount();
+    if (!isOnline) return QUEUED;
+    const settled = new Promise((resolve, reject) => {
+      waitersRef.current.set(opId, { resolve, reject });
+    });
+    flushOutbox();
+    return settled;
+  }, [gameId, isOnline, flushOutbox, refreshPendingCount]);
 
   // ── Commit a group of entries ────────────────────────────────────
   const commitGroup = useCallback(async (stampedEntries) => {
     if (!gameId || !userId || !stampedEntries?.length) return;
-
-    if (!isOnline) {
-      await enqueueEvents(gameId, stampedEntries);
-      setPendingCount(prev => prev + 1);
-      return;
-    }
-
-    const rows = stampedEntries.map(e => entryToDbRow(e, gameId, userId));
-    const { data: inserted, error: err } = await insertGameEvents(rows, db);
-
-    if (err) {
-      if (isNetworkError(err)) {
-        await enqueueEvents(gameId, stampedEntries);
-        setPendingCount(prev => prev + 1);
-        return;
-      }
+    // Stamp identity + client wall clock ONCE, so every retry of this op
+    // writes the same rows (and the server ignores the duplicates).
+    const now = new Date().toISOString();
+    const entriesWithIds = stampedEntries.map(e => ({
+      ...e,
+      dbId:            e.dbId            ?? crypto.randomUUID(),
+      clientCreatedAt: e.clientCreatedAt ?? now,
+    }));
+    try {
+      await commitOp({ kind: "append", entries: entriesWithIds });
+    } catch (err) {
       setError(err.message);
       throw err;
     }
-
-    channelRef.current?.send({
-      type:    "broadcast",
-      event:   "new_events",
-      payload: { scorerId: userId, entries: inserted ?? rows },
-    });
-  }, [gameId, userId, isOnline]);
+  }, [gameId, userId, commitOp]);
 
   // ── Commit a quarter-transition or game-over meta event ──────────
-  // Returns a promise that resolves (with the inserted row) only after the
-  // DB write confirms. The caller (handleEndQuarter) gates local state
-  // mutation on this promise so the DB is always ahead of the UI.
+  // Resolves with the inserted row after DB confirmation (callers gate local
+  // quarter mutation on this), or with a synthetic stub when the op is queued
+  // offline so callers can proceed optimistically.
   const commitMetaEvent = useCallback(async (type, fromQuarter, toQuarter) => {
     if (!gameId || !userId) return null;
-
     const row = {
       game_id:           gameId,
       event_type:        type,
@@ -422,73 +473,22 @@ export function useGameEvents(gameId, userId, db = _supabase) {
       created_by:        userId,
       client_created_at: new Date().toISOString(),
     };
-
-    if (!isOnline) {
-      await enqueueMetaEvent(gameId, row);
-      setPendingCount(prev => prev + 1);
-      // Return a synthetic result so callers can proceed optimistically offline.
-      return { ...row, id: crypto.randomUUID(), seq: null };
-    }
-
-    const { data, error: err } = await insertMetaEvent(row, db);
-    if (err) {
-      if (isNetworkError(err)) {
-        await enqueueMetaEvent(gameId, row);
-        setPendingCount(prev => prev + 1);
-        return { ...row, id: crypto.randomUUID(), seq: null };
-      }
-      throw err;
-    }
-
-    // Update local derived state immediately (don't wait for postgres_changes)
-    if (data) {
-      setDerivedQuarterState(prev => {
-        if (!prev) return deriveQuarterState([data]);
-        return _metaRowsToDerived(prev, data);
-      });
-    }
-
-    // Broadcast the new quarter state so co-scorers update instantly.
-    const broadcastPayload = _metaRowToBroadcastPayload(data ?? row);
-    channelRef.current?.send({
-      type:    "broadcast",
-      event:   "meta_update",
-      payload: { scorerId: userId, ...broadcastPayload },
-    });
-
-    return data;
-  }, [gameId, userId, isOnline]);
+    const result = await commitOp({ kind: "meta", row });
+    if (result === QUEUED) return { ...row, id: crypto.randomUUID(), seq: null };
+    return result;
+  }, [gameId, userId, commitOp]);
 
   // ── Soft-delete all rows in a group ─────────────────────────────
   const softDeleteGroup = useCallback(async (groupIdUuid) => {
     if (!gameId || !userId) return;
-
     setEntries(prev => prev.filter(e => e.groupId !== groupIdUuid));
-
-    if (!isOnline) {
-      await enqueueDelete(gameId, groupIdUuid);
-      setPendingCount(prev => prev + 1);
-      return;
-    }
-
-    const { error: err } = await softDeleteGameEvents(gameId, groupIdUuid, userId, db);
-
-    if (err) {
-      if (isNetworkError(err)) {
-        await enqueueDelete(gameId, groupIdUuid);
-        setPendingCount(prev => prev + 1);
-        return;
-      }
+    try {
+      await commitOp({ kind: "soft_delete", groupId: groupIdUuid });
+    } catch (err) {
       setError(err.message);
       throw err;
     }
-
-    channelRef.current?.send({
-      type:    "broadcast",
-      event:   "delete_group",
-      payload: { scorerId: userId, groupId: groupIdUuid },
-    });
-  }, [gameId, userId, isOnline]);
+  }, [gameId, userId, commitOp]);
 
   // ── Dismiss duplicate flag on a group ───────────────────────────
   const dismissDuplicate = useCallback(async (groupIdUuid) => {
@@ -506,7 +506,7 @@ export function useGameEvents(gameId, userId, db = _supabase) {
   }, [gameId, userId]);
 
   // Broadcast quarter/game-over state to other scorers (legacy fast path —
-  // demoted to hint only; commitMetaEvent is now the source of truth)
+  // demoted to hint only; commitMetaEvent is the source of truth)
   const broadcastMeta = useCallback((meta) => {
     channelRef.current?.send({
       type:    "broadcast",
