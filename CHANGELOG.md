@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.21.8] — 2026-07-06
+
+### Changed
+- **Internal** — design-sync fixture network (`.design-sync/fixture-net.js`): preview-only fetch interceptor answers placeholder-host Supabase requests with fixture data, so all 32 synced components (admin tabs, game list, share panels) render realistic content instead of fetch-error banners; no app code changes
+
+---
+
 ## [2.21.7] — 2026-07-02
 
 ### Changed
