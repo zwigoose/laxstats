@@ -5,6 +5,17 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.24.0] — 2026-07-07
+
+### Added
+- **Unified offline outbox** (event-sourcing Phase 2) — all scorekeeper writes (events, quarter transitions, deletions) queue through a single IndexedDB outbox flushed in strict order; the three legacy offline stores are drained automatically on first load
+- **Idempotent event writes** — events carry client-generated ids and sync via duplicate-ignoring upserts, so retried or interrupted syncs can no longer create duplicate events
+
+### Fixed
+- Secondary scorekeepers can now delete entries logged by the primary scorekeeper (deletes route through a new `soft_delete_event_group` RPC; previously the delete silently did nothing)
+
+---
+
 ## [2.23.0] — 2026-07-07
 
 ### Added
