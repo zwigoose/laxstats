@@ -9,7 +9,7 @@ import {
   qLabel, isOT,
 } from "../components/LaxStats";
 import { useDocTitle } from "../hooks/useDocTitle";
-import { dbRowToEntry } from "../hooks/useGameEvents";
+import { dbRowToEntry } from "../hooks/useGameLog";
 import { deriveQuarterState } from "../services/gameEvents";
 import GameTimeline from "../components/GameTimeline";
 import MomentumTracker from "../components/analytics/MomentumTracker";

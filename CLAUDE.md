@@ -38,15 +38,15 @@ The only distinction between game types is whether a game has an `org_id` (org-l
 |---|---|---|
 | Pages | `src/pages/` | Route-level components; mostly thin wrappers that compose hooks |
 | Components | `src/components/` | Reusable UI; `LaxStats/index.jsx` is the monolithic scorekeeper input UI |
-| Hooks | `src/hooks/` | `useGameEvents` is the core — handles Realtime subscription, offline queue, event reconciliation, and `game_meta_events` commits |
-| Services | `src/services/` | Supabase query functions (`games.js`, `gameEvents.js`, `teams.js`, `offlineQueue.js`) |
+| Hooks | `src/hooks/` | `useGameLog` is the core — outbox-first writes, Realtime subscription, event reconciliation, and `game_meta_events` commits |
+| Services | `src/services/` | Supabase query functions (`games.js`, `gameEvents.js`, `teams.js`) and the offline `outbox.js` |
 | Utils | `src/utils/` | `stats.js` computes all derived stats in JS (no DB aggregation); `game.js` has date formatting and `getGameInfo()` for reading the `games.state` display cache |
 | Contexts | `src/contexts/` | `AuthContext` loads session + profile + org memberships on mount |
 | Lib | `src/lib/supabase.js` | Supabase client with Realtime keepalive channel to prevent WebSocket drop |
 
 ### Offline Sync
 
-`useGameEvents` maintains a localStorage-based offline queue (`offlineQueue.js`). Events logged offline are buffered and flushed on reconnect with duplicate deduplication. `useOnlineStatus` drives visibility of the sync state. This is the most complex area of the codebase.
+`useGameLog` is **outbox-first**: every write (event group, quarter meta event, soft-delete) is enqueued as an op in a single IndexedDB store (`src/services/outbox.js`), then flushed in strict FIFO order when online — there is one code path whether online or offline. Appends carry client-generated row ids and go up as upsert-ignore, so a crashed or retried flush is idempotent. A hard (non-network) flush failure drops the op and surfaces the error instead of jamming the queue. Soft-deletes go through the `soft_delete_event_group` RPC (gated by `can_score_game`) so secondary scorers can delete the primary's entries. `useOnlineStatus` drives visibility of the sync state.
 
 ### Stats Computation
 

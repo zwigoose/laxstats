@@ -3,7 +3,7 @@ import { render, screen, waitFor, fireEvent, act } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Scorekeeper from "./Scorekeeper";
 
-// ── useGameEvents mock state ───────────────────────────────────────────────────
+// ── useGameLog mock state ──────────────────────────────────────────────────────
 
 const evState = vi.hoisted(() => ({
   entries:             [],
@@ -23,8 +23,8 @@ const evState = vi.hoisted(() => ({
   commitMetaEvent:     vi.fn().mockResolvedValue({ id: "meta-1", seq: 1 }),
 }));
 
-vi.mock("../hooks/useGameEvents", () => ({
-  useGameEvents: vi.fn(() => ({ ...evState })),
+vi.mock("../hooks/useGameLog", () => ({
+  useGameLog: vi.fn(() => ({ ...evState })),
 }));
 
 // ── Supabase mock ──────────────────────────────────────────────────────────────

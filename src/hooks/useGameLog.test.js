@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dbRowToEntry, entryToDbRow } from "./useGameEvents";
+import { dbRowToEntry, entryToDbRow } from "./useGameLog";
 
 // ── dbRowToEntry ──────────────────────────────────────────────────────────────
 
@@ -198,5 +198,20 @@ describe("entryToDbRow", () => {
   it("includes client_created_at as an ISO string", () => {
     const row = entryToDbRow(baseEntry, GAME_ID, USER_ID);
     expect(row.client_created_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  // ── Idempotency stamps (event-sourcing Phase 2) ──────────────────────────────
+
+  it("carries the client-generated dbId through as the row id", () => {
+    const row = entryToDbRow({ ...baseEntry, dbId: "client-uuid" }, GAME_ID, USER_ID);
+    expect(row.id).toBe("client-uuid");
+  });
+
+  it("prefers the commit-time clientCreatedAt stamp over a fresh timestamp", () => {
+    const row = entryToDbRow(
+      { ...baseEntry, clientCreatedAt: "2026-05-01T12:00:00.000Z" },
+      GAME_ID, USER_ID
+    );
+    expect(row.client_created_at).toBe("2026-05-01T12:00:00.000Z");
   });
 });

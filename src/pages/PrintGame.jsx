@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { buildPlayerStats, buildTeamTotals, qLabel } from "../components/LaxStats";
-import { dbRowToEntry } from "../hooks/useGameEvents";
+import { dbRowToEntry } from "../hooks/useGameLog";
 import { deriveQuarterState } from "../services/gameEvents";
 import { parseRoster } from "../utils/stats";
 import { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
