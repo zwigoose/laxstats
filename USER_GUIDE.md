@@ -54,6 +54,18 @@ The top nav bar is visible on all pages except the Scorekeeper and Press Box (wh
 - **Admin** — platform admin panel (visible to admin accounts only)
 - **Initials avatar** (top-right) — opens your profile page
 
+### The home page
+
+Signed in, the home page is your season at a glance:
+
+- **Live now** — your in-progress games, first
+- **Upcoming** and **Completed** — your personal games, each with a Public/Private visibility toggle (see [Game visibility](#game-visibility-public--private))
+- **Your plan** — personal game usage with Manage plan / Upgrade shortcuts
+- **Your organizations** — cards for each org you belong to
+- **Rosters** — the Rosters button in the welcome banner switches the game list to your saved rosters and back
+
+Logged out, the home page shows an overview of LaxStats plus any games that owners have flagged public — live games first, then recent finals.
+
 ---
 
 ## 3. Your Profile
@@ -199,6 +211,13 @@ For org games, select the org, optionally a season, and optionally home and away
 
 ### Moving a personal game to an org
 Pending personal games can be transferred to an org. On the game card, tap the **Move to org** option (visible on personal pending games when you belong to at least one org).
+
+### Game visibility (Public / Private)
+Every game has a visibility flag that controls who can open it, including its Live View and Press Box links:
+
+- **Personal games are private by default** — only you (and scorers you invite) can see them. Each game card on the home screen has a footer strip with a **Public/Private toggle**; flip it on to let anyone with the link follow the game and to list it in the "Follow live & recent" section of the logged-out home page. **Share settings** on the same strip shows the game's shareable link with a copy button.
+- **Org games are public by default** so fans can follow the org's pages without an account. Org admins and coaches can hide an individual game with the **Public/Hidden toggle** on the org dashboard's game card — hidden games remain visible to org members (home and away) and invited scorers.
+- Moving a personal game into an org makes it public (the org default).
 
 ### Deleting a game
 On the home screen, tap **🗑** on any game card and confirm twice. Deletion is permanent.
@@ -431,8 +450,8 @@ Open via **View** on any game card, or navigate to `/games/:id/view`.
 
 - **Read-only** — no editing controls
 - **Realtime** — updates automatically as the scorekeeper enters stats
-- **Shareable** — send the URL to anyone
-- **No account required**
+- **Shareable** — send the URL to anyone, for games flagged **Public** (org games start public, personal games start private — see [Game visibility](#game-visibility-public--private))
+- **No account required** for games visible to you
 
 ### MOMENTUM 📈
 MOMENTUM is LaxStats' live view of game control. It appears on every game's Live View, directly below the score: a single line that shows which team is dictating play. When the line rises toward a team's name, that team is controlling the game; the dashed center line is neutral.
