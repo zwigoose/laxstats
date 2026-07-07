@@ -50,7 +50,7 @@ export default function OrgCard({ org, users, onUpdated, onDeleted }) {
       supabase.rpc("admin_get_org_members", { p_org_id: org.id }),
       supabase.rpc("admin_get_org_features", { p_org_id: org.id }),
       supabase.from("teams").select("id, name, color").eq("org_id", org.id).order("name"),
-      supabase.from("games").select("id, name, created_at, state, schema_ver, game_date, user_id, pressbox_enabled, multi_scorer_enabled").eq("org_id", org.id).order("created_at", { ascending: false }),
+      supabase.from("games").select("id, name, created_at, state, summary, schema_ver, game_date, user_id, pressbox_enabled, multi_scorer_enabled").eq("org_id", org.id).order("created_at", { ascending: false }),
     ]);
     if (mRes.error) setError(mRes.error.message);
     else setMembers(mRes.data || []);

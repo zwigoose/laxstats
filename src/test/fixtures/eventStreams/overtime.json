@@ -155,7 +155,7 @@
       "seq": 5,
       "event_type": "game_over",
       "from_quarter": 5,
-      "to_quarter": null,
+      "to_quarter": 5,
       "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
       "client_created_at": "2026-05-17T20:32:00.000Z"
     }

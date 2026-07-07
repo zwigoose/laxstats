@@ -80,7 +80,7 @@
       "game_id": "00000000-0000-0000-0000-00000000aaa4",
       "seq": 3,
       "event_type": "quarter_override",
-      "from_quarter": null,
+      "from_quarter": 2,
       "to_quarter": 4,
       "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
       "client_created_at": "2026-05-20T18:40:00.000Z"
