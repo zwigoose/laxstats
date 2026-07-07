@@ -758,31 +758,12 @@ function SignedInHome({ user, orgMemberships, usage }) {
     setError(null);
     const { data, error: err } = await supabase
       .from("games")
-      .select("id, created_at, name, state, schema_ver, is_public, pressbox_enabled, org_id")
+      .select("id, created_at, name, state, summary, schema_ver, is_public, pressbox_enabled, org_id")
       .eq("user_id", user.id)
       .is("org_id", null)
       .order("created_at", { ascending: false });
     if (err) { setError(err.message); setLoading(false); return; }
-    const rows = data || [];
-
-    if (rows.length > 0) {
-      const { data: totals } = await supabase
-        .from("v_game_team_totals")
-        .select("game_id, team_idx, goals")
-        .in("game_id", rows.map(g => g.id));
-      const scoreMap = {};
-      (totals || []).forEach(r => {
-        if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];
-        scoreMap[r.game_id][r.team_idx] = r.goals;
-      });
-      setGames(rows.map(g =>
-        scoreMap[g.id]
-          ? { ...g, state: { ...g.state, score0: scoreMap[g.id][0], score1: scoreMap[g.id][1] } }
-          : g
-      ));
-    } else {
-      setGames(rows);
-    }
+    setGames(data || []);
     setLoading(false);
   }
 
@@ -976,7 +957,7 @@ function PublicGamesSection({ isNarrow }) {
   async function load() {
     const { data } = await supabase
       .from("games")
-      .select("id, created_at, name, state, schema_ver, user_id, org_id, is_public")
+      .select("id, created_at, name, state, summary, schema_ver, user_id, org_id, is_public")
       .eq("is_public", true)
       .not("state", "is", null)
       .order("created_at", { ascending: false })
@@ -986,26 +967,7 @@ function PublicGamesSection({ isNarrow }) {
       return info?.started;
     });
 
-    const gameIds = games.map(g => g.id);
-    let withScores = games;
-    if (gameIds.length > 0) {
-      const { data: totals } = await supabase
-        .from("v_game_team_totals")
-        .select("game_id, team_idx, goals")
-        .in("game_id", gameIds);
-      const scoreMap = {};
-      (totals || []).forEach(r => {
-        if (!scoreMap[r.game_id]) scoreMap[r.game_id] = [0, 0];
-        scoreMap[r.game_id][r.team_idx] = r.goals;
-      });
-      withScores = games.map(g =>
-        scoreMap[g.id]
-          ? { ...g, state: { ...g.state, score0: scoreMap[g.id][0], score1: scoreMap[g.id][1] } }
-          : g
-      );
-    }
-
-    setPublicGames(withScores);
+    setPublicGames(games);
     setLoaded(true);
   }
 

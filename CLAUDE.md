@@ -26,7 +26,9 @@ All games — personal and org-linked — use the same event-sourced data model:
 
 - **`game_events`** — normalized rows for every scored action (goal, shot, penalty, etc.) with soft deletes (`deleted_at`, `deleted_by`) and duplicate detection (`is_possible_duplicate`)
 - **`game_meta_events`** — immutable rows for quarter-start, quarter-end, and game-over transitions; `deriveQuarterState()` replays these to reconstruct authoritative quarter/game-over state
-- **`games.state`** — a denormalized JSONB display cache written by the scorekeeper; holds `teams` (roster), `trackingStarted`, `gameOver`, `currentQuarter`, `score0`, `score1`, and `gameDate` so the game list can render Live/Final status and scores without querying `game_events`
+- **`games.summary`** — a **server-maintained** JSONB read cache projected by the `project_game()` Postgres function, re-run by triggers on every `game_events` / `game_meta_events` write (and, during the transition, on `games.state` writes). Holds scores, quarter state, `trackingStarted`, plus pass-throughs of not-yet-event-sourced fields (`teams`, goalies, logistics). Display readers use `summary ?? state` via `getGameInfo()`. Projector failures land in `projector_failures` without blocking the scorer's write; the `refresh_game_summary(game_id)` RPC re-projects on demand. v1 games (`schema_ver < 2`) are never projected — their `summary` stays NULL and they render from `state` forever
+- **`games.state`** — the legacy denormalized JSONB display cache still written by the scorekeeper (debounced); being phased out by the event-sourcing refactor as events become the single source of truth
+- **`event_type_registry`** — classifies every `event_type` (`stat` / `state` / `meta`) and drives insert validation on `game_events`; unknown event types are rejected at insert
 
 The only distinction between game types is whether a game has an `org_id` (org-linked) or not (personal). There is no separate v1/v2 data model split — that architecture was removed in v2.12.0.
 

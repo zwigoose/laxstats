@@ -40,7 +40,7 @@ export default function UsersTab() {
     setLoading(true); setError(null);
     const [usersRes, gamesRes] = await Promise.all([
       supabase.rpc("admin_get_users"),
-      supabase.from("games").select("id, name, created_at, state, schema_ver, user_id, pressbox_enabled, multi_scorer_enabled").order("created_at", { ascending: false }),
+      supabase.from("games").select("id, name, created_at, state, summary, schema_ver, user_id, pressbox_enabled, multi_scorer_enabled").order("created_at", { ascending: false }),
     ]);
     if (usersRes.error) { setError(usersRes.error.message); setLoading(false); return; }
     setUsers(usersRes.data || []);

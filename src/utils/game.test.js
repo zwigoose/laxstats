@@ -231,4 +231,41 @@ describe("getGameInfo", () => {
   it("returns null latestTime when log has no timed entries", () => {
     expect(getGameInfo(makeGame()).latestTime).toBeNull();
   });
+
+  // ── summary preference (event-sourcing Phase 1) ─────────────────────────────
+
+  it("prefers the server-projected summary over client state", () => {
+    const game = makeGame({ score0: 1, score1: 0, gameOver: false });
+    game.summary = {
+      teams: [{ name: "Proj Home" }, { name: "Proj Away" }],
+      score0: 5,
+      score1: 3,
+      currentQuarter: 4,
+      gameOver: true,
+      trackingStarted: true,
+      gameDate: "2026-06-01",
+    };
+    const info = getGameInfo(game);
+    expect(info.t0.name).toBe("Proj Home");
+    expect(info.score0).toBe(5);
+    expect(info.score1).toBe(3);
+    expect(info.currentQuarter).toBe(4);
+    expect(info.gameOver).toBe(true);
+    expect(info.gameDate).toBe("2026-06-01");
+  });
+
+  it("falls back to state when summary is null (v1 / unprojected games)", () => {
+    const game = makeGame({ score0: 2, score1: 1 });
+    game.summary = null;
+    const info = getGameInfo(game);
+    expect(info.t0.name).toBe("Home");
+    expect(info.score0).toBe(2);
+    expect(info.score1).toBe(1);
+  });
+
+  it("does not mix summary and state — a summary without teams returns null like a state without teams", () => {
+    const game = makeGame();
+    game.summary = { score0: 1, score1: 0 };
+    expect(getGameInfo(game)).toBeNull();
+  });
 });

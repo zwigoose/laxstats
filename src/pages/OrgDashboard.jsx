@@ -144,7 +144,7 @@ function GamesTab({ org, canScore, canManageVisibility, orgMembership }) {
       .then(({ data: limit }) => setHasPressbox(limit !== 0));
 
     supabase.from("games")
-      .select("id, created_at, name, state, schema_ver, game_date, user_id, org_id, away_org_id, pressbox_enabled, is_public")
+      .select("id, created_at, name, state, summary, schema_ver, game_date, user_id, org_id, away_org_id, pressbox_enabled, is_public")
       .or(`org_id.eq.${org.id},away_org_id.eq.${org.id}`).order("created_at", { ascending: false })
       .then(async ({ data }) => {
         const games = data || [];
