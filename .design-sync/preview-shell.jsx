@@ -9,6 +9,9 @@
 // navigation-dependent components like AppNav.
 import { MemoryRouter } from "react-router-dom";
 import { AuthContext } from "../src/contexts/AuthContext";
+// Side effect: answer placeholder-host supabase requests with fixture data so
+// fetch-on-mount views render content instead of "Failed to fetch" banners.
+import "./fixture-net.js";
 
 const FIXTURE_USER = {
   id: "user-fixture-1",
