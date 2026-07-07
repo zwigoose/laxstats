@@ -1,0 +1,106 @@
+{
+  "name": "quarter-anomalies",
+  "description": "Locks in today's replay quirks: a duplicate quarter_end (two scorers racing) double-appends completedQuarters, and quarter_override jumps currentQuarter without touching completedQuarters. The Phase 1 projector must reproduce this exactly; changing it is a deliberate Phase 3 decision.",
+  "game": {
+    "created_at": "2026-05-20T18:00:00.000Z",
+    "state": {
+      "teams": [
+        { "name": "North Dakota", "roster": "7 Smith\n1 Keeper", "color": "#1a6bab" },
+        { "name": "Bemidji", "roster": "9 Olson\n1 Wall", "color": "#b84e1a" }
+      ],
+      "trackingStarted": true,
+      "currentQuarter": 4,
+      "gameOver": false,
+      "score0": 1,
+      "score1": 1,
+      "gameDate": "2026-05-20"
+    }
+  },
+  "events": [
+    {
+      "id": "00000000-0000-0000-0031-000000000001",
+      "seq": 401,
+      "game_id": "00000000-0000-0000-0000-00000000aaa4",
+      "group_id": "00000000-0000-0000-0032-000000000001",
+      "quarter": 1,
+      "event_type": "goal",
+      "team_idx": 0,
+      "is_team_stat": false,
+      "player_num": "7",
+      "player_name": "Smith",
+      "goal_time": "6:40",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-20T18:08:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0031-000000000002",
+      "seq": 402,
+      "game_id": "00000000-0000-0000-0000-00000000aaa4",
+      "group_id": "00000000-0000-0000-0032-000000000002",
+      "quarter": 1,
+      "event_type": "goal",
+      "team_idx": 1,
+      "is_team_stat": false,
+      "player_num": "9",
+      "player_name": "Olson",
+      "goal_time": "3:15",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "bbbbbbbb-0000-0000-0000-000000000002",
+      "client_created_at": "2026-05-20T18:12:00.000Z"
+    }
+  ],
+  "metaEvents": [
+    {
+      "id": "00000000-0000-0000-0033-000000000001",
+      "game_id": "00000000-0000-0000-0000-00000000aaa4",
+      "seq": 1,
+      "event_type": "quarter_end",
+      "from_quarter": 1,
+      "to_quarter": 2,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-20T18:15:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0033-000000000002",
+      "game_id": "00000000-0000-0000-0000-00000000aaa4",
+      "seq": 2,
+      "event_type": "quarter_end",
+      "from_quarter": 1,
+      "to_quarter": 2,
+      "created_by": "bbbbbbbb-0000-0000-0000-000000000002",
+      "client_created_at": "2026-05-20T18:15:01.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0033-000000000003",
+      "game_id": "00000000-0000-0000-0000-00000000aaa4",
+      "seq": 3,
+      "event_type": "quarter_override",
+      "from_quarter": null,
+      "to_quarter": 4,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-20T18:40:00.000Z"
+    }
+  ],
+  "expected": {
+    "quarterState": {
+      "currentQuarter": 4,
+      "completedQuarters": [1, 1],
+      "gameOver": false
+    },
+    "eventScores": { "score0": 1, "score1": 1 },
+    "gameInfo": {
+      "score0": 1,
+      "score1": 1,
+      "started": true,
+      "gameOver": false,
+      "currentQuarter": 4,
+      "latestTime": null,
+      "gameDate": "2026-05-20"
+    }
+  }
+}
