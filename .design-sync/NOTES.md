@@ -1,5 +1,12 @@
 # design-sync notes — laxstats
 
+## Round 3 (fixture network — no more fetch-error banners)
+
+- **`.design-sync/fixture-net.js`** (imported by preview-shell as a side effect) wraps `window.fetch` and answers ONLY requests to `placeholder.invalid` with fixture JSON keyed by PostgREST table/RPC path; all other URLs pass through. App builds never produce placeholder requests, so it cannot affect the app. All 32 components now render real data — zero floor cards, zero "Failed to fetch" banners.
+- The `games` table responder infers which slice a query wants from its querystring (`home_team` join → org game; `organizations` embed → all; else personal games). New app queries with different shapes may need a new branch there.
+- Fixture RPC coverage: admin_get_users/orgs/all_rosters/plan_features/personal_plan_limits/org_members, get_roster_shares, personal_game_usage. Unknown RPCs (all `admin_set_*`/`admin_delete_*` writes) return success no-ops. New read RPCs in app code will render as empty until added to `RPC` in fixture-net.js.
+- Realtime subscriptions (e.g. GameList's live-games channel) still fail silently against the placeholder websocket — console-only, non-blocking.
+
 ## Round 2 (app views: nav, pages, admin, game list)
 
 - **32 components**: round-1 10 + AppNav, 6 pages (Login/Guide/Pricing/Profile/GameList/Admin), GameCard/LiveCard/PersonalUsageMeter (exported from GameList.jsx), SharePanel, and the Admin suite. 25 authored; 7 fetch-bound floor cards (AllGamesTab, UsersTab, OrgsTab, PlanLimitsTab, RostersAdminTab, SharePanel, AdminSharePanel) — their only out-of-app render is a loading/fetch-error state, deliberate, user-acknowledged.
