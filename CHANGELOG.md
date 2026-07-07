@@ -5,6 +5,17 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.22.0] — 2026-07-07
+
+### Added
+- **Home page redesign** — one coherent home page that adapts to auth state. Signed-in: navy welcome band with quick actions, Live now / Upcoming / Completed sections, and a sticky rail with plan usage and organization cards (Rosters now toggles in the main column). Logged-out: marketing hero, feature strip, public games ("Follow live & recent" with a SAMPLE empty state), condensed how-it-works, and a closing CTA
+- **Per-game public visibility** (`games.is_public`) — personal games are now **private by default** with a Public/Private toggle and share-link strip on each home-screen game card; org games are **public by default** with a Public/Hidden toggle on the org dashboard (org admins/coaches). Moving a personal game into an org makes it public. Enforced in RLS via a shared `can_view_game()` predicate across `games`, `game_events`, and `game_meta_events`; visibility changes go through a new `set_game_visibility` RPC
+
+### Changed
+- Logged-out visitors no longer see all games — only games flagged public (plus the marketing overview); `v_game_team_totals` now runs with caller permissions (`security_invoker`)
+
+---
+
 ## [2.21.8] — 2026-07-06
 
 ### Changed
