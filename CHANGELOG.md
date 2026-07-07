@@ -5,6 +5,19 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.23.0] — 2026-07-07
+
+### Added
+- **Server-projected game summaries** (event-sourcing Phase 1) — `games.summary` is now maintained by a Postgres projector (`project_game()`) triggered on every event, quarter-transition, state write, and game creation. Game lists, org dashboards, and admin views read `summary ?? state`, so Live/Final status and scores can no longer go stale when a scorer's debounced state write doesn't land
+- `event_type_registry` with insert validation — unknown event types are rejected at the database; duplicate detection now applies only to stat events
+- `refresh_game_summary(game_id)` RPC and `projector_failures` log for projector repair/observability
+- Projector parity check generator (`scripts/gen-projector-parity-sql.mjs`) emitting a self-rolling-back SQL block from the event-stream fixtures
+
+### Changed
+- Game list no longer patches scores from `v_game_team_totals` — the server summary is always at least as fresh
+
+---
+
 ## [2.22.3] — 2026-07-07
 
 ### Added
