@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.22.2] — 2026-07-07
+
+### Fixed
+- Home page browser-tab title shortened to "Home · LaxStats" (was the full SEO string "Digital Lacrosse Scorebook & Live Stats · LaxStats"), matching the title pattern of all other pages
+
+---
+
 ## [2.22.1] — 2026-07-07
 
 ### Fixed
