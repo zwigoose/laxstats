@@ -1,0 +1,235 @@
+{
+  "name": "full-game",
+  "description": "Completed 4-quarter game: goals in every quarter, an EMO goal, a penalty, a goalie change, and one soft-deleted goal that must not count. Meta events end all four quarters then declare game over.",
+  "game": {
+    "created_at": "2026-05-10T17:00:00.000Z",
+    "state": {
+      "teams": [
+        { "name": "North Dakota", "roster": "7 Smith\n12 Jones\n1 Keeper\n4 Big", "color": "#1a6bab" },
+        { "name": "Bemidji", "roster": "9 Olson\n22 Ruiz\n1 Wall\n30 Sub", "color": "#b84e1a" }
+      ],
+      "trackingStarted": true,
+      "currentQuarter": 4,
+      "gameOver": true,
+      "score0": 3,
+      "score1": 2,
+      "gameDate": "2026-05-10",
+      "activeGoalies": [
+        { "num": "1", "name": "Keeper" },
+        { "num": "30", "name": "Sub" }
+      ],
+      "goalieDecisions": {
+        "win": { "teamIdx": 0, "num": "1", "name": "Keeper" },
+        "loss": { "teamIdx": 1, "num": "1", "name": "Wall" }
+      }
+    }
+  },
+  "events": [
+    {
+      "id": "00000000-0000-0000-0011-000000000001",
+      "seq": 201,
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "group_id": "00000000-0000-0000-0012-000000000001",
+      "quarter": 1,
+      "event_type": "goal",
+      "team_idx": 0,
+      "is_team_stat": false,
+      "player_num": "7",
+      "player_name": "Smith",
+      "goal_time": "9:10",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T17:06:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0011-000000000002",
+      "seq": 202,
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "group_id": "00000000-0000-0000-0012-000000000002",
+      "quarter": 2,
+      "event_type": "goal",
+      "team_idx": 0,
+      "is_team_stat": false,
+      "player_num": "12",
+      "player_name": "Jones",
+      "goal_time": "4:44",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T17:25:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0011-000000000003",
+      "seq": 203,
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "group_id": "00000000-0000-0000-0012-000000000003",
+      "quarter": 2,
+      "event_type": "goal",
+      "team_idx": 1,
+      "is_team_stat": false,
+      "player_num": "9",
+      "player_name": "Olson",
+      "goal_time": "2:01",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T17:29:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0011-000000000004",
+      "seq": 204,
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "group_id": "00000000-0000-0000-0012-000000000004",
+      "quarter": 3,
+      "event_type": "penalty_min",
+      "team_idx": 1,
+      "is_team_stat": false,
+      "player_num": "22",
+      "player_name": "Ruiz",
+      "penalty_time": "5:12",
+      "penalty_minutes": 1,
+      "is_non_releasable": false,
+      "foul_name": "Slashing",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T17:48:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0011-000000000005",
+      "seq": 205,
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "group_id": "00000000-0000-0000-0012-000000000005",
+      "quarter": 3,
+      "event_type": "goal",
+      "team_idx": 0,
+      "is_team_stat": false,
+      "player_num": "4",
+      "player_name": "Big",
+      "goal_time": "4:58",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": true,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T17:49:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0011-000000000006",
+      "seq": 206,
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "group_id": "00000000-0000-0000-0012-000000000006",
+      "quarter": 3,
+      "event_type": "goalie_change",
+      "team_idx": 1,
+      "is_team_stat": false,
+      "player_num": "30",
+      "player_name": "Sub",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T17:52:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0011-000000000007",
+      "seq": 207,
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "group_id": "00000000-0000-0000-0012-000000000007",
+      "quarter": 4,
+      "event_type": "goal",
+      "team_idx": 1,
+      "is_team_stat": false,
+      "player_num": "9",
+      "player_name": "Olson",
+      "goal_time": "6:15",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T18:14:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0011-000000000008",
+      "seq": 208,
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "group_id": "00000000-0000-0000-0012-000000000008",
+      "quarter": 4,
+      "event_type": "goal",
+      "team_idx": 0,
+      "is_team_stat": false,
+      "player_num": "7",
+      "player_name": "Smith",
+      "goal_time": "3:33",
+      "deleted_at": "2026-05-10T18:20:00.000Z",
+      "deleted_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T18:19:00.000Z"
+    }
+  ],
+  "metaEvents": [
+    {
+      "id": "00000000-0000-0000-0013-000000000001",
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "seq": 1,
+      "event_type": "quarter_end",
+      "from_quarter": 1,
+      "to_quarter": 2,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T17:15:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0013-000000000002",
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "seq": 2,
+      "event_type": "quarter_end",
+      "from_quarter": 2,
+      "to_quarter": 3,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T17:35:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0013-000000000003",
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "seq": 3,
+      "event_type": "quarter_end",
+      "from_quarter": 3,
+      "to_quarter": 4,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T17:58:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0013-000000000004",
+      "game_id": "00000000-0000-0000-0000-00000000aaa2",
+      "seq": 4,
+      "event_type": "game_over",
+      "from_quarter": 4,
+      "to_quarter": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-10T18:25:00.000Z"
+    }
+  ],
+  "expected": {
+    "quarterState": {
+      "currentQuarter": 4,
+      "completedQuarters": [1, 2, 3, 4],
+      "gameOver": true
+    },
+    "eventScores": { "score0": 3, "score1": 2 },
+    "gameInfo": {
+      "score0": 3,
+      "score1": 2,
+      "started": true,
+      "gameOver": true,
+      "currentQuarter": 4,
+      "latestTime": null,
+      "gameDate": "2026-05-10"
+    }
+  }
+}

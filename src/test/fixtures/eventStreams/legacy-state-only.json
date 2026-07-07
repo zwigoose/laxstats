@@ -1,0 +1,37 @@
+{
+  "name": "legacy-state-only",
+  "description": "v1-style game: no game_events or game_meta_events rows; everything lives in games.state including an in-state log with no cached score0/score1. Exercises getGameInfo's recompute-from-log fallback, no gameDate fallback to created_at, and getLatestTime over the state log. The projector's permanent games.state fallback must keep these games rendering forever.",
+  "game": {
+    "created_at": "2025-04-12T16:30:00.000Z",
+    "state": {
+      "teams": [
+        { "name": "Legacy Home", "roster": "5 Older\n2 Wiser", "color": "#1a6bab" },
+        { "name": "Legacy Away", "roster": "8 Past\n3 Prior", "color": "#b84e1a" }
+      ],
+      "trackingStarted": true,
+      "currentQuarter": 2,
+      "gameOver": false,
+      "log": [
+        { "id": 1, "event": "goal", "teamIdx": 0, "quarter": 1, "goalTime": "9:00", "player": { "num": "5", "name": "Older" } },
+        { "id": 2, "event": "shot", "teamIdx": 1, "quarter": 1, "player": { "num": "8", "name": "Past" } },
+        { "id": 3, "event": "goal", "teamIdx": 0, "quarter": 2, "goalTime": "7:12", "player": { "num": "2", "name": "Wiser" } },
+        { "id": 4, "event": "goal", "teamIdx": 1, "quarter": 2, "goalTime": "10:44", "player": { "num": "3", "name": "Prior" } }
+      ]
+    }
+  },
+  "events": [],
+  "metaEvents": [],
+  "expected": {
+    "quarterState": null,
+    "eventScores": { "score0": 0, "score1": 0 },
+    "gameInfo": {
+      "score0": 2,
+      "score1": 1,
+      "started": true,
+      "gameOver": false,
+      "currentQuarter": 2,
+      "latestTime": "7:12",
+      "gameDate": "2025-04-12"
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "name": "basic-scoring",
+  "description": "Live game mid-Q1: a saved shot group, a goal+assist group, a solo goal, a ground ball. No meta events yet (first quarter_end hasn't happened).",
+  "game": {
+    "created_at": "2026-05-03T18:00:00.000Z",
+    "state": {
+      "teams": [
+        { "name": "North Dakota", "roster": "7 Smith\n12 Jones\n1 Keeper", "color": "#1a6bab" },
+        { "name": "Bemidji", "roster": "9 Olson\n22 Ruiz\n1 Wall", "color": "#b84e1a" }
+      ],
+      "trackingStarted": true,
+      "currentQuarter": 1,
+      "gameOver": false,
+      "score0": 1,
+      "score1": 1,
+      "gameDate": "2026-05-03",
+      "activeGoalies": [
+        { "num": "1", "name": "Keeper" },
+        { "num": "1", "name": "Wall" }
+      ]
+    }
+  },
+  "events": [
+    {
+      "id": "00000000-0000-0000-0001-000000000001",
+      "seq": 101,
+      "game_id": "00000000-0000-0000-0000-00000000aaa1",
+      "group_id": "00000000-0000-0000-0002-000000000001",
+      "quarter": 1,
+      "event_type": "shot",
+      "team_idx": 0,
+      "is_team_stat": false,
+      "player_num": "7",
+      "player_name": "Smith",
+      "shot_outcome": "saved",
+      "shot_zone": "R2",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-03T18:05:10.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0001-000000000002",
+      "seq": 102,
+      "game_id": "00000000-0000-0000-0000-00000000aaa1",
+      "group_id": "00000000-0000-0000-0002-000000000001",
+      "quarter": 1,
+      "event_type": "shot_saved",
+      "team_idx": 1,
+      "is_team_stat": false,
+      "player_num": "1",
+      "player_name": "Wall",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-03T18:05:10.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0001-000000000003",
+      "seq": 103,
+      "game_id": "00000000-0000-0000-0000-00000000aaa1",
+      "group_id": "00000000-0000-0000-0002-000000000002",
+      "quarter": 1,
+      "event_type": "goal",
+      "team_idx": 0,
+      "is_team_stat": false,
+      "player_num": "7",
+      "player_name": "Smith",
+      "goal_time": "10:23",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-03T18:07:40.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0001-000000000004",
+      "seq": 104,
+      "game_id": "00000000-0000-0000-0000-00000000aaa1",
+      "group_id": "00000000-0000-0000-0002-000000000002",
+      "quarter": 1,
+      "event_type": "assist",
+      "team_idx": 0,
+      "is_team_stat": false,
+      "player_num": "12",
+      "player_name": "Jones",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-03T18:07:40.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0001-000000000005",
+      "seq": 105,
+      "game_id": "00000000-0000-0000-0000-00000000aaa1",
+      "group_id": "00000000-0000-0000-0002-000000000003",
+      "quarter": 1,
+      "event_type": "goal",
+      "team_idx": 1,
+      "is_team_stat": false,
+      "player_num": "9",
+      "player_name": "Olson",
+      "goal_time": "8:05",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-03T18:11:02.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0001-000000000006",
+      "seq": 106,
+      "game_id": "00000000-0000-0000-0000-00000000aaa1",
+      "group_id": "00000000-0000-0000-0002-000000000004",
+      "quarter": 1,
+      "event_type": "ground_ball",
+      "team_idx": 1,
+      "is_team_stat": false,
+      "player_num": "22",
+      "player_name": "Ruiz",
+      "deleted_at": null,
+      "is_possible_duplicate": false,
+      "is_emo": false,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-05-03T18:12:30.000Z"
+    }
+  ],
+  "metaEvents": [],
+  "expected": {
+    "quarterState": null,
+    "eventScores": { "score0": 1, "score1": 1 },
+    "gameInfo": {
+      "score0": 1,
+      "score1": 1,
+      "started": true,
+      "gameOver": false,
+      "currentQuarter": 1,
+      "latestTime": null,
+      "gameDate": "2026-05-03"
+    }
+  }
+}
