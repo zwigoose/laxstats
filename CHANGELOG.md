@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.22.1] — 2026-07-07
+
+### Fixed
+- Signing out now lands on the home page instead of bouncing to the login page (the session was cleared while still on the private Profile route, letting the login redirect win the race)
+
+---
+
 ## [2.22.0] — 2026-07-07
 
 ### Added
