@@ -5,6 +5,45 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.22.1] — 2026-07-07
+
+### Fixed
+- Signing out now lands on the home page instead of bouncing to the login page (the session was cleared while still on the private Profile route, letting the login redirect win the race)
+
+---
+
+## [2.22.0] — 2026-07-07
+
+### Added
+- **Home page redesign** — one coherent home page that adapts to auth state. Signed-in: navy welcome band with quick actions, Live now / Upcoming / Completed sections, and a sticky rail with plan usage and organization cards (Rosters now toggles in the main column). Logged-out: marketing hero, feature strip, public games ("Follow live & recent" with a SAMPLE empty state), condensed how-it-works, and a closing CTA
+- **Per-game public visibility** (`games.is_public`) — personal games are now **private by default** with a Public/Private toggle and share-link strip on each home-screen game card; org games are **public by default** with a Public/Hidden toggle on the org dashboard (org admins/coaches). Moving a personal game into an org makes it public. Enforced in RLS via a shared `can_view_game()` predicate across `games`, `game_events`, and `game_meta_events`; visibility changes go through a new `set_game_visibility` RPC
+
+### Changed
+- Logged-out visitors no longer see all games — only games flagged public (plus the marketing overview); `v_game_team_totals` now runs with caller permissions (`security_invoker`)
+
+---
+
+## [2.21.8] — 2026-07-06
+
+### Changed
+- **Internal** — design-sync fixture network (`.design-sync/fixture-net.js`): preview-only fetch interceptor answers placeholder-host Supabase requests with fixture data, so all 32 synced components (admin tabs, game list, share panels) render realistic content instead of fetch-error banners; no app code changes
+
+---
+
+## [2.21.7] — 2026-07-02
+
+### Changed
+- **Internal** — extended the Claude Design sync to app views (nav menu, home/game list, Login/Guide/Pricing/Profile, admin console; 32 components total): hardened all `import.meta.env` reads and the Supabase client init so components render outside Vite builds; exported `AuthContext`; extracted `AppNav` from `App.jsx` into `src/components/AppNav.jsx`; `GameList` now also exports `GameCard`, `LiveCard`, and `PersonalUsageMeter`; zero visual change
+
+---
+
+## [2.21.6] — 2026-07-01
+
+### Changed
+- **Internal** — added Claude Design sync setup (`.design-sync/`): component previews, bundle entry, and typography baseline for syncing the component library to claude.ai/design; decoupled `GameTimeline`/`GameLiveStream` from the scorekeeper module (import `qLabel` from its `utils/stats` definition site) so they no longer pull the Supabase client into non-app bundles; `HeroCard` footer icon now hides gracefully if its asset fails to load; zero visual change
+
+---
+
 ## [2.21.5] — 2026-07-01
 
 ### Changed

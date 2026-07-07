@@ -20,6 +20,12 @@ export async function deleteGame(id, db = _supabase) {
   return db.from("games").delete().eq("id", id);
 }
 
+// RPC rather than a direct update: org admins/coaches can toggle org games
+// they don't own, which the owner-only games UPDATE policy doesn't allow.
+export async function setGameVisibility(id, isPublic, db = _supabase) {
+  return db.rpc("set_game_visibility", { p_game_id: id, p_public: isPublic });
+}
+
 export async function fetchOrgContext(orgId, seasonId, db = _supabase) {
   const [orgRes, seasonRes] = await Promise.all([
     db.from("organizations").select("name").eq("id", orgId).single(),

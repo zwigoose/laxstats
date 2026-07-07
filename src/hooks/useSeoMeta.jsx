@@ -1,6 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 
-const BASE = import.meta.env.VITE_APP_TITLE || 'LaxStats';
+const BASE = (import.meta.env ?? {}).VITE_APP_TITLE || 'LaxStats';
 const BASE_URL = 'https://laxstats.com';
 const OG_IMAGE = `${BASE_URL}/LaxStatsOG.png`;
 const DEFAULT_DESC =

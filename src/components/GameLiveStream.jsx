@@ -1,5 +1,4 @@
-import { qLabel } from "./LaxStats";
-import { buildLogGroups } from "../utils/stats";
+import { qLabel, buildLogGroups } from "../utils/stats";
 import { C } from "../styles/tokens";
 
 const EVENT_LABELS = {
