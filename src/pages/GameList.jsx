@@ -1111,7 +1111,7 @@ export default function GameList() {
   return (
     <>
       <SeoMeta
-        title="Digital Lacrosse Scorebook &amp; Live Stats"
+        title="Home"
         description="Score lacrosse games on your phone, share live stats with anyone, and get a full box score instantly. Free to start."
         url="https://laxstats.com"
       />
