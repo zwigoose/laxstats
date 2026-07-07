@@ -118,8 +118,10 @@ export default function Profile() {
 
   // ── Sign out ──────────────────────────────────────────────────────────────
   async function signOut() {
-    await supabase.auth.signOut();
+    // Leave the private route before dropping the session — otherwise
+    // PrivateRoute redirects to /login the moment auth state clears.
     navigate("/");
+    await supabase.auth.signOut();
   }
 
   if (authLoading) return null;
