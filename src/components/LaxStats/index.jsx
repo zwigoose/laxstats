@@ -32,8 +32,7 @@ export default function LaxStats({
   onEventDismissDuplicate = null,   // async (groupId) => void — clear duplicate flag on a group
   onMetaEvent = null,               // async (type, fromQuarter, toQuarter) => row — DB-confirmed quarter transition
   remoteEntries = null,      // [{...entry}] from other scorers; merged into local log
-  remoteQuarterState = null, // { currentQuarter, completedQuarters, gameOver } broadcast hint from primary scorer
-  derivedQuarterState = null, // { currentQuarter, completedQuarters, gameOver } authoritative from game_meta_events
+  derivedQuarterState = null, // { currentQuarter, completedQuarters, gameOver } derived from the event stream
   scorekeeperRole = "primary", // "primary" | "secondary"
   gameId = null,               // game UUID — enables per-game logo uploads to game-logos bucket
   // org game props — optional; omit for personal games
@@ -179,7 +178,7 @@ export default function LaxStats({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [log, teams, currentQuarter, completedQuarters, gameOver, trackingStarted, gameDate, refereeNames, weatherConditions, fieldLocation, goalieDecisions, activeGoalies]);
 
-  // v2: authoritative quarter state from game_meta_events — takes priority over broadcast hint.
+  // v2: authoritative quarter state derived from meta events on the stream.
   // Only applied after hydration so we don't overwrite the initial DB-derived state that was
   // already baked into initialState.
   useEffect(() => {
@@ -189,22 +188,6 @@ export default function LaxStats({
     if (derivedQuarterState.gameOver) { setGameOver(true); setScreen("stats"); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [derivedQuarterState]);
-
-  // v2: sync quarter/game-over state broadcast by the primary scorer (fast hint only).
-  // derivedQuarterState from game_meta_events takes precedence on conflicts.
-  useEffect(() => {
-    if (!remoteQuarterState) return;
-    // Only apply if derivedQuarterState hasn't already provided a value, or if the
-    // broadcast is more advanced than what we have (catches cases where DB row hasn't
-    // arrived via postgres_changes yet but the broadcast already came through).
-    const dbQ = derivedQuarterState?.currentQuarter ?? null;
-    const broadcastQ = remoteQuarterState.currentQuarter;
-    if (dbQ != null && broadcastQ != null && broadcastQ < dbQ) return; // DB is ahead, ignore
-    if (remoteQuarterState.currentQuarter != null) setCurrentQuarter(remoteQuarterState.currentQuarter);
-    if (remoteQuarterState.completedQuarters != null) setCompletedQuarters(remoteQuarterState.completedQuarters);
-    if (remoteQuarterState.gameOver) { setGameOver(true); setScreen("stats"); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remoteQuarterState]);
 
   // v2: sync remote entries from other scorers into local log — handles both additions
   // (new events from a co-scorer) and removals (undo/delete by a co-scorer).
@@ -1084,7 +1067,7 @@ export default function LaxStats({
     const nextQuarter = ended + 1;
 
     // Gate local state mutation on DB write so a navigation-away-and-back
-    // always remounts with the correct quarter from game_meta_events.
+    // always remounts with the correct quarter from the event stream.
     if (onMetaEvent) {
       try {
         await onMetaEvent("quarter_end", ended, nextQuarter);

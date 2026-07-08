@@ -6,10 +6,9 @@ import { useOnlineStatus } from "./useOnlineStatus";
 // ── Shared mock state ──────────────────────────────────────────────────────────
 
 const st = vi.hoisted(() => ({
-  load:       { data: [], error: null },
-  insert:     { data: [], error: null },   // result of appendGameEvents upsert
-  metaInsert: { data: null, error: null }, // result of insertMetaEvent
-  rpc:        { data: null, error: null }, // result of rpc calls (soft_delete_event_group…)
+  load:   { data: [], error: null },
+  insert: { data: [], error: null },   // result of appendGameEvents upsert
+  rpc:    { data: null, error: null }, // result of rpc calls (soft_delete_event_group…)
 }));
 
 // ── Channel mock ───────────────────────────────────────────────────────────────
@@ -36,13 +35,11 @@ const ch = vi.hoisted(() => {
 
 // ── Query-chain mock ───────────────────────────────────────────────────────────
 // select() with an arg continues the chain (fetch path: .select().eq().is().order());
-// select() with no arg terminates a write chain and must support both
-// `await q.select()` (upsert path) and `q.select().single()` (meta insert path).
+// select() with no arg terminates the upsert write chain.
 
 const qm = vi.hoisted(() => {
   const writeResult = () => ({
-    then:   (onF, onR) => Promise.resolve(st.insert).then(onF, onR),
-    single: () => Promise.resolve(st.metaInsert),
+    then: (onF, onR) => Promise.resolve(st.insert).then(onF, onR),
   });
   const q = {
     select: vi.fn().mockImplementation((arg) => (arg === undefined ? writeResult() : q)),
@@ -142,7 +139,6 @@ function resetMocks() {
   ch.presenceState.mockReturnValue({});
   st.load       = { data: [], error: null };
   st.insert     = { data: [], error: null };
-  st.metaInsert = { data: null, error: null };
   st.rpc        = { data: null, error: null };
   onlineState.value = true;
   useOnlineStatus.mockImplementation(() => true);
@@ -526,18 +522,17 @@ describe("useGameLog — commitMetaEvent (stream append)", () => {
     });
   });
 
-  it("broadcasts meta_update (legacy hint) and new_events after commit", async () => {
+  it("broadcasts new_events (and no legacy meta_update hint) after commit", async () => {
     st.insert = { data: [streamMetaRow], error: null };
     const { result } = renderLog();
     await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => { await ch._subscribeCb?.("SUBSCRIBED"); });
     await act(async () => { await result.current.commitMetaEvent("quarter_end", 1, 2); });
     expect(ch.send).toHaveBeenCalledWith(expect.objectContaining({
-      event:   "meta_update",
-      payload: expect.objectContaining({ scorerId: USER_ID, currentQuarter: 2 }),
-    }));
-    expect(ch.send).toHaveBeenCalledWith(expect.objectContaining({
       event: "new_events",
+    }));
+    expect(ch.send).not.toHaveBeenCalledWith(expect.objectContaining({
+      event: "meta_update",
     }));
   });
 

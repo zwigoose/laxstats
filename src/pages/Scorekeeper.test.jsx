@@ -13,7 +13,6 @@ const evState = vi.hoisted(() => ({
   channelStatus:       "idle",
   isPrimary:           true,
   presenceList:        [],
-  remoteQuarterState:  null,
   derivedQuarterState: null,
   isOnline:            true,
   pendingCount:        0,
@@ -100,7 +99,6 @@ function resetState() {
   evState.channelStatus       = "idle";
   evState.isPrimary           = true;
   evState.presenceList        = [];
-  evState.remoteQuarterState  = null;
   evState.derivedQuarterState = null;
   evState.isOnline            = true;
   evState.pendingCount        = 0;
