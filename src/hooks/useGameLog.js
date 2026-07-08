@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase as _supabase } from "../lib/supabase";
 import {
   fetchGameEvents, appendGameEvents, softDeleteEventGroup, dismissDuplicateFlag,
@@ -116,21 +116,25 @@ const QUEUED = Symbol("queued");
  *   error, channelStatus, reload
  */
 export function useGameLog(gameId, userId, db = _supabase) {
-  const [entries, setEntries]                       = useState([]);
+  // The live stream rows (all kinds, deduped by row id) are the single local
+  // source of truth — entries and quarter state derive from them, so rows
+  // arriving on multiple realtime paths can never double-apply.
+  const [rows, setRows]                             = useState([]);
   const [loading, setLoading]                       = useState(true);
   const [presenceList, setPresenceList]             = useState([]);
   const [remoteQuarterState, setRemoteQuarterState] = useState(null);
-  const [derivedQuarterState, setDerivedQuarterState] = useState(null);
   const [error, setError]                           = useState(null);
+
+  const entries = useMemo(
+    () => rows.filter(r => isStatEventType(r.event_type)).map(dbRowToEntry),
+    [rows]
+  );
+  const derivedQuarterState = useMemo(() => deriveQuarterFromStream(rows), [rows]);
 
   const channelRef    = useRef(null);
   const flushingRef   = useRef(false);
   const rerunFlushRef = useRef(false);
   const waitersRef    = useRef(new Map()); // opId → { resolve, reject }
-  // Meta rows reach us on several paths (own commit, broadcast, postgres_changes
-  // fallback); incremental quarter replay is not idempotent, so track what's
-  // already been applied by row id.
-  const appliedMetaIdsRef = useRef(new Set());
   const [channelStatus, setChannelStatus] = useState("idle");
 
   // ── Offline / sync state ──────────────────────────────────────────
@@ -155,25 +159,22 @@ export function useGameLog(gameId, userId, db = _supabase) {
     setError(null);
     const evRes = await fetchGameEvents(gameId, db);
     if (evRes.error) { setError(evRes.error.message); setLoading(false); return; }
-    // The unified stream carries stat, state, and meta events. Only stat
-    // events feed the LaxStats log; meta events replay into quarter state.
-    const rows = evRes.data || [];
-    setEntries(rows.filter(r => isStatEventType(r.event_type)).map(dbRowToEntry));
-    appliedMetaIdsRef.current = new Set(
-      rows.filter(r => isMetaEventType(r.event_type)).map(r => r.id)
-    );
-    const derived = deriveQuarterFromStream(rows);
-    if (derived) setDerivedQuarterState(derived);
+    setRows(evRes.data || []);
     setLoading(false);
   }
 
-  // Apply one meta-kind stream row to derived quarter state, exactly once.
-  const applyMetaRow = useCallback((row) => {
-    if (appliedMetaIdsRef.current.has(row.id)) return;
-    appliedMetaIdsRef.current.add(row.id);
-    setDerivedQuarterState(prev =>
-      prev ? _applyStreamMetaRow(prev, row) : deriveQuarterFromStream([row])
-    );
+  // Merge new stream rows, deduped by row id and kept in seq order. All
+  // arrival paths (own commit, broadcast, postgres_changes fallback) funnel
+  // through here, which is what makes redelivery harmless.
+  const addRows = useCallback((newRows) => {
+    const live = (newRows ?? []).filter(r => r && !r.deleted_at);
+    if (!live.length) return;
+    setRows(prev => {
+      const existing = new Set(prev.map(r => r.id));
+      const toAdd = live.filter(r => !existing.has(r.id));
+      if (!toAdd.length) return prev;
+      return [...prev, ...toAdd].sort((a, b) => a.seq - b.seq);
+    });
   }, []);
 
   // ── Pending-count bootstrap ──────────────────────────────────────
@@ -200,37 +201,19 @@ export function useGameLog(gameId, userId, db = _supabase) {
       setPresenceList(list);
     });
 
-    // Route one incoming stream row to the right slice of local state.
-    const applyRemoteRow = (row) => {
-      if (row.deleted_at) return;
-      if (isMetaEventType(row.event_type)) {
-        applyMetaRow(row);
-        return;
-      }
-      if (!isStatEventType(row.event_type)) return; // state registers: read paths use summary
-      const entry = dbRowToEntry(row);
-      setEntries(prev => {
-        if (prev.some(e => e.dbId === entry.dbId)) return prev;
-        return [...prev, entry].sort((a, b) => a.seq - b.seq);
-      });
-    };
-
     // New rows broadcast by another scorer — primary sync path (instant WebSocket delivery)
     channel.on("broadcast", { event: "new_events" }, ({ payload }) => {
       if (payload?.scorerId === userId) return;
-      for (const row of payload?.entries ?? []) applyRemoteRow(row);
+      addRows(payload?.entries ?? []);
     });
 
     // postgres_changes INSERT kept as fallback (covers brief disconnects, and
-    // meta rows forwarded from pre-Phase-3 clients' game_meta_events writes)
+    // meta rows forwarded from pre-Phase-3 clients' game_meta_events writes).
+    // Own rows are already merged by the flush — addRows dedupes by id.
     channel.on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "game_events", filter: `game_id=eq.${gameId}` },
-      (payload) => {
-        const row = payload.new;
-        if (row.created_by === userId && !isMetaEventType(row.event_type)) return;
-        applyRemoteRow(row);
-      }
+      (payload) => addRows([payload.new])
     );
 
     // Quarter/game-over state broadcast by the primary scorer (fast hint)
@@ -246,14 +229,14 @@ export function useGameLog(gameId, userId, db = _supabase) {
     // Deletion broadcast by another scorer
     channel.on("broadcast", { event: "delete_group" }, ({ payload }) => {
       if (payload?.scorerId === userId) return;
-      setEntries(prev => prev.filter(e => e.groupId !== payload?.groupId));
+      setRows(prev => prev.filter(r => r.group_id !== payload?.groupId));
     });
 
     // Duplicate dismissal broadcast by another scorer
     channel.on("broadcast", { event: "dismiss_duplicate" }, ({ payload }) => {
       if (payload?.scorerId === userId) return;
-      setEntries(prev => prev.map(e =>
-        e.groupId === payload?.groupId ? { ...e, isPossibleDuplicate: false } : e
+      setRows(prev => prev.map(r =>
+        r.group_id === payload?.groupId ? { ...r, is_possible_duplicate: false } : r
       ));
     });
 
@@ -264,14 +247,12 @@ export function useGameLog(gameId, userId, db = _supabase) {
       (payload) => {
         const row = payload.new;
         if (row.deleted_at) {
-          if (row.deleted_by !== userId) {
-            setEntries(prev => prev.filter(e => e.dbId !== row.id));
-          }
+          setRows(prev => prev.filter(r => r.id !== row.id));
         } else {
-          setEntries(prev => prev.map(e =>
-            e.dbId === row.id
-              ? { ...e, isPossibleDuplicate: row.is_possible_duplicate ?? false }
-              : e
+          setRows(prev => prev.map(r =>
+            r.id === row.id
+              ? { ...r, is_possible_duplicate: row.is_possible_duplicate ?? false }
+              : r
           ));
         }
       }
@@ -317,23 +298,10 @@ export function useGameLog(gameId, userId, db = _supabase) {
       // before we crashed/retried) — the broadcast went out then, or the
       // co-scorers' postgres_changes fallback covered it.
       if (inserted?.length) {
-        const statRows = inserted.filter(r => isStatEventType(r.event_type));
-        const metaRows = inserted.filter(r => isMetaEventType(r.event_type));
-
-        if (statRows.length) {
-          // Merge our own rows (now carrying server seq) into entries — the
-          // realtime handlers skip own events, so this is their only way in
-          // short of a full reload.
-          const incoming = statRows.map(dbRowToEntry);
-          setEntries(prev => {
-            const existingIds = new Set(prev.map(e => e.dbId));
-            const toAdd = incoming.filter(e => !existingIds.has(e.dbId));
-            if (!toAdd.length) return prev;
-            return [...prev, ...toAdd].sort((a, b) => a.seq - b.seq);
-          });
-        }
-        for (const row of metaRows) {
-          applyMetaRow(row);
+        // Merge our own rows (now carrying server seq) — entries and quarter
+        // state derive from rows automatically.
+        addRows(inserted);
+        for (const row of inserted.filter(r => isMetaEventType(r.event_type))) {
           // Legacy hint for pre-Phase-3 co-scorer clients that still listen
           // for meta_update instead of stream meta rows.
           channelRef.current?.send({
@@ -499,7 +467,7 @@ export function useGameLog(gameId, userId, db = _supabase) {
   // ── Soft-delete all rows in a group ─────────────────────────────
   const softDeleteGroup = useCallback(async (groupIdUuid) => {
     if (!gameId || !userId) return;
-    setEntries(prev => prev.filter(e => e.groupId !== groupIdUuid));
+    setRows(prev => prev.filter(r => r.group_id !== groupIdUuid));
     try {
       await commitOp({ kind: "soft_delete", groupId: groupIdUuid });
     } catch (err) {
@@ -511,8 +479,8 @@ export function useGameLog(gameId, userId, db = _supabase) {
   // ── Dismiss duplicate flag on a group ───────────────────────────
   const dismissDuplicate = useCallback(async (groupIdUuid) => {
     if (!gameId || !userId) return;
-    setEntries(prev => prev.map(e =>
-      e.groupId === groupIdUuid ? { ...e, isPossibleDuplicate: false } : e
+    setRows(prev => prev.map(r =>
+      r.group_id === groupIdUuid ? { ...r, is_possible_duplicate: false } : r
     ));
     const { error: err } = await dismissDuplicateFlag(gameId, groupIdUuid, db);
     if (err) { setError(err.message); return; }
@@ -537,6 +505,7 @@ export function useGameLog(gameId, userId, db = _supabase) {
   const isPrimary = presenceList.length === 0 || presenceList[0]?.userId === userId;
 
   return {
+    rows,
     entries,
     loading,
     commitGroup,
@@ -558,25 +527,6 @@ export function useGameLog(gameId, userId, db = _supabase) {
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
-
-// Incrementally apply a single new meta-kind stream row (payload-shaped) to an
-// existing derived state object. Avoids replaying the full history on every
-// realtime INSERT. Callers guarantee exactly-once via applyMetaRow.
-function _applyStreamMetaRow(prev, row) {
-  let { currentQuarter, completedQuarters, gameOver } = prev;
-  const p = row.payload ?? {};
-  if (row.event_type === "quarter_end") {
-    completedQuarters = [...completedQuarters, p.fromQuarter];
-    currentQuarter    = p.toQuarter;
-  } else if (row.event_type === "game_over") {
-    completedQuarters = [...completedQuarters, p.fromQuarter];
-    gameOver          = true;
-    currentQuarter    = p.fromQuarter;
-  } else if (row.event_type === "quarter_override") {
-    currentQuarter = p.toQuarter;
-  }
-  return { currentQuarter, completedQuarters, gameOver };
-}
 
 // Build the broadcast payload matching the remoteQuarterState shape expected
 // by pre-Phase-3 clients.

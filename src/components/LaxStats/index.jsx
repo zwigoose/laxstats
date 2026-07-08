@@ -116,7 +116,6 @@ export default function LaxStats({
   // Quarter write error (shown when a DB-gated handleEndQuarter fails)
   const [quarterError, setQuarterError] = useState(null);
   // Desync banner: shown when derivedQuarterState disagrees with hydrated state
-  const [desyncBanner, setDesyncBanner] = useState(null); // null | { dbQuarter }
   // Quarter override panel
   const [quarterOverrideOpen, setQuarterOverrideOpen] = useState(false);
   const [quarterOverridePending, setQuarterOverridePending] = useState(null);
@@ -164,18 +163,11 @@ export default function LaxStats({
     setScreen(initialState.gameOver ? "stats" : initialState.trackingStarted ? "track" : "setup");
     resetEntry();
     // Mark as hydrated after this render cycle so the onStateChange effect
-    // doesn't fire for the state-sets above.
-    // Also check for desync: if derivedQuarterState (from game_meta_events) disagrees
-    // with what games.state reported, show the reconciliation banner before allowing new events.
+    // doesn't fire for the state-sets above. (The old desync banner is gone:
+    // initialState quarter fields now come from the same event stream as
+    // derivedQuarterState, so they cannot disagree at hydration.)
     setTimeout(() => {
       hydratedRef.current = true;
-      if (derivedQuarterState?.currentQuarter != null &&
-          derivedQuarterState.currentQuarter !== (initialState.currentQuarter ?? 1)) {
-        setDesyncBanner({ dbQuarter: derivedQuarterState.currentQuarter });
-        setCurrentQuarter(derivedQuarterState.currentQuarter);
-        setCompletedQuarters(derivedQuarterState.completedQuarters ?? []);
-        if (derivedQuarterState.gameOver) { setGameOver(true); setScreen("stats"); }
-      }
     }, 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialState]);
@@ -195,7 +187,6 @@ export default function LaxStats({
     if (derivedQuarterState.currentQuarter != null) setCurrentQuarter(derivedQuarterState.currentQuarter);
     if (derivedQuarterState.completedQuarters != null) setCompletedQuarters(derivedQuarterState.completedQuarters);
     if (derivedQuarterState.gameOver) { setGameOver(true); setScreen("stats"); }
-    setDesyncBanner(null); // resolved — dismiss any lingering banner
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [derivedQuarterState]);
 
@@ -1927,24 +1918,6 @@ export default function LaxStats({
                 })}
                 <button style={{ ...S.btnSecondary, marginTop: 12 }} onClick={() => setGkPicker(null)}>Cancel</button>
               </div>
-            </div>
-          )}
-
-          {/* Desync reconciliation banner — blocks new entries until scorer acknowledges */}
-          {desyncBanner && (
-            <div style={{ background: C.amber100, border: `1px solid ${C.amber500}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.amber710, marginBottom: 4 }}>Quarter state corrected</div>
-              <div style={{ fontSize: 12, color: C.amber850, lineHeight: 1.5, marginBottom: 10 }}>
-                The saved game data shows this game is in <strong>Quarter {desyncBanner.dbQuarter}</strong>.
-                The scorekeeper has been updated to match the database.
-                No entries were lost — please verify the current quarter before continuing.
-              </div>
-              <button
-                style={{ fontSize: 12, fontWeight: 600, color: C.amber850, background: C.amber200, border: `1px solid ${C.amber500}`, borderRadius: 6, padding: "6px 14px", cursor: "pointer" }}
-                onClick={() => setDesyncBanner(null)}
-              >
-                I understand — continue scoring
-              </button>
             </div>
           )}
 

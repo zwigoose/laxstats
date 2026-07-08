@@ -6,6 +6,7 @@ import Scorekeeper from "./Scorekeeper";
 // ── useGameLog mock state ──────────────────────────────────────────────────────
 
 const evState = vi.hoisted(() => ({
+  rows:                [],
   entries:             [],
   loading:             false,
   error:               null,
