@@ -5,6 +5,21 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.25.0] — 2026-07-07
+
+### Added
+- **Unified event stream** (event-sourcing Phase 3) — quarter transitions and game setup (rosters, team profiles, goalies, logistics) are now recorded as events in `game_events` alongside scored actions: quarter changes carry `{fromQuarter, toQuarter}` payloads, setup changes are last-write-wins register events dispatched automatically as you edit. Existing quarter history was migrated in with a forwarding bridge for older clients
+- `reduceGame()` domain reducer — the client-side twin of the server projector, parity-locked through shared fixtures
+
+### Changed
+- Setup edits from any scorekeeper now win over stale full-state writes (registers beat the legacy cache), closing the last-write-wins roster clobbering between concurrent scorers
+- Press box, live view, and print views derive quarter state from the unified stream
+
+### Removed
+- `updateGameTeams` service helper (no callers; game names are now maintained by the server projector)
+
+---
+
 ## [2.24.0] — 2026-07-07
 
 ### Added
