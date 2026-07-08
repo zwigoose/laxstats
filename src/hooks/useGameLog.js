@@ -2,10 +2,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { supabase as _supabase } from "../lib/supabase";
 import {
   fetchGameEvents, appendGameEvents, softDeleteEventGroup, dismissDuplicateFlag,
-  insertMetaEvent,
 } from "../services/gameEvents";
 import { enqueueOp, getPendingOps, removeOp, getPendingCount } from "../services/outbox";
-import { isStatEventType, isMetaEventType, mkQuarterEnd, mkGameOver, mkQuarterOverride } from "../domain/eventTypes";
+import { isStatEventType, mkQuarterEnd, mkGameOver, mkQuarterOverride } from "../domain/eventTypes";
 import { deriveQuarterFromStream } from "../domain/reduceGame";
 import { useOnlineStatus } from "./useOnlineStatus";
 
@@ -112,7 +111,7 @@ const QUEUED = Symbol("queued");
  * Returns the same contract as the old useGameEvents:
  *   entries, loading, commitGroup, softDeleteGroup, commitMetaEvent,
  *   dismissDuplicate, derivedQuarterState, isPrimary,
- *   presenceList, remoteQuarterState, isOnline, pendingCount, syncStatus,
+ *   presenceList, isOnline, pendingCount, syncStatus,
  *   error, channelStatus, reload
  */
 export function useGameLog(gameId, userId, db = _supabase) {
@@ -122,7 +121,6 @@ export function useGameLog(gameId, userId, db = _supabase) {
   const [rows, setRows]                             = useState([]);
   const [loading, setLoading]                       = useState(true);
   const [presenceList, setPresenceList]             = useState([]);
-  const [remoteQuarterState, setRemoteQuarterState] = useState(null);
   const [error, setError]                           = useState(null);
 
   const entries = useMemo(
@@ -207,24 +205,13 @@ export function useGameLog(gameId, userId, db = _supabase) {
       addRows(payload?.entries ?? []);
     });
 
-    // postgres_changes INSERT kept as fallback (covers brief disconnects, and
-    // meta rows forwarded from pre-Phase-3 clients' game_meta_events writes).
+    // postgres_changes INSERT kept as fallback (covers brief disconnects).
     // Own rows are already merged by the flush — addRows dedupes by id.
     channel.on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "game_events", filter: `game_id=eq.${gameId}` },
       (payload) => addRows([payload.new])
     );
-
-    // Quarter/game-over state broadcast by the primary scorer (fast hint)
-    channel.on("broadcast", { event: "meta_update" }, ({ payload }) => {
-      if (payload?.scorerId === userId) return;
-      setRemoteQuarterState({
-        currentQuarter:    payload?.currentQuarter    ?? 1,
-        completedQuarters: payload?.completedQuarters ?? [],
-        gameOver:          payload?.gameOver          ?? false,
-      });
-    });
 
     // Deletion broadcast by another scorer
     channel.on("broadcast", { event: "delete_group" }, ({ payload }) => {
@@ -301,15 +288,6 @@ export function useGameLog(gameId, userId, db = _supabase) {
         // Merge our own rows (now carrying server seq) — entries and quarter
         // state derive from rows automatically.
         addRows(inserted);
-        for (const row of inserted.filter(r => isMetaEventType(r.event_type))) {
-          // Legacy hint for pre-Phase-3 co-scorer clients that still listen
-          // for meta_update instead of stream meta rows.
-          channelRef.current?.send({
-            type:    "broadcast",
-            event:   "meta_update",
-            payload: { scorerId: userId, ..._streamMetaToBroadcastPayload(row) },
-          });
-        }
         channelRef.current?.send({
           type:    "broadcast",
           event:   "new_events",
@@ -317,14 +295,6 @@ export function useGameLog(gameId, userId, db = _supabase) {
         });
       }
       return inserted;
-    }
-
-    if (op.kind === "meta") {
-      // Legacy op shape drained from the pre-Phase-3 offline queue: still
-      // targets game_meta_events; the DB forwards it into the stream.
-      const { data, error: err } = await insertMetaEvent(op.row, db);
-      if (err) throw err;
-      return data;
     }
 
     if (op.kind === "soft_delete") {
@@ -338,6 +308,8 @@ export function useGameLog(gameId, userId, db = _supabase) {
       return undefined;
     }
 
+    // Unknown kinds include legacy 'meta' ops from long-dormant pre-Phase-3
+    // browsers (their target table is gone) — the poison-op policy drops them.
     throw new Error(`unknown outbox op kind: ${op.kind}`);
   }
 
@@ -505,7 +477,6 @@ export function useGameLog(gameId, userId, db = _supabase) {
     derivedQuarterState,
     isPrimary,
     presenceList,
-    remoteQuarterState,
     isOnline,
     pendingCount,
     syncStatus,
@@ -516,14 +487,3 @@ export function useGameLog(gameId, userId, db = _supabase) {
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
-
-// Build the broadcast payload matching the remoteQuarterState shape expected
-// by pre-Phase-3 clients.
-function _streamMetaToBroadcastPayload(row) {
-  const p = row.payload ?? {};
-  if (row.event_type === "game_over") {
-    return { currentQuarter: p.fromQuarter, gameOver: true };
-  }
-  // quarter_end / quarter_override
-  return { currentQuarter: p.toQuarter, gameOver: false };
-}

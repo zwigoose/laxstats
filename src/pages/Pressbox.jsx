@@ -145,21 +145,6 @@ export default function Dashboard() {
       .on("broadcast", { event: "delete_group" }, ({ payload }) => {
         setV2Log(prev => prev ? prev.filter(e => e.groupId !== payload?.groupId) : prev);
       })
-      .on("broadcast", { event: "meta_update" }, ({ payload }) => {
-        if (!payload) return;
-        setDerivedQuarterState(prev => {
-          const prevQ = prev?.currentQuarter ?? 1;
-          const newQ  = payload.currentQuarter ?? prevQ;
-          const prevCompleted = prev?.completedQuarters ?? [];
-          let completed = prevCompleted;
-          if (payload.gameOver && !completed.includes(newQ)) {
-            completed = [...completed, newQ];
-          } else if (newQ > prevQ && !completed.includes(prevQ)) {
-            completed = [...completed, prevQ];
-          }
-          return { currentQuarter: newQ, completedQuarters: completed, gameOver: payload.gameOver ?? prev?.gameOver ?? false };
-        });
-      })
       // postgres_changes as fallback — handles reconnect gaps and soft-deletes
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
         (payload) => setGame(prev => prev ? { ...prev, ...payload.new } : payload.new))

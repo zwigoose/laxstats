@@ -7,8 +7,9 @@
  *
  * The output is ONE PL/pgSQL DO block that:
  *   1. inserts a throwaway auth user + the fixture games/events/meta rows
- *      (firing the project_game triggers; legacy metaEvents go through
- *      game_meta_events to exercise the Phase 3 forwarding trigger),
+ *      (firing the project_game triggers; fixture metaEvents are written as
+ *      meta-kind stream rows, mirroring how the Phase 3 migration copied the
+ *      since-dropped game_meta_events table into the stream),
  *   2. asserts games.summary equals each fixture's expected.summary,
  *   3. always raises an exception at the end — 'PARITY OK …' on success —
  *      so the whole block rolls back and leaves no data behind.
@@ -60,10 +61,10 @@ for (const f of fixtures) {
   VALUES ('${e.id}', '${gid}', '${e.group_id}', ${e.seq}, ${e.quarter ?? "NULL"}, ${lit(e.event_type)}, ${e.team_idx ?? "NULL"}, ${e.is_team_stat ?? false}, ${lit(e.player_num)}, ${lit(e.player_name)}, ${lit(e.goal_time)}, ${lit(e.penalty_time)}, ${lit(e.timeout_time)}, ${e.penalty_minutes ?? "NULL"}, ${e.is_non_releasable ?? false}, ${lit(e.shot_outcome)}, ${lit(e.shot_zone)}, ${e.payload !== undefined ? jsonLit(e.payload) : "NULL"}, ${lit(e.deleted_at)}, ${e.deleted_at ? `'${TEST_USER}'` : "NULL"}, '${TEST_USER}', ${lit(e.client_created_at)});\n`;
   }
   for (const m of f.metaEvents) {
-    // Legacy table on purpose: exercises the Phase 3 forwarding trigger.
-    // seq is GENERATED ALWAYS — insertion order preserves fixture seq order.
-    sql += `  INSERT INTO game_meta_events (game_id, event_type, from_quarter, to_quarter, created_by, client_created_at)
-  VALUES ('${gid}', ${lit(m.event_type)}, ${m.from_quarter}, ${m.to_quarter}, '${TEST_USER}', ${lit(m.client_created_at)});\n`;
+    // Meta-kind stream rows; seq omitted so the global sequence assigns them
+    // after the stat rows, preserving fixture order (matches the backfill).
+    sql += `  INSERT INTO game_events (id, game_id, group_id, event_type, payload, created_by, client_created_at)
+  VALUES ('${m.id}', '${gid}', '${m.id}', ${lit(m.event_type)}, ${jsonLit({ fromQuarter: m.from_quarter, toQuarter: m.to_quarter })}, '${TEST_USER}', ${lit(m.client_created_at)});\n`;
   }
 
   if (f.expected.summary === null) {
@@ -83,18 +84,10 @@ for (const f of fixtures) {
   END IF;\n\n`;
 }
 
-// State-write trigger check: legacy clients PATCH games.state; with no live
-// team_profile_set register the state value must flow through to summary.
+// The games.state projection trigger is gone (final cleanup) — state writes
+// no longer re-project, and register events remain authoritative.
 const liveFixture = fixtures.find((f) => f.name === "basic-scoring");
-sql += `  -- state-write trigger keeps summary fresh for legacy clients
-  UPDATE games SET state = jsonb_set(state, '{teams,0,name}', '"Renamed"')
-  WHERE id = '${gameId(liveFixture)}';
-  SELECT summary INTO v FROM games WHERE id = '${gameId(liveFixture)}';
-  IF v #>> '{teams,0,name}' <> 'Renamed' THEN
-    RAISE EXCEPTION 'PARITY FAIL state-trigger: summary.teams not re-projected: %', v -> 'teams';
-  END IF;
-
-  -- a register beats a later state write (LWW register wins over legacy dual-write)
+sql += `  -- a register event projects immediately and a later state write changes nothing
   INSERT INTO game_events (id, game_id, group_id, event_type, team_idx, payload, created_by)
   VALUES (gen_random_uuid(), '${gameId(liveFixture)}', gen_random_uuid(), 'team_profile_set', 0,
           '{"name":"Register Home","color":"#abc","logoUrl":null}'::jsonb, '${TEST_USER}');

@@ -45,14 +45,3 @@ export async function updateGameEventsPlayer(gameId, teamIdx, fromNum, toNum, to
     .eq("player_num", fromNum)
     .is("deleted_at", null);
 }
-
-// ── game_meta_events (transition scaffolding) ─────────────────────────────────
-// Kept ONLY for replaying legacy 'meta' outbox ops — offline queue items
-// created by pre-Phase-3 clients that drain when their browser upgrades. The
-// DB forwards the insert into the unified stream. Remove together with the
-// deferred DROP TABLE game_meta_events migration once production has been on
-// the event-sourced client long enough that no stale bundles remain.
-
-export async function insertMetaEvent(row, db = _supabase) {
-  return db.from("game_meta_events").insert(row).select().single();
-}

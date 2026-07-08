@@ -1,7 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import {
-  fetchGameEvents, appendGameEvents, softDeleteEventGroup, insertMetaEvent,
-} from "./gameEvents";
+import { fetchGameEvents, appendGameEvents, softDeleteEventGroup } from "./gameEvents";
 
 // ── Fake DB builder ────────────────────────────────────────────────────────────
 
@@ -51,35 +49,6 @@ describe("fetchGameEvents", () => {
   });
 });
 
-// ── insertMetaEvent ────────────────────────────────────────────────────────────
-
-describe("insertMetaEvent", () => {
-  it("inserts into game_meta_events and returns single row", async () => {
-    const row = { game_id: "g1", event_type: "quarter_end", from_quarter: 1, to_quarter: 2 };
-    const chain = {
-      insert: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: row, error: null }),
-    };
-    const db = { from: vi.fn().mockReturnValue(chain) };
-    const result = await insertMetaEvent(row, db);
-    expect(db.from).toHaveBeenCalledWith("game_meta_events");
-    expect(chain.insert).toHaveBeenCalledWith(row);
-    expect(chain.single).toHaveBeenCalled();
-    expect(result.data).toEqual(row);
-  });
-
-  it("propagates insert errors", async () => {
-    const chain = {
-      insert: vi.fn().mockReturnThis(),
-      select: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({ data: null, error: { message: "Insert failed" } }),
-    };
-    const db = { from: vi.fn().mockReturnValue(chain) };
-    const result = await insertMetaEvent({}, db);
-    expect(result.error.message).toBe("Insert failed");
-  });
-});
 
 
 // ── appendGameEvents ───────────────────────────────────────────────────────────

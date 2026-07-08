@@ -83,7 +83,6 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     derivedQuarterState,
     isPrimary,
     presenceList,
-    remoteQuarterState,
     isOnline,
     pendingCount,
     syncStatus,
@@ -128,7 +127,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     }
   });
 
-  // Meta-event handler: write a game_meta_events row to the DB (the source of truth for
+  // Meta-event handler: append a quarter-transition event to the stream (the source of truth for
   // quarter state), then broadcast to co-scorers. LaxStats awaits this promise before
   // mutating local state, ensuring the DB is always ahead of the UI.
   // Returns the inserted row (or a synthetic offline stub).
@@ -273,7 +272,6 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
           onEventDismissDuplicate={dismissDuplicate}
           onMetaEvent={handleMetaEvent}
           remoteEntries={entries}
-          remoteQuarterState={remoteQuarterState}
           derivedQuarterState={derivedQuarterState}
           scorekeeperRole={isPrimary ? "primary" : "secondary"}
           shotLocationEnabled={!!game?.shot_location_enabled}
