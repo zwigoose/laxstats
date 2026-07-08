@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.26.1] — 2026-07-08
+
+### Removed
+- Dead legacy event paths superseded by the unified stream (event-sourcing Phase 5, client side): plain-insert event writes, direct-update soft deletes, legacy quarter-state fetch/replay, and the unused meta broadcast helper. No behavior changes
+
+---
+
 ## [2.26.0] — 2026-07-08
 
 ### Changed
