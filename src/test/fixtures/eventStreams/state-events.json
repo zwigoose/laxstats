@@ -1,0 +1,190 @@
+{
+  "name": "state-events",
+  "description": "Phase 3 unified stream: LWW state registers (with a superseded team_profile_set and a soft-deleted roster_set that must not apply), in-stream quarter_end meta event, and register-over-state overlay (state's orgTeamId must survive; team 1 has no live registers and renders from state).",
+  "game": {
+    "created_at": "2026-06-01T17:00:00.000Z",
+    "state": {
+      "teams": [
+        { "name": "Old Home", "roster": "1 A", "color": "#111111", "orgTeamId": "keep-me" },
+        { "name": "Old Away", "roster": "2 B", "color": "#222222" }
+      ],
+      "trackingStarted": true,
+      "currentQuarter": 1,
+      "gameOver": false,
+      "score0": 0,
+      "score1": 1,
+      "gameDate": "2026-06-01",
+      "activeGoalies": [{ "num": "1", "name": "G1" }, null]
+    }
+  },
+  "events": [
+    {
+      "id": "00000000-0000-0000-0041-000000000001",
+      "seq": 501,
+      "game_id": "00000000-0000-0000-0000-00000000aaa5",
+      "group_id": "00000000-0000-0000-0042-000000000001",
+      "quarter": null,
+      "event_type": "tracking_started",
+      "team_idx": null,
+      "payload": {},
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-06-01T17:01:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0041-000000000002",
+      "seq": 502,
+      "game_id": "00000000-0000-0000-0000-00000000aaa5",
+      "group_id": "00000000-0000-0000-0042-000000000002",
+      "quarter": null,
+      "event_type": "team_profile_set",
+      "team_idx": 0,
+      "payload": { "name": "Mid Home", "color": "#333333", "logoUrl": null },
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-06-01T17:02:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0041-000000000003",
+      "seq": 503,
+      "game_id": "00000000-0000-0000-0000-00000000aaa5",
+      "group_id": "00000000-0000-0000-0042-000000000003",
+      "quarter": null,
+      "event_type": "roster_set",
+      "team_idx": 0,
+      "payload": { "rosterText": "1 A\n2 C", "players": [{ "num": "1", "name": "A" }, { "num": "2", "name": "C" }] },
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-06-01T17:03:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0041-000000000004",
+      "seq": 504,
+      "game_id": "00000000-0000-0000-0000-00000000aaa5",
+      "group_id": "00000000-0000-0000-0042-000000000004",
+      "quarter": null,
+      "event_type": "roster_set",
+      "team_idx": 1,
+      "payload": { "rosterText": "99 Zombie", "players": [{ "num": "99", "name": "Zombie" }] },
+      "deleted_at": "2026-06-01T17:05:00.000Z",
+      "deleted_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-06-01T17:04:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0041-000000000005",
+      "seq": 505,
+      "game_id": "00000000-0000-0000-0000-00000000aaa5",
+      "group_id": "00000000-0000-0000-0042-000000000005",
+      "quarter": 1,
+      "event_type": "goal",
+      "team_idx": 1,
+      "player_num": "9",
+      "player_name": "Olson",
+      "goal_time": "4:00",
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-06-01T17:10:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0041-000000000006",
+      "seq": 506,
+      "game_id": "00000000-0000-0000-0000-00000000aaa5",
+      "group_id": "00000000-0000-0000-0042-000000000006",
+      "quarter": null,
+      "event_type": "quarter_end",
+      "team_idx": null,
+      "payload": { "fromQuarter": 1, "toQuarter": 2 },
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-06-01T17:15:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0041-000000000007",
+      "seq": 507,
+      "game_id": "00000000-0000-0000-0000-00000000aaa5",
+      "group_id": "00000000-0000-0000-0042-000000000007",
+      "quarter": null,
+      "event_type": "goalie_set",
+      "team_idx": 1,
+      "payload": { "player": { "num": "30", "name": "Wall2" } },
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-06-01T17:16:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0041-000000000008",
+      "seq": 508,
+      "game_id": "00000000-0000-0000-0000-00000000aaa5",
+      "group_id": "00000000-0000-0000-0042-000000000008",
+      "quarter": null,
+      "event_type": "logistics_set",
+      "team_idx": null,
+      "payload": { "gameDate": "2026-06-02", "refereeNames": "Ref One", "weatherConditions": null, "fieldLocation": null },
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-06-01T17:17:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0041-000000000009",
+      "seq": 509,
+      "game_id": "00000000-0000-0000-0000-00000000aaa5",
+      "group_id": "00000000-0000-0000-0042-000000000009",
+      "quarter": null,
+      "event_type": "team_profile_set",
+      "team_idx": 0,
+      "payload": { "name": "New Home", "color": "#333333", "logoUrl": null },
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-06-01T17:18:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0041-000000000010",
+      "seq": 510,
+      "game_id": "00000000-0000-0000-0000-00000000aaa5",
+      "group_id": "00000000-0000-0000-0042-000000000010",
+      "quarter": null,
+      "event_type": "goalie_decisions_set",
+      "team_idx": null,
+      "payload": { "decisions": { "win": { "teamIdx": 1, "num": "30", "name": "Wall2" }, "loss": { "teamIdx": 0, "num": "1", "name": "G1" } } },
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-06-01T17:19:00.000Z"
+    }
+  ],
+  "metaEvents": [],
+  "expected": {
+    "quarterState": null,
+    "eventScores": { "score0": 0, "score1": 1 },
+    "gameInfo": {
+      "score0": 0,
+      "score1": 1,
+      "started": true,
+      "gameOver": false,
+      "currentQuarter": 1,
+      "latestTime": null,
+      "gameDate": "2026-06-01"
+    },
+    "summary": {
+      "score0": 0,
+      "score1": 1,
+      "currentQuarter": 2,
+      "completedQuarters": [1],
+      "gameOver": false,
+      "trackingStarted": true,
+      "teams": [
+        { "name": "New Home", "roster": "1 A\n2 C", "color": "#333333", "logoUrl": null, "orgTeamId": "keep-me" },
+        { "name": "Old Away", "roster": "2 B", "color": "#222222" }
+      ],
+      "activeGoalies": [
+        { "num": "1", "name": "G1" },
+        { "num": "30", "name": "Wall2" }
+      ],
+      "goalieDecisions": { "win": { "teamIdx": 1, "num": "30", "name": "Wall2" }, "loss": { "teamIdx": 0, "num": "1", "name": "G1" } },
+      "gameDate": "2026-06-02",
+      "refereeNames": "Ref One",
+      "weatherConditions": null,
+      "fieldLocation": null
+    }
+  }
+}

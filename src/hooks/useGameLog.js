@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase as _supabase } from "../lib/supabase";
 import {
   fetchGameEvents, appendGameEvents, softDeleteEventGroup, dismissDuplicateFlag,
-  fetchMetaEvents, insertMetaEvent, deriveQuarterState,
+  insertMetaEvent,
 } from "../services/gameEvents";
 import { enqueueOp, getPendingOps, removeOp, getPendingCount } from "../services/outbox";
+import { isStatEventType, isMetaEventType, mkQuarterEnd, mkGameOver, mkQuarterOverride } from "../domain/eventTypes";
+import { deriveQuarterFromStream } from "../domain/reduceGame";
 import { useOnlineStatus } from "./useOnlineStatus";
 
 // ── Translation: DB row ↔ LaxStats log entry ─────────────────────────────────
@@ -37,6 +39,7 @@ export function dbRowToEntry(row) {
     createdAt:          row.client_created_at    ?? undefined,
     isPossibleDuplicate: row.is_possible_duplicate ?? false,
     emo:                row.is_emo || undefined,
+    payload:            row.payload ?? undefined,
     seq:                row.seq,
   };
 }
@@ -67,6 +70,7 @@ export function entryToDbRow(entry, gameId, userId) {
     shot_zone:          entry.zone           ?? null,
     foul_name:          entry.foulName       ?? null,
     is_emo:             entry.emo            ?? false,
+    payload:            entry.payload        ?? null,
     created_by:         userId,
     client_created_at:  entry.clientCreatedAt ?? entry.createdAt ?? new Date().toISOString(),
   };
@@ -123,6 +127,10 @@ export function useGameLog(gameId, userId, db = _supabase) {
   const flushingRef   = useRef(false);
   const rerunFlushRef = useRef(false);
   const waitersRef    = useRef(new Map()); // opId → { resolve, reject }
+  // Meta rows reach us on several paths (own commit, broadcast, postgres_changes
+  // fallback); incremental quarter replay is not idempotent, so track what's
+  // already been applied by row id.
+  const appliedMetaIdsRef = useRef(new Set());
   const [channelStatus, setChannelStatus] = useState("idle");
 
   // ── Offline / sync state ──────────────────────────────────────────
@@ -145,16 +153,28 @@ export function useGameLog(gameId, userId, db = _supabase) {
   async function load() {
     setLoading(true);
     setError(null);
-    const [evRes, metaRes] = await Promise.all([
-      fetchGameEvents(gameId, db),
-      fetchMetaEvents(gameId, db),
-    ]);
+    const evRes = await fetchGameEvents(gameId, db);
     if (evRes.error) { setError(evRes.error.message); setLoading(false); return; }
-    setEntries((evRes.data || []).map(dbRowToEntry));
-    const derived = deriveQuarterState(metaRes.data || []);
+    // The unified stream carries stat, state, and meta events. Only stat
+    // events feed the LaxStats log; meta events replay into quarter state.
+    const rows = evRes.data || [];
+    setEntries(rows.filter(r => isStatEventType(r.event_type)).map(dbRowToEntry));
+    appliedMetaIdsRef.current = new Set(
+      rows.filter(r => isMetaEventType(r.event_type)).map(r => r.id)
+    );
+    const derived = deriveQuarterFromStream(rows);
     if (derived) setDerivedQuarterState(derived);
     setLoading(false);
   }
+
+  // Apply one meta-kind stream row to derived quarter state, exactly once.
+  const applyMetaRow = useCallback((row) => {
+    if (appliedMetaIdsRef.current.has(row.id)) return;
+    appliedMetaIdsRef.current.add(row.id);
+    setDerivedQuarterState(prev =>
+      prev ? _applyStreamMetaRow(prev, row) : deriveQuarterFromStream([row])
+    );
+  }, []);
 
   // ── Pending-count bootstrap ──────────────────────────────────────
   useEffect(() => { refreshPendingCount(); }, [refreshPendingCount]);
@@ -180,32 +200,36 @@ export function useGameLog(gameId, userId, db = _supabase) {
       setPresenceList(list);
     });
 
-    // New entries broadcast by another scorer — primary sync path (instant WebSocket delivery)
+    // Route one incoming stream row to the right slice of local state.
+    const applyRemoteRow = (row) => {
+      if (row.deleted_at) return;
+      if (isMetaEventType(row.event_type)) {
+        applyMetaRow(row);
+        return;
+      }
+      if (!isStatEventType(row.event_type)) return; // state registers: read paths use summary
+      const entry = dbRowToEntry(row);
+      setEntries(prev => {
+        if (prev.some(e => e.dbId === entry.dbId)) return prev;
+        return [...prev, entry].sort((a, b) => a.seq - b.seq);
+      });
+    };
+
+    // New rows broadcast by another scorer — primary sync path (instant WebSocket delivery)
     channel.on("broadcast", { event: "new_events" }, ({ payload }) => {
       if (payload?.scorerId === userId) return;
-      const incoming = (payload?.entries ?? []).map(dbRowToEntry);
-      if (!incoming.length) return;
-      setEntries(prev => {
-        const existingIds = new Set(prev.map(e => e.dbId));
-        const toAdd = incoming.filter(e => !existingIds.has(e.dbId));
-        if (!toAdd.length) return prev;
-        return [...prev, ...toAdd].sort((a, b) => a.seq - b.seq);
-      });
+      for (const row of payload?.entries ?? []) applyRemoteRow(row);
     });
 
-    // postgres_changes INSERT kept as fallback (covers brief disconnects)
+    // postgres_changes INSERT kept as fallback (covers brief disconnects, and
+    // meta rows forwarded from pre-Phase-3 clients' game_meta_events writes)
     channel.on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "game_events", filter: `game_id=eq.${gameId}` },
       (payload) => {
         const row = payload.new;
-        if (row.created_by === userId) return;
-        if (row.deleted_at) return;
-        const entry = dbRowToEntry(row);
-        setEntries(prev => {
-          if (prev.some(e => e.dbId === entry.dbId)) return prev;
-          return [...prev, entry].sort((a, b) => a.seq - b.seq);
-        });
+        if (row.created_by === userId && !isMetaEventType(row.event_type)) return;
+        applyRemoteRow(row);
       }
     );
 
@@ -218,19 +242,6 @@ export function useGameLog(gameId, userId, db = _supabase) {
         gameOver:          payload?.gameOver          ?? false,
       });
     });
-
-    // postgres_changes INSERT on game_meta_events — authoritative source for non-scorer views
-    channel.on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "game_meta_events", filter: `game_id=eq.${gameId}` },
-      (payload) => {
-        const row = payload.new;
-        setDerivedQuarterState(prev => {
-          const currentRows = prev ? _metaRowsToDerived(prev, row) : deriveQuarterState([row]);
-          return currentRows;
-        });
-      }
-    );
 
     // Deletion broadcast by another scorer
     channel.on("broadcast", { event: "delete_group" }, ({ payload }) => {
@@ -306,16 +317,31 @@ export function useGameLog(gameId, userId, db = _supabase) {
       // before we crashed/retried) — the broadcast went out then, or the
       // co-scorers' postgres_changes fallback covered it.
       if (inserted?.length) {
-        // Merge our own rows (now carrying server seq) into entries — the
-        // realtime handlers skip own events, so this is their only way in
-        // short of a full reload.
-        const incoming = inserted.map(dbRowToEntry);
-        setEntries(prev => {
-          const existingIds = new Set(prev.map(e => e.dbId));
-          const toAdd = incoming.filter(e => !existingIds.has(e.dbId));
-          if (!toAdd.length) return prev;
-          return [...prev, ...toAdd].sort((a, b) => a.seq - b.seq);
-        });
+        const statRows = inserted.filter(r => isStatEventType(r.event_type));
+        const metaRows = inserted.filter(r => isMetaEventType(r.event_type));
+
+        if (statRows.length) {
+          // Merge our own rows (now carrying server seq) into entries — the
+          // realtime handlers skip own events, so this is their only way in
+          // short of a full reload.
+          const incoming = statRows.map(dbRowToEntry);
+          setEntries(prev => {
+            const existingIds = new Set(prev.map(e => e.dbId));
+            const toAdd = incoming.filter(e => !existingIds.has(e.dbId));
+            if (!toAdd.length) return prev;
+            return [...prev, ...toAdd].sort((a, b) => a.seq - b.seq);
+          });
+        }
+        for (const row of metaRows) {
+          applyMetaRow(row);
+          // Legacy hint for pre-Phase-3 co-scorer clients that still listen
+          // for meta_update instead of stream meta rows.
+          channelRef.current?.send({
+            type:    "broadcast",
+            event:   "meta_update",
+            payload: { scorerId: userId, ..._streamMetaToBroadcastPayload(row) },
+          });
+        }
         channelRef.current?.send({
           type:    "broadcast",
           event:   "new_events",
@@ -326,20 +352,10 @@ export function useGameLog(gameId, userId, db = _supabase) {
     }
 
     if (op.kind === "meta") {
+      // Legacy op shape drained from the pre-Phase-3 offline queue: still
+      // targets game_meta_events; the DB forwards it into the stream.
       const { data, error: err } = await insertMetaEvent(op.row, db);
       if (err) throw err;
-      if (data) {
-        setDerivedQuarterState(prev => {
-          if (!prev) return deriveQuarterState([data]);
-          return _metaRowsToDerived(prev, data);
-        });
-      }
-      const broadcastPayload = _metaRowToBroadcastPayload(data ?? op.row);
-      channelRef.current?.send({
-        type:    "broadcast",
-        event:   "meta_update",
-        payload: { scorerId: userId, ...broadcastPayload },
-      });
       return data;
     }
 
@@ -460,22 +476,24 @@ export function useGameLog(gameId, userId, db = _supabase) {
   }, [gameId, userId, commitOp]);
 
   // ── Commit a quarter-transition or game-over meta event ──────────
+  // Meta events are ordinary stream appends (event-sourcing Phase 3).
   // Resolves with the inserted row after DB confirmation (callers gate local
   // quarter mutation on this), or with a synthetic stub when the op is queued
   // offline so callers can proceed optimistically.
   const commitMetaEvent = useCallback(async (type, fromQuarter, toQuarter) => {
     if (!gameId || !userId) return null;
-    const row = {
-      game_id:           gameId,
-      event_type:        type,
-      from_quarter:      fromQuarter,
-      to_quarter:        toQuarter,
-      created_by:        userId,
-      client_created_at: new Date().toISOString(),
+    const builder = { quarter_end: mkQuarterEnd, game_over: mkGameOver, quarter_override: mkQuarterOverride }[type];
+    if (!builder) throw new Error(`unknown meta event type: ${type}`);
+    const entry = {
+      ...(type === "game_over" ? builder(fromQuarter) : builder(fromQuarter, toQuarter)),
+      dbId:            crypto.randomUUID(),
+      clientCreatedAt: new Date().toISOString(),
     };
-    const result = await commitOp({ kind: "meta", row });
-    if (result === QUEUED) return { ...row, id: crypto.randomUUID(), seq: null };
-    return result;
+    const result = await commitOp({ kind: "append", entries: [entry] });
+    if (result === QUEUED) {
+      return { id: entry.dbId, event_type: type, from_quarter: fromQuarter, to_quarter: toQuarter, seq: null };
+    }
+    return result?.[0] ?? null;
   }, [gameId, userId, commitOp]);
 
   // ── Soft-delete all rows in a group ─────────────────────────────
@@ -541,31 +559,32 @@ export function useGameLog(gameId, userId, db = _supabase) {
 
 // ── Private helpers ───────────────────────────────────────────────────────────
 
-// Incrementally apply a single new meta row to an existing derived state object.
-// Avoids replaying the full history on every realtime INSERT.
-function _metaRowsToDerived(prev, row) {
+// Incrementally apply a single new meta-kind stream row (payload-shaped) to an
+// existing derived state object. Avoids replaying the full history on every
+// realtime INSERT. Callers guarantee exactly-once via applyMetaRow.
+function _applyStreamMetaRow(prev, row) {
   let { currentQuarter, completedQuarters, gameOver } = prev;
+  const p = row.payload ?? {};
   if (row.event_type === "quarter_end") {
-    completedQuarters = [...completedQuarters, row.from_quarter];
-    currentQuarter    = row.to_quarter;
+    completedQuarters = [...completedQuarters, p.fromQuarter];
+    currentQuarter    = p.toQuarter;
   } else if (row.event_type === "game_over") {
-    completedQuarters = [...completedQuarters, row.from_quarter];
+    completedQuarters = [...completedQuarters, p.fromQuarter];
     gameOver          = true;
-    currentQuarter    = row.from_quarter;
+    currentQuarter    = p.fromQuarter;
   } else if (row.event_type === "quarter_override") {
-    currentQuarter = row.to_quarter;
+    currentQuarter = p.toQuarter;
   }
   return { currentQuarter, completedQuarters, gameOver };
 }
 
-// Build the broadcast payload that matches the remoteQuarterState shape expected by LaxStats.
-function _metaRowToBroadcastPayload(row) {
-  if (row.event_type === "quarter_end") {
-    return { currentQuarter: row.to_quarter, gameOver: false };
-  }
+// Build the broadcast payload matching the remoteQuarterState shape expected
+// by pre-Phase-3 clients.
+function _streamMetaToBroadcastPayload(row) {
+  const p = row.payload ?? {};
   if (row.event_type === "game_over") {
-    return { currentQuarter: row.from_quarter, gameOver: true };
+    return { currentQuarter: p.fromQuarter, gameOver: true };
   }
-  // quarter_override
-  return { currentQuarter: row.to_quarter, gameOver: false };
+  // quarter_end / quarter_override
+  return { currentQuarter: p.toQuarter, gameOver: false };
 }

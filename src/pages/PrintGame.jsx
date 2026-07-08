@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { buildPlayerStats, buildTeamTotals, qLabel } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameLog";
-import { deriveQuarterState } from "../services/gameEvents";
+import { isStatEventType } from "../domain/eventTypes";
+import { deriveQuarterFromStream } from "../domain/reduceGame";
 import { parseRoster } from "../utils/stats";
 import { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
 import { STAT_LABELS } from "../constants/lacrosse";
@@ -45,12 +46,11 @@ export default function PrintGame() {
         setOrgLogos([logoMap[data.org_id] ?? null, logoMap[data.away_org_id] ?? null]);
       }
 
-      const [evRes, metaRes] = await Promise.all([
-        supabase.from("game_events").select("*").eq("game_id", id).is("deleted_at", null).order("seq"),
-        supabase.from("game_meta_events").select("*").eq("game_id", id).order("seq"),
-      ]);
-      setV2Log((evRes.data || []).map(dbRowToEntry));
-      const derived = deriveQuarterState(metaRes.data || []);
+      const evRes = await supabase
+        .from("game_events").select("*").eq("game_id", id).is("deleted_at", null).order("seq");
+      const rows = evRes.data || [];
+      setV2Log(rows.filter(r => isStatEventType(r.event_type)).map(dbRowToEntry));
+      const derived = deriveQuarterFromStream(rows);
       if (derived) setDerivedQuarterState(derived);
       setLoading(false);
     }
