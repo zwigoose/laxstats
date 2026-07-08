@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.26.2] — 2026-07-08
+
+### Removed
+- The last event-sourcing transition scaffolding: the legacy `game_meta_events` table (all quarter history lives in the unified event stream), its forwarding bridge, the `games.state` projection trigger, and the `meta_update` broadcast path. This completes the event-sourcing refactor — `game_events` is the sole source of truth
+
+---
+
 ## [2.26.1] — 2026-07-08
 
 ### Removed
