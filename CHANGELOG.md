@@ -5,6 +5,18 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.26.0] — 2026-07-08
+
+### Changed
+- **State freeze** (event-sourcing Phase 4) — the scorekeeper no longer writes the legacy `games.state` cache; setup changes persist exclusively as register events through the offline outbox, and scorekeeper hydration replays the event stream. New games are created at `schema_ver 3`, where stale clients' state writes are silently ignored
+- The event hook derives the log and quarter state from one deduped stream-row source, making realtime redelivery double-application impossible by construction
+
+### Removed
+- The "Quarter state corrected" desync reconciliation banner — hydration and live quarter state now come from the same event stream, so the disagreement it guarded against can no longer occur
+- The localStorage pending-state queue, tab-close keepalive save, and reconnect state retry (superseded by the outbox)
+
+---
+
 ## [2.25.0] — 2026-07-07
 
 ### Added
