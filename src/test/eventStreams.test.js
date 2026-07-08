@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { deriveQuarterState } from "../services/gameEvents";
 import { dbRowToEntry } from "../hooks/useGameLog";
 import { getGameInfo } from "../utils/game";
 import { reduceGame } from "../domain/reduceGame";
@@ -41,12 +40,11 @@ const fixtures = [
 const liveRows = (fixture) => fixture.events.filter((row) => !row.deleted_at);
 
 describe.each(fixtures)("event stream fixture: $name", (fixture) => {
-  it("replays meta events to the expected quarter state", () => {
-    const derived = deriveQuarterState(fixture.metaEvents);
-    expect(derived).toEqual(fixture.expected.quarterState);
-  });
+  // (The legacy deriveQuarterState characterization is gone with the function
+  // itself — quarter replay is covered by the reduceGame parity block below,
+  // which asserts the same expected values via expected.summary.)
 
-  it("derives scores from live events (Scorekeeper save / getGameInfo recompute expression)", () => {
+  it("derives scores from live events (getGameInfo recompute expression)", () => {
     const entries = liveRows(fixture).map(dbRowToEntry);
     // The exact expression used by Scorekeeper.jsx handleStateChange and the
     // getGameInfo fallback: count non-deleted goal entries per team.

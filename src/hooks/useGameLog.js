@@ -111,7 +111,7 @@ const QUEUED = Symbol("queued");
  *
  * Returns the same contract as the old useGameEvents:
  *   entries, loading, commitGroup, softDeleteGroup, commitMetaEvent,
- *   dismissDuplicate, broadcastMeta, derivedQuarterState, isPrimary,
+ *   dismissDuplicate, derivedQuarterState, isPrimary,
  *   presenceList, remoteQuarterState, isOnline, pendingCount, syncStatus,
  *   error, channelStatus, reload
  */
@@ -491,16 +491,6 @@ export function useGameLog(gameId, userId, db = _supabase) {
     });
   }, [gameId, userId]);
 
-  // Broadcast quarter/game-over state to other scorers (legacy fast path —
-  // demoted to hint only; commitMetaEvent is the source of truth)
-  const broadcastMeta = useCallback((meta) => {
-    channelRef.current?.send({
-      type:    "broadcast",
-      event:   "meta_update",
-      payload: { scorerId: userId, ...meta },
-    });
-  }, [userId]);
-
   // Primary scorer = first presence entry (by join order)
   const isPrimary = presenceList.length === 0 || presenceList[0]?.userId === userId;
 
@@ -511,7 +501,6 @@ export function useGameLog(gameId, userId, db = _supabase) {
     commitGroup,
     softDeleteGroup,
     dismissDuplicate,
-    broadcastMeta,
     commitMetaEvent,
     derivedQuarterState,
     isPrimary,

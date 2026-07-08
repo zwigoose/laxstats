@@ -20,7 +20,6 @@ const evState = vi.hoisted(() => ({
   syncStatus:          "idle",
   commitGroup:         vi.fn().mockResolvedValue(undefined),
   softDeleteGroup:     vi.fn().mockResolvedValue(undefined),
-  broadcastMeta:       vi.fn(),
   commitMetaEvent:     vi.fn().mockResolvedValue({ id: "meta-1", seq: 1 }),
 }));
 
