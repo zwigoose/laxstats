@@ -494,32 +494,40 @@ describe("useGameLog — commitGroup (network error fallback)", () => {
 
 // ── commitMetaEvent ────────────────────────────────────────────────────────────
 
-describe("useGameLog — commitMetaEvent", () => {
+describe("useGameLog — commitMetaEvent (stream append)", () => {
   beforeEach(resetMocks);
 
-  it("resolves with the inserted row and updates derivedQuarterState", async () => {
-    const metaRow = {
-      id: "meta-1", seq: 1, game_id: GAME_ID,
-      event_type: "quarter_end", from_quarter: 1, to_quarter: 2,
-    };
-    st.metaInsert = { data: metaRow, error: null };
+  const streamMetaRow = {
+    id: "meta-1", seq: 7, game_id: GAME_ID, group_id: "grp-m1",
+    event_type: "quarter_end", team_idx: null, quarter: null,
+    payload: { fromQuarter: 1, toQuarter: 2 },
+  };
+
+  it("appends a meta event to the stream and resolves with the inserted row", async () => {
+    st.insert = { data: [streamMetaRow], error: null };
     const { result } = renderLog();
     await waitFor(() => expect(result.current.loading).toBe(false));
     let returned;
     await act(async () => {
       returned = await result.current.commitMetaEvent("quarter_end", 1, 2);
     });
-    expect(returned).toEqual(metaRow);
+    expect(returned).toEqual(streamMetaRow);
+    expect(qm.upsert).toHaveBeenCalledWith(
+      [expect.objectContaining({
+        event_type: "quarter_end",
+        payload:    { fromQuarter: 1, toQuarter: 2 },
+        team_idx:   null,
+        quarter:    null,
+      })],
+      { onConflict: "id", ignoreDuplicates: true }
+    );
     expect(result.current.derivedQuarterState).toEqual({
       currentQuarter: 2, completedQuarters: [1], gameOver: false,
     });
   });
 
-  it("broadcasts meta_update after commit", async () => {
-    st.metaInsert = {
-      data: { id: "meta-1", event_type: "quarter_end", from_quarter: 1, to_quarter: 2 },
-      error: null,
-    };
+  it("broadcasts meta_update (legacy hint) and new_events after commit", async () => {
+    st.insert = { data: [streamMetaRow], error: null };
     const { result } = renderLog();
     await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => { await ch._subscribeCb?.("SUBSCRIBED"); });
@@ -528,9 +536,30 @@ describe("useGameLog — commitMetaEvent", () => {
       event:   "meta_update",
       payload: expect.objectContaining({ scorerId: USER_ID, currentQuarter: 2 }),
     }));
+    expect(ch.send).toHaveBeenCalledWith(expect.objectContaining({
+      event: "new_events",
+    }));
   });
 
-  it("returns a synthetic stub and queues the op when offline", async () => {
+  it("does not double-apply its own meta row when it echoes back via realtime", async () => {
+    st.insert = { data: [streamMetaRow], error: null };
+    const { result } = renderLog();
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.commitMetaEvent("quarter_end", 1, 2); });
+    // postgres_changes fallback echoes the same row back
+    await act(async () => {
+      ch._handlers["postgres_changes::*"]; // trigger registration exists
+    });
+    const pgHandlers = ch.on.mock.calls
+      .filter(([type, f]) => type === "postgres_changes" && f.event === "INSERT" && f.table === "game_events")
+      .map(([, , handler]) => handler);
+    await act(async () => { pgHandlers.forEach(h => h({ new: streamMetaRow })); });
+    expect(result.current.derivedQuarterState).toEqual({
+      currentQuarter: 2, completedQuarters: [1], gameOver: false,   // not [1, 1]
+    });
+  });
+
+  it("returns a synthetic stub and queues an append op when offline", async () => {
     onlineState.value = false;
     useOnlineStatus.mockImplementation(() => false);
     const { result } = renderLog();
@@ -543,7 +572,10 @@ describe("useGameLog — commitMetaEvent", () => {
       event_type: "game_over", from_quarter: 4, to_quarter: 4, seq: null,
     }));
     expect(ob._ops()).toHaveLength(1);
-    expect(ob._ops()[0].kind).toBe("meta");
+    expect(ob._ops()[0].kind).toBe("append");
+    expect(ob._ops()[0].entries[0]).toEqual(expect.objectContaining({
+      event: "game_over", payload: { fromQuarter: 4, toQuarter: 4 },
+    }));
   });
 });
 

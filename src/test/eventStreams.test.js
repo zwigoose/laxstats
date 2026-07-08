@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { deriveQuarterState } from "../services/gameEvents";
 import { dbRowToEntry } from "../hooks/useGameLog";
 import { getGameInfo } from "../utils/game";
+import { reduceGame } from "../domain/reduceGame";
+import { isStatEventType } from "../domain/eventTypes";
 
 import emptyPretracking from "./fixtures/eventStreams/empty-pretracking.json";
 import basicScoring from "./fixtures/eventStreams/basic-scoring.json";
@@ -9,6 +11,7 @@ import fullGame from "./fixtures/eventStreams/full-game.json";
 import overtime from "./fixtures/eventStreams/overtime.json";
 import quarterAnomalies from "./fixtures/eventStreams/quarter-anomalies.json";
 import legacyStateOnly from "./fixtures/eventStreams/legacy-state-only.json";
+import stateEvents from "./fixtures/eventStreams/state-events.json";
 
 /**
  * Characterization tests over the shared event-stream fixture corpus
@@ -31,6 +34,7 @@ const fixtures = [
   overtime,
   quarterAnomalies,
   legacyStateOnly,
+  stateEvents,
 ];
 
 // Mirrors fetchGameEvents' `.is("deleted_at", null)` filter.
@@ -53,6 +57,47 @@ describe.each(fixtures)("event stream fixture: $name", (fixture) => {
 
   it("renders the expected getGameInfo() display state from games.state", () => {
     expect(getGameInfo(fixture.game)).toMatchObject(fixture.expected.gameInfo);
+  });
+});
+
+// ── reduceGame ↔ project_game parity ───────────────────────────────────────────
+// reduceGame() is the JS twin of the SQL projector. Both consume the same
+// stream rows and must produce the fixture's expected.summary exactly — the
+// SQL side is checked by scripts/gen-projector-parity-sql.mjs against a real
+// database, the JS side here. Legacy metaEvents are mapped into the stream
+// the same way the Phase 3 migration copies them (payload shape, appended
+// after existing stream rows in per-game seq order).
+
+const legacyMetaToStreamRow = (m, i) => ({
+  id:                `stream-copy-${m.id ?? i}`,
+  seq:               100000 + i,
+  game_id:           m.game_id,
+  group_id:          `stream-copy-grp-${m.id ?? i}`,
+  event_type:        m.event_type,
+  team_idx:          null,
+  quarter:           null,
+  payload:           { fromQuarter: m.from_quarter, toQuarter: m.to_quarter },
+  deleted_at:        null,
+  created_by:        m.created_by,
+  client_created_at: m.client_created_at,
+});
+
+describe("reduceGame parity with expected.summary", () => {
+  const projectable = fixtures.filter((f) => f.expected.summary !== null);
+
+  it.each(projectable.map(f => [f.name, f]))("%s", (_name, fixture) => {
+    const streamRows = [
+      ...fixture.events,
+      ...fixture.metaEvents.map(legacyMetaToStreamRow),
+    ];
+    expect(reduceGame(streamRows, fixture.game.state)).toEqual(fixture.expected.summary);
+  });
+
+  it("stat entries exclude state and meta events (log/stats stay clean)", () => {
+    const statRows = stateEvents.events.filter(
+      (r) => !r.deleted_at && isStatEventType(r.event_type)
+    );
+    expect(statRows.map((r) => r.event_type)).toEqual(["goal"]);
   });
 });
 

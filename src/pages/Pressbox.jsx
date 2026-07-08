@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
@@ -6,7 +6,8 @@ import {
   qLabel, entryDisplayInfo,
 } from "../components/LaxStats";
 import { dbRowToEntry } from "../hooks/useGameLog";
-import { deriveQuarterState } from "../services/gameEvents";
+import { isStatEventType, isMetaEventType } from "../domain/eventTypes";
+import { deriveQuarterFromStream } from "../domain/reduceGame";
 import { useDocTitle } from "../hooks/useDocTitle";
 import GameTimeline from "../components/GameTimeline";
 import PlayerStatsTable, { PRESSBOX_STAT_KEYS } from "../components/PlayerStatsTable";
@@ -99,13 +100,39 @@ export default function Dashboard() {
 
   const [v2Log, setV2Log] = useState(null);
   const [derivedQuarterState, setDerivedQuarterState] = useState(null);
+  // Meta rows arrive on multiple realtime paths; incremental quarter replay
+  // is not idempotent, so track applied row ids.
+  const appliedMetaIds = useRef(new Set());
+
+  const applyMetaRow = (row) => {
+    if (appliedMetaIds.current.has(row.id)) return;
+    appliedMetaIds.current.add(row.id);
+    setDerivedQuarterState(prev => {
+      if (!prev) return deriveQuarterFromStream([row]);
+      let { currentQuarter, completedQuarters, gameOver } = prev;
+      const p = row.payload ?? {};
+      if (row.event_type === "quarter_end") {
+        completedQuarters = [...completedQuarters, p.fromQuarter];
+        currentQuarter    = p.toQuarter;
+      } else if (row.event_type === "game_over") {
+        completedQuarters = [...completedQuarters, p.fromQuarter];
+        gameOver          = true;
+        currentQuarter    = p.fromQuarter;
+      } else if (row.event_type === "quarter_override") {
+        currentQuarter = p.toQuarter;
+      }
+      return { currentQuarter, completedQuarters, gameOver };
+    });
+  };
 
   useEffect(() => {
     loadGame();
     const channel = supabase.channel(`game-events-${id}`)
       // Broadcasts from the scorekeeper — primary live-update path
       .on("broadcast", { event: "new_events" }, ({ payload }) => {
-        const incoming = (payload?.entries ?? []).map(dbRowToEntry);
+        const rows = (payload?.entries ?? []).filter(r => !r.deleted_at);
+        rows.filter(r => isMetaEventType(r.event_type)).forEach(applyMetaRow);
+        const incoming = rows.filter(r => isStatEventType(r.event_type)).map(dbRowToEntry);
         if (!incoming.length) return;
         setV2Log(prev => {
           const base = prev ?? [];
@@ -138,8 +165,11 @@ export default function Dashboard() {
         (payload) => setGame(prev => prev ? { ...prev, ...payload.new } : payload.new))
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_events", filter: `game_id=eq.${id}` },
         (payload) => {
-          if (payload.new.deleted_at) return;
-          const entry = dbRowToEntry(payload.new);
+          const row = payload.new;
+          if (row.deleted_at) return;
+          if (isMetaEventType(row.event_type)) { applyMetaRow(row); return; }
+          if (!isStatEventType(row.event_type)) return;
+          const entry = dbRowToEntry(row);
           setV2Log(prev => {
             if (!prev) return [entry];
             if (prev.some(e => e.dbId === entry.dbId)) return prev;
@@ -152,25 +182,6 @@ export default function Dashboard() {
             setV2Log(prev => prev ? prev.filter(e => e.dbId !== payload.new.id) : prev);
           }
         })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "game_meta_events", filter: `game_id=eq.${id}` },
-        (payload) => {
-          setDerivedQuarterState(prev => {
-            const row = payload.new;
-            if (!prev) return deriveQuarterState([row]);
-            let { currentQuarter, completedQuarters, gameOver } = prev;
-            if (row.event_type === "quarter_end") {
-              completedQuarters = [...completedQuarters, row.from_quarter];
-              currentQuarter    = row.to_quarter;
-            } else if (row.event_type === "game_over") {
-              completedQuarters = [...completedQuarters, row.from_quarter];
-              gameOver          = true;
-              currentQuarter    = row.from_quarter;
-            } else if (row.event_type === "quarter_override") {
-              currentQuarter = row.to_quarter;
-            }
-            return { currentQuarter, completedQuarters, gameOver };
-          });
-        })
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [id]);
@@ -181,21 +192,18 @@ export default function Dashboard() {
       .from("games").select("id, created_at, name, state, schema_ver, org_id").eq("id", id).single();
     if (err) { setError(err.message); setLoading(false); return; }
     setGame(data);
-    const [evRes, metaRes] = await Promise.all([
-      supabase
-        .from("game_events")
-        .select("*")
-        .eq("game_id", data.id)
-        .is("deleted_at", null)
-        .order("seq"),
-      supabase
-        .from("game_meta_events")
-        .select("*")
-        .eq("game_id", data.id)
-        .order("seq"),
-    ]);
-    setV2Log((evRes.data || []).map(dbRowToEntry));
-    const derived = deriveQuarterState(metaRes.data || []);
+    const evRes = await supabase
+      .from("game_events")
+      .select("*")
+      .eq("game_id", data.id)
+      .is("deleted_at", null)
+      .order("seq");
+    const rows = evRes.data || [];
+    setV2Log(rows.filter(r => isStatEventType(r.event_type)).map(dbRowToEntry));
+    appliedMetaIds.current = new Set(
+      rows.filter(r => isMetaEventType(r.event_type)).map(r => r.id)
+    );
+    const derived = deriveQuarterFromStream(rows);
     if (derived) setDerivedQuarterState(derived);
     setLoading(false);
   }

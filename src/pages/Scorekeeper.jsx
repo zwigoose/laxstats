@@ -11,6 +11,8 @@ import { useAuth } from "../contexts/AuthContext";
 import LaxStats from "../components/LaxStats";
 import { useGameLog } from "../hooks/useGameLog";
 import { updateGameEventsPlayer } from "../services/gameEvents";
+import { registersFromState, diffRegisters } from "../domain/eventTypes";
+import { parseRoster } from "../utils/stats";
 import { C, F } from "../styles/tokens";
 
 const S = {
@@ -39,6 +41,11 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
   const pendingMeta  = useRef(null);
   const saveInFlight = useRef(false);
   const tokenRef     = useRef(null);
+  // Register snapshots for diff-based state-event dispatch (event-sourcing
+  // Phase 3): seeded from the hydration state so mounting never re-emits the
+  // full register set, then advanced on every save.
+  const prevRegsRef      = useRef(null);
+  const hydratedStateRef = useRef(null);
   const [gameName, setGameName]   = useState(game?.name || "");
   useDocTitle(gameName || "Scorekeeper");
   const [inviteLink,  setInviteLink]  = useState(null);
@@ -85,6 +92,11 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     channelStatus,
   } = useGameLog(id, userId);
 
+  // doStateSave is memoized on [id]; commitGroup is recreated when online
+  // status flips — go through a ref so register dispatch never goes stale.
+  const commitGroupRef = useRef(commitGroup);
+  commitGroupRef.current = commitGroup;
+
   // Build initialState: teams/config from games.state, quarter state from
   // game_meta_events (via derivedQuarterState), log from game_events rows.
   const initialState = (eventsLoading || !game)
@@ -105,6 +117,12 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
         }
         return { ...base, log: entries };
       })();
+
+  // Capture the first hydrated state once — it's the diff baseline for
+  // register dispatch (registers present at mount were not changed here).
+  if (initialState !== undefined && hydratedStateRef.current === null) {
+    hydratedStateRef.current = initialState ?? {};
+  }
 
   // Meta-event handler: write a game_meta_events row to the DB (the source of truth for
   // quarter state), then broadcast to co-scorers. LaxStats awaits this promise before
@@ -131,6 +149,20 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     updatePayload.referee_names      = stateToSave.refereeNames      ?? null;
     updatePayload.weather_conditions = stateToSave.weatherConditions ?? null;
     updatePayload.field_location     = stateToSave.fieldLocation     ?? null;
+
+    // Dispatch changed setup registers as state events (event-sourcing
+    // Phase 3). The stream is becoming the source of truth; the state PATCH
+    // below remains as the transition-period dual-write (dropped in Phase 4).
+    try {
+      if (prevRegsRef.current === null) {
+        prevRegsRef.current = registersFromState(hydratedStateRef.current ?? {}, parseRoster);
+      }
+      const nextRegs = registersFromState(stateToSave, parseRoster);
+      const regEntries = diffRegisters(prevRegsRef.current, nextRegs);
+      prevRegsRef.current = nextRegs;
+      if (regEntries.length) await commitGroupRef.current(regEntries);
+    } catch { /* surfaced via the hook's error state; state PATCH still runs */ }
+
     const { error: err } = await updateGame(id, updatePayload);
     saveInFlight.current = false;
     if (err) {

@@ -140,6 +140,27 @@
       "currentQuarter": 1,
       "latestTime": null,
       "gameDate": "2026-05-03"
+    },
+    "summary": {
+      "score0": 1,
+      "score1": 1,
+      "currentQuarter": 1,
+      "completedQuarters": [],
+      "gameOver": false,
+      "trackingStarted": true,
+      "teams": [
+        { "name": "North Dakota", "roster": "7 Smith\n12 Jones\n1 Keeper", "color": "#1a6bab" },
+        { "name": "Bemidji", "roster": "9 Olson\n22 Ruiz\n1 Wall", "color": "#b84e1a" }
+      ],
+      "activeGoalies": [
+        { "num": "1", "name": "Keeper" },
+        { "num": "1", "name": "Wall" }
+      ],
+      "goalieDecisions": null,
+      "gameDate": "2026-05-03",
+      "refereeNames": null,
+      "weatherConditions": null,
+      "fieldLocation": null
     }
   }
 }
