@@ -5,6 +5,20 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.27.0] — 2026-07-09
+
+### Added
+- **Undo last quarter change** — the "Wrong quarter?" panel can now truly reverse an accidental quarter ending (or manual quarter change): the mistaken transition is removed from the game record, the quarter reopens everywhere (scorekeeper, live view, press box), and any events logged after the mistake can be moved back to the reopened quarter in the same step
+
+### Changed
+- Manually setting the current quarter to an earlier quarter now coherently reopens it — later quarters are no longer marked complete, so the scoreboard can't show a quarter as both live and finished
+- The quarter picker is labeled honestly: events already logged keep their quarter; only new events are affected
+
+### Fixed
+- Stamp corrections (quarter fixes, finalization roster/player fixes) now reach co-scorers and live viewers in realtime instead of requiring a refresh
+
+---
+
 ## [2.26.3] — 2026-07-09
 
 ### Fixed
