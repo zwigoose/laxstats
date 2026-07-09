@@ -357,6 +357,12 @@ Remaining counts are shown on the team select buttons. Unused first-half timeout
 ### Ending a quarter
 Tap **End Q# →** at the bottom of the Track screen. A confirmation screen shows a stat summary. Tap the confirm button to lock the quarter.
 
+### Fixing a quarter mistake
+Tap the small **Wrong quarter?** link under the End Quarter button (primary scorer only). The panel offers two tools:
+
+- **Undo last quarter change** — reverses the most recent quarter ending (or manual quarter change) as if it never happened: the quarter reopens and its scoreboard column goes live again. If any events were logged after the mistaken change, a checkbox (on by default) moves them back to the reopened quarter along with the undo. Finalized games can't be undone from here.
+- **Set current quarter** — manually points the scorekeeper at a different quarter. Events already logged keep their quarter — this only changes the quarter for events you log from now on. Setting an earlier quarter reopens it (later quarters are no longer marked complete).
+
 ### Quarter 4 — Final or Overtime
 - **Not tied** → the finalization review opens (see below)
 - **Tied** → overtime begins (OT1, OT2, etc.)

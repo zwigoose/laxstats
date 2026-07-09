@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -10,9 +10,9 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import LaxStats from "../components/LaxStats";
 import { useGameLog } from "../hooks/useGameLog";
-import { updateGameEventsPlayer } from "../services/gameEvents";
+import { updateGameEventsPlayer, relabelEventQuarters } from "../services/gameEvents";
 import { registersFromState, diffRegisters } from "../domain/eventTypes";
-import { reduceGame } from "../domain/reduceGame";
+import { reduceGame, computeQuarterFix } from "../domain/reduceGame";
 import { parseRoster } from "../utils/stats";
 import { C, F } from "../styles/tokens";
 
@@ -126,6 +126,24 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
       hydratedStateRef.current = initialState ?? {};
     }
   });
+
+  // Undoable last quarter transition: which meta event to tombstone and which
+  // stat events were logged into the aborted quarter (relabel candidates).
+  const quarterFix = useMemo(() => computeQuarterFix(rows), [rows]);
+
+  // Undo = (optionally) relabel the orphaned events back, then tombstone the
+  // transition — replay heals currentQuarter/completedQuarters everywhere.
+  // Relabel first: a relabel without the undo is harmless, an undo without
+  // the relabel leaves wrong stamps.
+  const handleUndoQuarterChange = useCallback(async ({ relabel }) => {
+    const fix = computeQuarterFix(rows);
+    if (!fix) return;
+    if (relabel && fix.affectedIds.length) {
+      const { error: err } = await relabelEventQuarters(id, fix.affectedIds, fix.restoredQuarter);
+      if (err) throw err;
+    }
+    await softDeleteGroup(fix.groupId);
+  }, [rows, id, softDeleteGroup]);
 
   // Meta-event handler: append a quarter-transition event to the stream (the source of truth for
   // quarter state), then broadcast to co-scorers. LaxStats awaits this promise before
@@ -273,6 +291,8 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
           onMetaEvent={handleMetaEvent}
           remoteEntries={entries}
           derivedQuarterState={derivedQuarterState}
+          quarterFix={quarterFix}
+          onUndoQuarterChange={handleUndoQuarterChange}
           scorekeeperRole={isPrimary ? "primary" : "secondary"}
           shotLocationEnabled={!!game?.shot_location_enabled}
           orgContext={orgContext}

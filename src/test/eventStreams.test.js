@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { dbRowToEntry } from "../hooks/useGameLog";
 import { getGameInfo } from "../utils/game";
-import { reduceGame } from "../domain/reduceGame";
+import { reduceGame, computeQuarterFix } from "../domain/reduceGame";
 import { isStatEventType } from "../domain/eventTypes";
 
 import emptyPretracking from "./fixtures/eventStreams/empty-pretracking.json";
@@ -11,6 +11,7 @@ import overtime from "./fixtures/eventStreams/overtime.json";
 import quarterAnomalies from "./fixtures/eventStreams/quarter-anomalies.json";
 import legacyStateOnly from "./fixtures/eventStreams/legacy-state-only.json";
 import stateEvents from "./fixtures/eventStreams/state-events.json";
+import overrideDown from "./fixtures/eventStreams/override-down.json";
 
 /**
  * Characterization tests over the shared event-stream fixture corpus
@@ -34,6 +35,7 @@ const fixtures = [
   quarterAnomalies,
   legacyStateOnly,
   stateEvents,
+  overrideDown,
 ];
 
 // Mirrors fetchGameEvents' `.is("deleted_at", null)` filter.
@@ -96,6 +98,65 @@ describe("reduceGame parity with expected.summary", () => {
       (r) => !r.deleted_at && isStatEventType(r.event_type)
     );
     expect(statRows.map((r) => r.event_type)).toEqual(["goal"]);
+  });
+});
+
+// ── computeQuarterFix — the undo descriptor ────────────────────────────────────
+
+describe("computeQuarterFix", () => {
+  const qe = (seq, from, to, deleted = false) => ({
+    id: `meta-${seq}`, seq, group_id: `grp-meta-${seq}`, event_type: "quarter_end",
+    quarter: null, team_idx: null, payload: { fromQuarter: from, toQuarter: to },
+    deleted_at: deleted ? "2026-07-09T00:00:00Z" : null,
+  });
+  const goal = (seq, quarter) => ({
+    id: `goal-${seq}`, seq, group_id: `grp-${seq}`, event_type: "goal",
+    quarter, team_idx: 0, deleted_at: null,
+  });
+
+  it("returns null when there are no meta events", () => {
+    expect(computeQuarterFix([goal(1, 1)])).toBeNull();
+  });
+
+  it("describes an accidental quarter_end with the events logged after it", () => {
+    const fix = computeQuarterFix([goal(1, 1), qe(2, 1, 2), goal(3, 2), goal(4, 2)]);
+    expect(fix).toEqual({
+      type: "quarter_end", fromQuarter: 1, toQuarter: 2,
+      restoredQuarter: 1, groupId: "grp-meta-2",
+      affectedIds: ["goal-3", "goal-4"],
+    });
+  });
+
+  it("restores to the replayed pre-transition quarter, not just fromQuarter", () => {
+    const fix = computeQuarterFix([qe(1, 1, 2), qe(2, 2, 3)]);
+    expect(fix.restoredQuarter).toBe(2);
+    expect(fix.groupId).toBe("grp-meta-2");
+  });
+
+  it("skips tombstoned meta events (an already-undone transition)", () => {
+    const fix = computeQuarterFix([qe(1, 1, 2), qe(2, 2, 3, true), goal(3, 2)]);
+    expect(fix.type).toBe("quarter_end");
+    expect(fix.groupId).toBe("grp-meta-1");
+    // goal-3 is in Q2 (= toQuarter of the live transition) and after it
+    expect(fix.affectedIds).toEqual(["goal-3"]);
+  });
+
+  it("returns null when the last transition is game_over (un-finalizing is out of scope)", () => {
+    const rows = [qe(1, 1, 2), {
+      id: "meta-2", seq: 2, group_id: "grp-meta-2", event_type: "game_over",
+      quarter: null, team_idx: null, payload: { fromQuarter: 4, toQuarter: 4 }, deleted_at: null,
+    }];
+    expect(computeQuarterFix(rows)).toBeNull();
+  });
+
+  it("describes an override, restoring to the pre-override quarter", () => {
+    const fix = computeQuarterFix([qe(1, 1, 2), {
+      id: "meta-2", seq: 2, group_id: "grp-meta-2", event_type: "quarter_override",
+      quarter: null, team_idx: null, payload: { fromQuarter: 2, toQuarter: 4 }, deleted_at: null,
+    }, goal(3, 4)]);
+    expect(fix.type).toBe("quarter_override");
+    expect(fix.restoredQuarter).toBe(2);
+    expect(fix.affectedIds).toEqual(["goal-3"]);
   });
 });
 

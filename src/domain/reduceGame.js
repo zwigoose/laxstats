@@ -38,10 +38,46 @@ export function deriveQuarterFromStream(rows) {
       currentQuarter    = p.fromQuarter;
     } else if (row.event_type === "quarter_override") {
       currentQuarter = p.toQuarter;
+      // Reconcile: quarters at or beyond the override target un-complete, so
+      // a downward override cannot leave a quarter both current and done.
+      completedQuarters = completedQuarters.filter((q) => q < currentQuarter);
     }
   }
 
   return { currentQuarter, completedQuarters, gameOver };
+}
+
+/**
+ * Describe the most recent quarter transition so the scorekeeper can offer a
+ * real undo: which meta event to tombstone, and which stat events were logged
+ * after it into the quarter it created (candidates to move back).
+ * Returns null when there is nothing undoable (no live meta events, or the
+ * last transition is game_over — un-finalizing is out of scope).
+ */
+export function computeQuarterFix(rows) {
+  const live  = liveRows(rows).sort(bySeq);
+  const metas = live.filter((r) => isMetaEventType(r.event_type));
+  const last  = metas[metas.length - 1] ?? null;
+  if (!last || last.event_type === "game_over") return null;
+
+  const p = last.payload ?? {};
+  // Undoing the transition restores the quarter machine to its state just
+  // before `last` — replay everything up to (not including) it.
+  const before = deriveQuarterFromStream(live.filter((r) => r.seq < last.seq));
+  const restoredQuarter = before ? before.currentQuarter : 1;
+
+  const affected = live.filter(
+    (r) => isStatEventType(r.event_type) && r.seq > last.seq && r.quarter === p.toQuarter
+  );
+
+  return {
+    type:            last.event_type,           // "quarter_end" | "quarter_override"
+    fromQuarter:     p.fromQuarter ?? null,
+    toQuarter:       p.toQuarter ?? null,
+    restoredQuarter,                             // where undo lands the game
+    groupId:         last.group_id,
+    affectedIds:     affected.map((r) => r.id),  // events to relabel back
+  };
 }
 
 // Latest live register payloads keyed "type:teamIdx" ("-" for game-scoped),

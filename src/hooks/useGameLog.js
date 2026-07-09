@@ -227,7 +227,9 @@ export function useGameLog(gameId, userId, db = _supabase) {
       ));
     });
 
-    // postgres_changes UPDATE — handles soft-deletes and flag changes (e.g. is_possible_duplicate)
+    // postgres_changes UPDATE — soft-deletes remove the row; any other update
+    // (duplicate flag, quarter relabel, player fix) merges the full row so
+    // co-scorers see stamp corrections live.
     channel.on(
       "postgres_changes",
       { event: "UPDATE", schema: "public", table: "game_events", filter: `game_id=eq.${gameId}` },
@@ -236,11 +238,7 @@ export function useGameLog(gameId, userId, db = _supabase) {
         if (row.deleted_at) {
           setRows(prev => prev.filter(r => r.id !== row.id));
         } else {
-          setRows(prev => prev.map(r =>
-            r.id === row.id
-              ? { ...r, is_possible_duplicate: row.is_possible_duplicate ?? false }
-              : r
-          ));
+          setRows(prev => prev.map(r => (r.id === row.id ? { ...r, ...row } : r)));
         }
       }
     );

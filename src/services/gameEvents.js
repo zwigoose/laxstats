@@ -22,6 +22,17 @@ export async function appendGameEvents(rows, db = _supabase) {
 }
 
 /**
+ * Move mis-stamped stat events to the right quarter. RPC gated by
+ * can_score_game for the same reason as softDeleteEventGroup: a direct
+ * UPDATE would silently no-op on a co-scorer's rows.
+ */
+export async function relabelEventQuarters(gameId, eventIds, quarter, db = _supabase) {
+  return db.rpc("relabel_event_quarters", {
+    p_game_id: gameId, p_event_ids: eventIds, p_quarter: quarter,
+  });
+}
+
+/**
  * Soft-delete via RPC gated by can_score_game — a direct UPDATE would be
  * limited by the creator-or-org-admin policy, so a secondary scorer could
  * not delete the primary scorer's entries.
