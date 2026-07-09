@@ -33,6 +33,8 @@ export default function LaxStats({
   onMetaEvent = null,               // async (type, fromQuarter, toQuarter) => row — DB-confirmed quarter transition
   remoteEntries = null,      // [{...entry}] from other scorers; merged into local log
   derivedQuarterState = null, // { currentQuarter, completedQuarters, gameOver } derived from the event stream
+  quarterFix = null,          // computeQuarterFix() result — last undoable quarter transition
+  onUndoQuarterChange = null, // async ({ relabel }) => void — tombstone it (+ relabel orphaned events)
   scorekeeperRole = "primary", // "primary" | "secondary"
   gameId = null,               // game UUID — enables per-game logo uploads to game-logos bucket
   // org game props — optional; omit for personal games
@@ -118,6 +120,8 @@ export default function LaxStats({
   // Quarter override panel
   const [quarterOverrideOpen, setQuarterOverrideOpen] = useState(false);
   const [quarterOverridePending, setQuarterOverridePending] = useState(null);
+  const [undoRelabel, setUndoRelabel] = useState(true);
+  const [undoBusy, setUndoBusy]       = useState(false);
   // Mid-game roster editor: null | { teamIdx, mode: "edit"|"add", playerIdx?: number, num: string, name: string }
   const [rosterEdit, setRosterEdit] = useState(null);
 
@@ -218,9 +222,23 @@ export default function LaxStats({
         }
       }
 
-      if (!toAdd.length && !deletedRemoteGroupIds.length) return prev;
+      // Sync stamp corrections (quarter relabel, player fix) on entries we
+      // already hold — the add/remove passes above only see whole groups.
+      const remoteByDbId = new Map(remoteEntries.filter(e => e.dbId).map(e => [e.dbId, e]));
+      let stampsChanged = false;
+      const synced = prev.map(e => {
+        const r = e.dbId ? remoteByDbId.get(e.dbId) : null;
+        if (r && (r.quarter !== e.quarter ||
+                  r.player?.num !== e.player?.num || r.player?.name !== e.player?.name)) {
+          stampsChanged = true;
+          return { ...e, quarter: r.quarter, player: r.player };
+        }
+        return e;
+      });
 
-      let next = prev;
+      if (!toAdd.length && !deletedRemoteGroupIds.length && !stampsChanged) return prev;
+
+      let next = synced;
       if (deletedRemoteGroupIds.length) {
         const toRemove = new Set(deletedRemoteGroupIds);
         next = next.filter(e => !toRemove.has(e.groupId));
@@ -2034,17 +2052,64 @@ export default function LaxStats({
                 <div style={{ textAlign: "center", marginTop: 6 }}>
                   <button
                     style={{ fontSize: 11, color: C.gray400, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: "2px 0" }}
-                    onClick={() => { setQuarterOverridePending(currentQuarter); setQuarterOverrideOpen(true); }}
+                    onClick={() => { setQuarterOverridePending(currentQuarter); setUndoRelabel(true); setQuarterOverrideOpen(true); }}
                   >
                     Wrong quarter?
                   </button>
                 </div>
               )}
 
-              {/* Quarter override panel */}
+              {/* Quarter fix panel */}
               {quarterOverrideOpen && (
                 <div style={{ marginTop: 10, background: C.gray50, border: `1px solid ${C.gray250}`, borderRadius: 10, padding: "12px 14px" }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: C.gray900, marginBottom: 8 }}>Set current quarter</div>
+
+                  {/* Undo the last quarter transition — the real repair */}
+                  {quarterFix && onUndoQuarterChange && (
+                    <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${C.gray200}` }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.gray900, marginBottom: 4 }}>Undo last quarter change</div>
+                      <div style={{ fontSize: 12, color: C.gray500, marginBottom: 8 }}>
+                        {quarterFix.type === "quarter_end"
+                          ? <>Ended {qLabel(quarterFix.fromQuarter)} → {qLabel(quarterFix.toQuarter)}</>
+                          : <>Quarter set to {qLabel(quarterFix.toQuarter)}</>}
+                        {" — undo returns the game to "}{qLabel(quarterFix.restoredQuarter)}.
+                      </div>
+                      {quarterFix.affectedIds.length > 0 && (
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: C.gray650, marginBottom: 10, cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={undoRelabel}
+                            onChange={e => setUndoRelabel(e.target.checked)}
+                          />
+                          Also move {quarterFix.affectedIds.length} event{quarterFix.affectedIds.length !== 1 ? "s" : ""} logged
+                          in {qLabel(quarterFix.toQuarter)} back to {qLabel(quarterFix.restoredQuarter)}
+                        </label>
+                      )}
+                      <button
+                        style={S.btnWarning}
+                        disabled={undoBusy}
+                        onClick={async () => {
+                          setQuarterError(null);
+                          setUndoBusy(true);
+                          try {
+                            await onUndoQuarterChange({ relabel: undoRelabel });
+                            setQuarterOverrideOpen(false);
+                            setQuarterOverridePending(null);
+                          } catch (err) {
+                            setQuarterError(err?.message || "Failed to undo the quarter change.");
+                          } finally {
+                            setUndoBusy(false);
+                          }
+                        }}
+                      >
+                        {undoBusy ? "Undoing…" : `Undo — back to ${qLabel(quarterFix.restoredQuarter)}`}
+                      </button>
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.gray900, marginBottom: 4 }}>Set current quarter</div>
+                  <div style={{ fontSize: 12, color: C.gray500, marginBottom: 8 }}>
+                    Events already logged keep their quarter — this only changes the quarter for new events.
+                  </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                     {[1, 2, 3, 4, 5, 6].filter(q => q <= Math.max(currentQuarter + 1, 4)).map(q => (
                       <button

@@ -155,8 +155,13 @@ useEffect(() => {
       .on("postgres_changes", {
         event: "UPDATE", schema: "public", table: "game_events", filter: `game_id=eq.${id}`,
       }, (payload) => {
-        if (payload.new.deleted_at) {
-          setV2Log(prev => prev ? prev.filter(e => e.dbId !== payload.new.id) : prev);
+        const row = payload.new;
+        if (row.deleted_at) {
+          setV2Log(prev => prev ? prev.filter(e => e.dbId !== row.id) : prev);
+        } else if (isStatEventType(row.event_type)) {
+          // Stamp corrections (quarter relabel, player fix) sync live.
+          const entry = dbRowToEntry(row);
+          setV2Log(prev => prev ? prev.map(e => (e.dbId === row.id ? entry : e)) : prev);
         }
       })
       .subscribe();
