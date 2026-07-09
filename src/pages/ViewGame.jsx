@@ -195,7 +195,7 @@ useEffect(() => {
     setError(null);
     const { data, error: err } = await supabase
       .from("games")
-      .select("id, created_at, name, state, schema_ver, org_id, away_org_id, away_season_id, pressbox_enabled, user_id, referee_names, weather_conditions, field_location")
+      .select("id, created_at, name, state, summary, schema_ver, org_id, away_org_id, away_season_id, pressbox_enabled, user_id, referee_names, weather_conditions, field_location")
       .eq("id", id)
       .single();
     if (err) { setError(err.message); setLoading(false); return; }
@@ -253,7 +253,9 @@ useEffect(() => {
   }
 
   // ── Derived from game state ──────────────────────────────────────
-  const state = game?.state;
+  // Server-projected summary first; legacy state only for pre-refactor games
+  // (schema_ver 3 games have state = null forever).
+  const state = game?.summary ?? game?.state;
   const teams = state?.teams || [{ name: "Home", color: C.blue600 }, { name: "Away", color: C.orange700 }];
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
   const log = v2Log ?? [];
@@ -537,9 +539,9 @@ useEffect(() => {
 
             {/* Game logistics */}
             {(() => {
-              const loc  = game?.field_location     || game?.state?.fieldLocation;
-              const cond = game?.weather_conditions || game?.state?.weatherConditions;
-              const refs = game?.referee_names      || game?.state?.refereeNames;
+              const loc  = game?.field_location     || state?.fieldLocation;
+              const cond = game?.weather_conditions || state?.weatherConditions;
+              const refs = game?.referee_names      || state?.refereeNames;
               if (!loc && !cond && !refs) return null;
               return (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", padding: "8px 2px 16px", fontSize: 12, color: C.gray550 }}>

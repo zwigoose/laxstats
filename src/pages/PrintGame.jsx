@@ -32,7 +32,7 @@ export default function PrintGame() {
       setLoading(true);
       const { data, error: err } = await supabase
         .from("games")
-        .select("id, created_at, name, state, org_id, away_org_id, referee_names, weather_conditions, field_location")
+        .select("id, created_at, name, state, summary, org_id, away_org_id, referee_names, weather_conditions, field_location")
         .eq("id", id)
         .single();
       if (err) { setError(err.message); setLoading(false); return; }
@@ -57,7 +57,9 @@ export default function PrintGame() {
     load();
   }, [id]);
 
-  const state = game?.state;
+  // Server-projected summary first; legacy state only for pre-refactor games
+  // (schema_ver 3 games have state = null forever).
+  const state = game?.summary ?? game?.state;
   const teams = state?.teams || [{ name: "Home", color: C.blue600 }, { name: "Away", color: C.orange700 }];
   const log   = v2Log ?? [];
   const completedQuarters = derivedQuarterState?.completedQuarters ?? state?.completedQuarters ?? [];
