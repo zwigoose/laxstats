@@ -174,7 +174,7 @@ export default function Dashboard() {
   async function loadGame() {
     setLoading(true); setError(null);
     const { data, error: err } = await supabase
-      .from("games").select("id, created_at, name, state, schema_ver, org_id").eq("id", id).single();
+      .from("games").select("id, created_at, name, state, summary, schema_ver, org_id").eq("id", id).single();
     if (err) { setError(err.message); setLoading(false); return; }
     setGame(data);
     const evRes = await supabase
@@ -195,7 +195,9 @@ export default function Dashboard() {
 
   // ── Derived state ─────────────────────────────────────────────────────────
 
-  const state    = game?.state;
+  // Server-projected summary first; legacy state only for pre-refactor games
+  // (schema_ver 3 games have state = null forever).
+  const state    = game?.summary ?? game?.state;
   const teams    = state?.teams || [{ name: "Home", color: C.blue600 }, { name: "Away", color: C.orange700 }];
   useDocTitle(game ? `${teams[0].name} vs ${teams[1].name}` : null);
   const log = v2Log ?? [];
@@ -436,7 +438,7 @@ export default function Dashboard() {
                       statKeys={PRESSBOX_STAT_KEYS}
                       teamIdx={playerTeam}
                       compact
-                      goalieDecisions={game?.state?.goalieDecisions || null}
+                      goalieDecisions={state?.goalieDecisions || null}
                     />
                   )}
                 </div>
