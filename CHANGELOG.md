@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.26.3] — 2026-07-09
+
+### Fixed
+- Live view, press box, and print views now read the server-projected game summary, so games created after the state freeze (`schema_ver 3`) show their teams and started/live status correctly instead of appearing not-yet-started with default team names
+
+---
+
 ## [2.26.2] — 2026-07-08
 
 ### Removed
