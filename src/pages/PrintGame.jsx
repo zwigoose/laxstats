@@ -113,6 +113,9 @@ export default function PrintGame() {
       <div style={css.toolbar} className="no-print">
         <button style={css.backBtn} onClick={() => navigate(`/games/${id}/view`)}>← Back</button>
         <span style={css.brandMark}>LaxStats</span>
+        <a style={css.xmlBtn} href={`/games/${id}/print/xml`} target="_blank" rel="noopener noreferrer">
+          Export XML
+        </a>
         <button style={css.printBtn} onClick={() => window.print()}>Print / Save as PDF</button>
       </div>
 
@@ -334,6 +337,7 @@ const css = {
   backBtn:     { fontSize: 13, fontWeight: 500, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "4px 0" },
   brandMark:   { fontSize: 15, fontWeight: 800, color: C.gray900, letterSpacing: "-0.03em", flex: 1, textAlign: "center" },
   printBtn:    { fontSize: 13, fontWeight: 600, background: C.gray900, color: C.white, border: "none", borderRadius: 8, padding: "7px 16px", cursor: "pointer", whiteSpace: "nowrap" },
+  xmlBtn:      { fontSize: 13, fontWeight: 600, background: "none", color: C.gray650, border: `1px solid ${C.gray275}`, borderRadius: 8, padding: "7px 16px", cursor: "pointer", whiteSpace: "nowrap", textDecoration: "none" },
   gameHeader:  { padding: "20px 20px 0" },
   gameName:    { fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 6 },
   gameMeta:    { display: "flex", flexWrap: "wrap", gap: "4px 16px", fontSize: 12, color: C.gray550 },
