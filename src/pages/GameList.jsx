@@ -20,7 +20,7 @@ const HOME_JSON_LD = JSON.stringify([
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "LaxStats",
-    "url": "https://laxstats.com",
+    "url": "https://laxstats.app",
   },
   {
     "@context": "https://schema.org",
@@ -30,7 +30,7 @@ const HOME_JSON_LD = JSON.stringify([
     "applicationCategory": "SportsApplication",
     "description": "Digital scorebook and live stats platform for men's lacrosse.",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "url": "https://laxstats.com",
+    "url": "https://laxstats.app",
   },
 ]);
 
@@ -1075,7 +1075,7 @@ export default function GameList() {
       <SeoMeta
         title="Home"
         description="Score lacrosse games on your phone, share live stats with anyone, and get a full box score instantly. Free to start."
-        url="https://laxstats.com"
+        url="https://laxstats.app"
       />
       <Helmet>
         <script type="application/ld+json">{HOME_JSON_LD}</script>

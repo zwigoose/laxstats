@@ -52,7 +52,7 @@ export default function Login() {
       <SeoMeta
         title={mode === "signup" ? "Create Account" : "Sign In"}
         description="Sign in to your LaxStats account to score lacrosse games, manage your roster, and share live stats."
-        url="https://laxstats.com/login"
+        url="https://laxstats.app/login"
       />
       <div style={{ width: "100%", maxWidth: 380 }}>
         {/* Logo */}
