@@ -34,7 +34,7 @@ export default function AllGamesTab() {
   async function loadData() {
     setLoading(true); setError(null);
     const [gamesRes, usersRes] = await Promise.all([
-      supabase.from("games").select("id, name, created_at, state, schema_ver, user_id, pressbox_enabled, multi_scorer_enabled, org_id, org:organizations!org_id(id, name, slug)").order("created_at", { ascending: false }),
+      supabase.from("games").select("id, name, created_at, state, summary, schema_ver, user_id, pressbox_enabled, multi_scorer_enabled, org_id, org:organizations!org_id(id, name, slug)").order("created_at", { ascending: false }),
       supabase.rpc("admin_get_users"),
     ]);
     if (gamesRes.error) { setError(gamesRes.error.message); setLoading(false); return; }

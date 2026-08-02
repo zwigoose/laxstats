@@ -5,6 +5,99 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.27.0] — 2026-07-09
+
+### Added
+- **Undo last quarter change** — the "Wrong quarter?" panel can now truly reverse an accidental quarter ending (or manual quarter change): the mistaken transition is removed from the game record, the quarter reopens everywhere (scorekeeper, live view, press box), and any events logged after the mistake can be moved back to the reopened quarter in the same step
+
+### Changed
+- Manually setting the current quarter to an earlier quarter now coherently reopens it — later quarters are no longer marked complete, so the scoreboard can't show a quarter as both live and finished
+- The quarter picker is labeled honestly: events already logged keep their quarter; only new events are affected
+
+### Fixed
+- Stamp corrections (quarter fixes, finalization roster/player fixes) now reach co-scorers and live viewers in realtime instead of requiring a refresh
+
+---
+
+## [2.26.3] — 2026-07-09
+
+### Fixed
+- Live view, press box, and print views now read the server-projected game summary, so games created after the state freeze (`schema_ver 3`) show their teams and started/live status correctly instead of appearing not-yet-started with default team names
+
+---
+
+## [2.26.2] — 2026-07-08
+
+### Removed
+- The last event-sourcing transition scaffolding: the legacy `game_meta_events` table (all quarter history lives in the unified event stream), its forwarding bridge, the `games.state` projection trigger, and the `meta_update` broadcast path. This completes the event-sourcing refactor — `game_events` is the sole source of truth
+
+---
+
+## [2.26.1] — 2026-07-08
+
+### Removed
+- Dead legacy event paths superseded by the unified stream (event-sourcing Phase 5, client side): plain-insert event writes, direct-update soft deletes, legacy quarter-state fetch/replay, and the unused meta broadcast helper. No behavior changes
+
+---
+
+## [2.26.0] — 2026-07-08
+
+### Changed
+- **State freeze** (event-sourcing Phase 4) — the scorekeeper no longer writes the legacy `games.state` cache; setup changes persist exclusively as register events through the offline outbox, and scorekeeper hydration replays the event stream. New games are created at `schema_ver 3`, where stale clients' state writes are silently ignored
+- The event hook derives the log and quarter state from one deduped stream-row source, making realtime redelivery double-application impossible by construction
+
+### Removed
+- The "Quarter state corrected" desync reconciliation banner — hydration and live quarter state now come from the same event stream, so the disagreement it guarded against can no longer occur
+- The localStorage pending-state queue, tab-close keepalive save, and reconnect state retry (superseded by the outbox)
+
+---
+
+## [2.25.0] — 2026-07-07
+
+### Added
+- **Unified event stream** (event-sourcing Phase 3) — quarter transitions and game setup (rosters, team profiles, goalies, logistics) are now recorded as events in `game_events` alongside scored actions: quarter changes carry `{fromQuarter, toQuarter}` payloads, setup changes are last-write-wins register events dispatched automatically as you edit. Existing quarter history was migrated in with a forwarding bridge for older clients
+- `reduceGame()` domain reducer — the client-side twin of the server projector, parity-locked through shared fixtures
+
+### Changed
+- Setup edits from any scorekeeper now win over stale full-state writes (registers beat the legacy cache), closing the last-write-wins roster clobbering between concurrent scorers
+- Press box, live view, and print views derive quarter state from the unified stream
+
+### Removed
+- `updateGameTeams` service helper (no callers; game names are now maintained by the server projector)
+
+---
+
+## [2.24.0] — 2026-07-07
+
+### Added
+- **Unified offline outbox** (event-sourcing Phase 2) — all scorekeeper writes (events, quarter transitions, deletions) queue through a single IndexedDB outbox flushed in strict order; the three legacy offline stores are drained automatically on first load
+- **Idempotent event writes** — events carry client-generated ids and sync via duplicate-ignoring upserts, so retried or interrupted syncs can no longer create duplicate events
+
+### Fixed
+- Secondary scorekeepers can now delete entries logged by the primary scorekeeper (deletes route through a new `soft_delete_event_group` RPC; previously the delete silently did nothing)
+
+---
+
+## [2.23.0] — 2026-07-07
+
+### Added
+- **Server-projected game summaries** (event-sourcing Phase 1) — `games.summary` is now maintained by a Postgres projector (`project_game()`) triggered on every event, quarter-transition, state write, and game creation. Game lists, org dashboards, and admin views read `summary ?? state`, so Live/Final status and scores can no longer go stale when a scorer's debounced state write doesn't land
+- `event_type_registry` with insert validation — unknown event types are rejected at the database; duplicate detection now applies only to stat events
+- `refresh_game_summary(game_id)` RPC and `projector_failures` log for projector repair/observability
+- Projector parity check generator (`scripts/gen-projector-parity-sql.mjs`) emitting a self-rolling-back SQL block from the event-stream fixtures
+
+### Changed
+- Game list no longer patches scores from `v_game_team_totals` — the server summary is always at least as fresh
+
+---
+
+## [2.22.3] — 2026-07-07
+
+### Added
+- Event-stream fixture corpus (`src/test/fixtures/eventStreams/`) and characterization tests locking in current quarter-replay, score-recompute, and game-status derivation behavior — Phase 0 (safety net) of the event-sourcing refactor; no behavior changes
+
+---
+
 ## [2.22.2] — 2026-07-07
 
 ### Fixed

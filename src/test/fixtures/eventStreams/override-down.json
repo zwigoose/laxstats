@@ -1,0 +1,121 @@
+{
+  "name": "override-down",
+  "description": "Quarter-fix semantics: a soft-deleted quarter_end must not replay (the undo path), and quarter_override reconciles completedQuarters — overriding down to Q2 un-completes Q2+, so no quarter is both current and completed. Stream: Q1 ends, Q2 ends, Q3 end TOMBSTONED (undone), goal in Q3, override down to 2.",
+  "game": {
+    "created_at": "2026-07-09T17:00:00.000Z",
+    "state": {
+      "teams": [
+        { "name": "North Dakota", "roster": "7 Smith\n1 Keeper", "color": "#1a6bab" },
+        { "name": "Bemidji", "roster": "9 Olson\n1 Wall", "color": "#b84e1a" }
+      ],
+      "trackingStarted": true,
+      "currentQuarter": 3,
+      "gameOver": false,
+      "score0": 1,
+      "score1": 0,
+      "gameDate": "2026-07-09"
+    }
+  },
+  "events": [
+    {
+      "id": "00000000-0000-0000-0051-000000000001",
+      "seq": 601,
+      "game_id": "00000000-0000-0000-0000-00000000aaa6",
+      "group_id": "00000000-0000-0000-0051-000000000001",
+      "quarter": null,
+      "event_type": "quarter_end",
+      "team_idx": null,
+      "payload": { "fromQuarter": 1, "toQuarter": 2 },
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-07-09T17:15:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0051-000000000002",
+      "seq": 602,
+      "game_id": "00000000-0000-0000-0000-00000000aaa6",
+      "group_id": "00000000-0000-0000-0051-000000000002",
+      "quarter": null,
+      "event_type": "quarter_end",
+      "team_idx": null,
+      "payload": { "fromQuarter": 2, "toQuarter": 3 },
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-07-09T17:30:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0051-000000000003",
+      "seq": 603,
+      "game_id": "00000000-0000-0000-0000-00000000aaa6",
+      "group_id": "00000000-0000-0000-0051-000000000003",
+      "quarter": null,
+      "event_type": "quarter_end",
+      "team_idx": null,
+      "payload": { "fromQuarter": 3, "toQuarter": 4 },
+      "deleted_at": "2026-07-09T17:31:00.000Z",
+      "deleted_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-07-09T17:30:30.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0051-000000000004",
+      "seq": 604,
+      "game_id": "00000000-0000-0000-0000-00000000aaa6",
+      "group_id": "00000000-0000-0000-0052-000000000004",
+      "quarter": 3,
+      "event_type": "goal",
+      "team_idx": 0,
+      "player_num": "7",
+      "player_name": "Smith",
+      "goal_time": "8:00",
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-07-09T17:35:00.000Z"
+    },
+    {
+      "id": "00000000-0000-0000-0051-000000000005",
+      "seq": 605,
+      "game_id": "00000000-0000-0000-0000-00000000aaa6",
+      "group_id": "00000000-0000-0000-0051-000000000005",
+      "quarter": null,
+      "event_type": "quarter_override",
+      "team_idx": null,
+      "payload": { "fromQuarter": 3, "toQuarter": 2 },
+      "deleted_at": null,
+      "created_by": "aaaaaaaa-0000-0000-0000-000000000001",
+      "client_created_at": "2026-07-09T17:40:00.000Z"
+    }
+  ],
+  "metaEvents": [],
+  "expected": {
+    "quarterState": null,
+    "eventScores": { "score0": 1, "score1": 0 },
+    "gameInfo": {
+      "score0": 1,
+      "score1": 0,
+      "started": true,
+      "gameOver": false,
+      "currentQuarter": 3,
+      "latestTime": null,
+      "gameDate": "2026-07-09"
+    },
+    "summary": {
+      "score0": 1,
+      "score1": 0,
+      "currentQuarter": 2,
+      "completedQuarters": [1],
+      "gameOver": false,
+      "trackingStarted": true,
+      "teams": [
+        { "name": "North Dakota", "roster": "7 Smith\n1 Keeper", "color": "#1a6bab" },
+        { "name": "Bemidji", "roster": "9 Olson\n1 Wall", "color": "#b84e1a" }
+      ],
+      "activeGoalies": null,
+      "goalieDecisions": null,
+      "gameDate": "2026-07-09",
+      "refereeNames": null,
+      "weatherConditions": null,
+      "fieldLocation": null
+    }
+  }
+}

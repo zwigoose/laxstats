@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useDocTitle } from "../hooks/useDocTitle";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import {
   fetchGame, updateGame, deleteGame,
   fetchOrgContext, createScorekeeperInvite, claimScorekeeperInvite,
@@ -9,8 +9,11 @@ import {
 } from "../services/games";
 import { useAuth } from "../contexts/AuthContext";
 import LaxStats from "../components/LaxStats";
-import { useGameEvents } from "../hooks/useGameEvents";
-import { updateGameEventsPlayer } from "../services/gameEvents";
+import { useGameLog } from "../hooks/useGameLog";
+import { updateGameEventsPlayer, relabelEventQuarters } from "../services/gameEvents";
+import { registersFromState, diffRegisters } from "../domain/eventTypes";
+import { reduceGame, computeQuarterFix } from "../domain/reduceGame";
+import { parseRoster } from "../utils/stats";
 import { C, F } from "../styles/tokens";
 
 const S = {
@@ -37,15 +40,17 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
   const [eventsEverLoaded, setEventsEverLoaded] = useState(false);
   const saveTimer    = useRef(null);
   const pendingMeta  = useRef(null);
-  const saveInFlight = useRef(false);
-  const tokenRef     = useRef(null);
+  // Register snapshots for diff-based state-event dispatch: seeded from the
+  // hydration state so mounting never re-emits the full register set, then
+  // advanced on every dispatch. games.state is frozen (event-sourcing
+  // Phase 4) — setup changes exist only as register events on the stream.
+  const prevRegsRef      = useRef(null);
+  const hydratedStateRef = useRef(null);
   const [gameName, setGameName]   = useState(game?.name || "");
   useDocTitle(gameName || "Scorekeeper");
   const [inviteLink,  setInviteLink]  = useState(null);
   const [inviteState, setInviteState] = useState("idle"); // idle | generating | ready | copied | error
   const [inviteError, setInviteError] = useState(null);
-
-  const PENDING_STATE_KEY = `laxstats:pending-state:${id}`;
 
   async function generateInviteLink() {
     setInviteState("generating");
@@ -68,6 +73,7 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
   }
 
   const {
+    rows,
     entries,
     loading:            eventsLoading,
     commitGroup,
@@ -77,36 +83,69 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     derivedQuarterState,
     isPrimary,
     presenceList,
-    remoteQuarterState,
     isOnline,
     pendingCount,
     syncStatus,
     error:              eventsError,
     channelStatus,
-  } = useGameEvents(id, userId);
+  } = useGameLog(id, userId);
 
-  // Build initialState: teams/config from games.state, quarter state from
-  // game_meta_events (via derivedQuarterState), log from game_events rows.
+  // The debounced dispatch is memoized once; commitGroup is recreated when
+  // online status flips — go through a ref so register dispatch never goes stale.
+  const commitGroupRef = useRef(commitGroup);
+  useEffect(() => { commitGroupRef.current = commitGroup; }, [commitGroup]);
+
+  // Build initialState by replaying the event stream (reduceGame), composed
+  // over the server summary / legacy state for games that predate state
+  // events. Quarter fields, registers, and the log all come from the same
+  // stream, so hydration can never disagree with itself.
   const initialState = (eventsLoading || !game)
     ? undefined  // still loading — LaxStats waits
     : (() => {
-        if (!game?.state && entries.length === 0) return null;
-        const base = game?.state ? { ...game.state } : {};
+        if (!game?.summary && !game?.state && rows.length === 0) return null;
+        const base = reduceGame(rows, game?.summary ?? game?.state ?? {});
         // Merge dedicated logistics columns as fallback (populated via CreateGame flow).
         if (!base.refereeNames      && game?.referee_names)      base.refereeNames      = game.referee_names;
         if (!base.weatherConditions && game?.weather_conditions) base.weatherConditions = game.weather_conditions;
         if (!base.fieldLocation     && game?.field_location)     base.fieldLocation     = game.field_location;
-        // Override quarter fields from the authoritative meta-event log.
-        // This ensures remount always produces state consistent with game_meta_events.
-        if (derivedQuarterState) {
-          base.currentQuarter    = derivedQuarterState.currentQuarter;
-          base.completedQuarters = derivedQuarterState.completedQuarters;
-          base.gameOver          = derivedQuarterState.gameOver;
+        if (!base.teams) {
+          base.teams = [
+            { name: "Home", roster: "", color: C.blue600 },
+            { name: "Away", roster: "", color: C.orange700 },
+          ];
         }
         return { ...base, log: entries };
       })();
 
-  // Meta-event handler: write a game_meta_events row to the DB (the source of truth for
+  // Capture the first hydrated state once — it's the diff baseline for
+  // register dispatch (registers present at mount were not changed here).
+  // Runs after every render but only ever assigns once; any user edit that
+  // could enqueue registers happens at least a debounce-window later.
+  useEffect(() => {
+    if (initialState !== undefined && hydratedStateRef.current === null) {
+      hydratedStateRef.current = initialState ?? {};
+    }
+  });
+
+  // Undoable last quarter transition: which meta event to tombstone and which
+  // stat events were logged into the aborted quarter (relabel candidates).
+  const quarterFix = useMemo(() => computeQuarterFix(rows), [rows]);
+
+  // Undo = (optionally) relabel the orphaned events back, then tombstone the
+  // transition — replay heals currentQuarter/completedQuarters everywhere.
+  // Relabel first: a relabel without the undo is harmless, an undo without
+  // the relabel leaves wrong stamps.
+  const handleUndoQuarterChange = useCallback(async ({ relabel }) => {
+    const fix = computeQuarterFix(rows);
+    if (!fix) return;
+    if (relabel && fix.affectedIds.length) {
+      const { error: err } = await relabelEventQuarters(id, fix.affectedIds, fix.restoredQuarter);
+      if (err) throw err;
+    }
+    await softDeleteGroup(fix.groupId);
+  }, [rows, id, softDeleteGroup]);
+
+  // Meta-event handler: append a quarter-transition event to the stream (the source of truth for
   // quarter state), then broadcast to co-scorers. LaxStats awaits this promise before
   // mutating local state, ensuring the DB is always ahead of the UI.
   // Returns the inserted row (or a synthetic offline stub).
@@ -114,134 +153,61 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
     return commitMetaEvent(type, fromQuarter, toQuarter);
   }, [commitMetaEvent]);
 
-  // State change handler: persist team/meta changes (NOT the log — that's in game_events).
-  // State is written to localStorage immediately so that failed saves can be retried on
-  // reconnect or next page load — matching the resilience of the game_events offline queue.
-  const doStateSave = useCallback(async () => {
-    if (saveInFlight.current) return;
-    const stateToSave = pendingMeta.current;
-    if (!stateToSave) return;
-    saveInFlight.current = true;
-    setSaveStatus("saving");
+  // Setup-change handler (event-sourcing Phase 4): games.state is frozen —
+  // the only persistence is dispatching changed LWW registers to the event
+  // stream through the outbox, which already gives offline durability and
+  // cross-session replay. games.name and games.summary are maintained by the
+  // server projector.
+  const dispatchRegisters = useCallback(async () => {
+    const newState = pendingMeta.current;
+    if (!newState) return;
     pendingMeta.current = null;
-    const updatePayload = { state: stateToSave };
-    if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
-      updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
-    }
-    updatePayload.referee_names      = stateToSave.refereeNames      ?? null;
-    updatePayload.weather_conditions = stateToSave.weatherConditions ?? null;
-    updatePayload.field_location     = stateToSave.fieldLocation     ?? null;
-    const { error: err } = await updateGame(id, updatePayload);
-    saveInFlight.current = false;
-    if (err) {
-      setSaveStatus("error");
-      setTimeout(() => setSaveStatus(""), 3000);
-      // State remains in localStorage — will be retried on reconnect or next mount.
-    } else {
-      try { localStorage.removeItem(PENDING_STATE_KEY); } catch { /* ignore */ }
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus(""), 2000);
-      // If a new change arrived while this save was in flight, flush it now.
-      if (pendingMeta.current) {
-        if (saveTimer.current) clearTimeout(saveTimer.current);
-        saveTimer.current = setTimeout(doStateSave, 800);
+    try {
+      if (prevRegsRef.current === null) {
+        prevRegsRef.current = registersFromState(hydratedStateRef.current ?? {}, parseRoster);
       }
+      const nextRegs = registersFromState(newState, parseRoster);
+      const regEntries = diffRegisters(prevRegsRef.current, nextRegs);
+      prevRegsRef.current = nextRegs;
+      if (regEntries.length) {
+        setSaveStatus("saving");
+        await commitGroupRef.current(regEntries);
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus(s => (s === "saved" ? "" : s)), 2000);
+      }
+    } catch {
+      // Hard commit failure — surfaced via the hook's error state too.
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus(s => (s === "error" ? "" : s)), 3000);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, []);
 
   const handleStateChange = useCallback((newState) => {
     if (newState.teams?.[0]?.name && newState.teams?.[1]?.name) {
       setGameName(`${newState.teams[0].name} vs ${newState.teams[1].name}`);
     }
-    // Strip log and completedQuarters — authoritative in game_events / game_meta_events.
-    // Keep gameOver, currentQuarter, and derived scores in games.state so GameList can
-    // display Live/Final status and the score without querying game_events.
-    const { log: _log, completedQuarters: _cqs, score0: _s0, score1: _s1, ...meta } = newState;
-    meta.score0 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;
-    meta.score1 = (_log || []).filter(e => e.event === "goal" && e.teamIdx === 1).length;
-    pendingMeta.current = meta;
-    // Persist to localStorage immediately so network failures don't lose state.
-    try { localStorage.setItem(PENDING_STATE_KEY, JSON.stringify(meta)); } catch { /* ignore */ }
+    pendingMeta.current = newState;  // registersFromState ignores log/quarter fields
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(doStateSave, 800);
-  }, [id, doStateSave]);
+    saveTimer.current = setTimeout(dispatchRegisters, 800);
+  }, [dispatchRegisters]);
 
-  // On mount: flush any pending state left from a previous session (e.g. the page
-  // crashed or closed while a save was in flight).
+  // Tab closing inside the debounce window: enqueue the pending registers now.
+  // The outbox write is an IndexedDB add that usually completes during unload,
+  // and the op survives to flush on the next visit either way.
   useEffect(() => {
-    let meta;
-    try {
-      const saved = localStorage.getItem(PENDING_STATE_KEY);
-      if (!saved) return;
-      meta = JSON.parse(saved);
-    } catch {
-      try { localStorage.removeItem(PENDING_STATE_KEY); } catch { /* ignore */ }
-      return;
-    }
-    if (!pendingMeta.current) pendingMeta.current = meta;
-    saveTimer.current = setTimeout(doStateSave, 1500);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Retry any pending state save when connectivity is restored.
-  useEffect(() => {
-    if (!isOnline) return;
-    let meta;
-    try {
-      const saved = localStorage.getItem(PENDING_STATE_KEY);
-      if (!saved) return;
-      meta = JSON.parse(saved);
-    } catch { return; }
-    if (!pendingMeta.current) pendingMeta.current = meta;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(doStateSave, 100);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline]);
+    const flushOnUnload = () => {
+      if (!pendingMeta.current) return;
+      if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+      dispatchRegisters();
+    };
+    window.addEventListener("beforeunload", flushOnUnload);
+    return () => window.removeEventListener("beforeunload", flushOnUnload);
+  }, [dispatchRegisters]);
 
   // Once events have loaded for the first time, keep LaxStats mounted even during
-  // reconnect reloads — prevents roster/state loss when useGameEvents re-runs load().
-  useEffect(() => {
-    if (!eventsLoading) setEventsEverLoaded(true);
-  }, [eventsLoading]);
-
-  // Keep tokenRef current so the beforeunload flush can use it without async work.
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      tokenRef.current = data?.session?.access_token ?? null;
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      tokenRef.current = session?.access_token ?? null;
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Flush any pending state to DB when the tab closes, using keepalive so the
-  // browser sends the request even after the page unloads.
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      const stateToSave = pendingMeta.current;
-      if (!stateToSave || !tokenRef.current) return;
-      if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
-      const updatePayload = { state: stateToSave };
-      if (stateToSave.teams?.[0]?.name && stateToSave.teams?.[1]?.name) {
-        updatePayload.name = `${stateToSave.teams[0].name} vs ${stateToSave.teams[1].name}`;
-      }
-      fetch(`${SUPABASE_URL}/rest/v1/games?id=eq.${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": `Bearer ${tokenRef.current}`,
-          "Prefer": "return=minimal",
-        },
-        body: JSON.stringify(updatePayload),
-        keepalive: true,
-      });
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [id]);
+  // reconnect reloads — prevents roster/state loss when useGameLog re-runs load().
+  // (Render-phase state adjustment: React re-renders immediately, no effect needed.)
+  if (!eventsLoading && !eventsEverLoaded) setEventsEverLoaded(true);
 
   const scorerCount = presenceList.length;
 
@@ -324,8 +290,9 @@ function ScorekeeperGame({ game, id, navigate, userId, isAnonymous, orgContext }
           onEventDismissDuplicate={dismissDuplicate}
           onMetaEvent={handleMetaEvent}
           remoteEntries={entries}
-          remoteQuarterState={remoteQuarterState}
           derivedQuarterState={derivedQuarterState}
+          quarterFix={quarterFix}
+          onUndoQuarterChange={handleUndoQuarterChange}
           scorekeeperRole={isPrimary ? "primary" : "secondary"}
           shotLocationEnabled={!!game?.shot_location_enabled}
           orgContext={orgContext}

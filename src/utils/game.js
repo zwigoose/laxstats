@@ -28,7 +28,9 @@ export function getLatestTime(state) {
 }
 
 export function getGameInfo(game) {
-  const s = game.state;
+  // games.summary is the server-projected read cache (event-sourcing Phase 1);
+  // games.state remains the fallback for v1 games and rows fetched without it.
+  const s = game.summary ?? game.state;
   if (!s?.teams) return null;
   const t0 = s.teams[0], t1 = s.teams[1];
   const score0 = s.score0 != null ? s.score0 : (s.log || []).filter(e => e.event === "goal" && e.teamIdx === 0).length;

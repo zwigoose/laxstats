@@ -24,9 +24,12 @@ npm run test:coverage  # Coverage report
 
 All games — personal and org-linked — use the same event-sourced data model:
 
-- **`game_events`** — normalized rows for every scored action (goal, shot, penalty, etc.) with soft deletes (`deleted_at`, `deleted_by`) and duplicate detection (`is_possible_duplicate`)
-- **`game_meta_events`** — immutable rows for quarter-start, quarter-end, and game-over transitions; `deriveQuarterState()` replays these to reconstruct authoritative quarter/game-over state
-- **`games.state`** — a denormalized JSONB display cache written by the scorekeeper; holds `teams` (roster), `trackingStarted`, `gameOver`, `currentQuarter`, `score0`, `score1`, and `gameDate` so the game list can render Live/Final status and scores without querying `game_events`
+- **`game_events`** — the unified event stream (event-sourcing Phase 3). Three kinds, classified by `event_type_registry` and mirrored in `src/domain/eventTypes.js`: **stat** rows for scored actions (goal, shot, penalty, …) with soft deletes and duplicate detection; **meta** rows for quarter transitions (`quarter_end`/`game_over`/`quarter_override` with `{fromQuarter, toQuarter}` payloads); **state** rows as LWW registers for setup (`team_profile_set`, `roster_set`, `goalie_set`, `goalie_decisions_set`, `logistics_set`, `tracking_started` — full-snapshot payloads, latest by `seq` wins). `src/domain/reduceGame.js` is the pure JS twin of the SQL projector; parity is enforced by shared fixtures (`src/test/fixtures/eventStreams/`, `expected.summary`)
+- `game_meta_events` no longer exists — quarter transitions were copied into the stream with deterministic ids and the legacy table, its forwarding trigger, and the `games` state-projection trigger were dropped once no stale pre-refactor clients remained
+- **`games.summary`** — a **server-maintained** JSONB read cache projected by the `project_game()` Postgres function, re-run by triggers on every `game_events` / `game_meta_events` write (and, during the transition, on `games.state` writes). Holds scores, quarter state, `trackingStarted`, plus pass-throughs of not-yet-event-sourced fields (`teams`, goalies, logistics). Display readers use `summary ?? state` via `getGameInfo()`. Projector failures land in `projector_failures` without blocking the scorer's write; the `refresh_game_summary(game_id)` RPC re-projects on demand. v1 games (`schema_ver < 2`) are never projected — their `summary` stays NULL and they render from `state` forever
+- **`games.state`** — the legacy denormalized JSONB cache, now **frozen** (event-sourcing Phase 4): the scorekeeper no longer writes it, games created at `schema_ver 3` reject state writes via a silent-ignore trigger, and it survives only as the projector's fallback for games that predate state events. Scorekeeper hydration replays the stream via `reduceGame(rows, summary ?? state)`
+- **`event_type_registry`** — classifies every `event_type` (`stat` / `state` / `meta`) and drives insert validation on `game_events`; unknown event types are rejected at insert
+- **Quarter corrections** — undoing an accidental quarter transition = tombstoning its meta event (replay heals the quarter machine); mis-stamped events move via the `relabel_event_quarters` RPC; `quarter_override` replay reconciles `completedQuarters` (quarters ≥ the target un-complete). See `computeQuarterFix()` in `src/domain/reduceGame.js`
 
 The only distinction between game types is whether a game has an `org_id` (org-linked) or not (personal). There is no separate v1/v2 data model split — that architecture was removed in v2.12.0.
 
@@ -36,15 +39,15 @@ The only distinction between game types is whether a game has an `org_id` (org-l
 |---|---|---|
 | Pages | `src/pages/` | Route-level components; mostly thin wrappers that compose hooks |
 | Components | `src/components/` | Reusable UI; `LaxStats/index.jsx` is the monolithic scorekeeper input UI |
-| Hooks | `src/hooks/` | `useGameEvents` is the core — handles Realtime subscription, offline queue, event reconciliation, and `game_meta_events` commits |
-| Services | `src/services/` | Supabase query functions (`games.js`, `gameEvents.js`, `teams.js`, `offlineQueue.js`) |
+| Hooks | `src/hooks/` | `useGameLog` is the core — outbox-first writes, Realtime subscription, event reconciliation, and `game_meta_events` commits |
+| Services | `src/services/` | Supabase query functions (`games.js`, `gameEvents.js`, `teams.js`) and the offline `outbox.js` |
 | Utils | `src/utils/` | `stats.js` computes all derived stats in JS (no DB aggregation); `game.js` has date formatting and `getGameInfo()` for reading the `games.state` display cache |
 | Contexts | `src/contexts/` | `AuthContext` loads session + profile + org memberships on mount |
 | Lib | `src/lib/supabase.js` | Supabase client with Realtime keepalive channel to prevent WebSocket drop |
 
 ### Offline Sync
 
-`useGameEvents` maintains a localStorage-based offline queue (`offlineQueue.js`). Events logged offline are buffered and flushed on reconnect with duplicate deduplication. `useOnlineStatus` drives visibility of the sync state. This is the most complex area of the codebase.
+`useGameLog` is **outbox-first**: every write (event group, quarter meta event, soft-delete) is enqueued as an op in a single IndexedDB store (`src/services/outbox.js`), then flushed in strict FIFO order when online — there is one code path whether online or offline. Appends carry client-generated row ids and go up as upsert-ignore, so a crashed or retried flush is idempotent. A hard (non-network) flush failure drops the op and surfaces the error instead of jamming the queue. Soft-deletes go through the `soft_delete_event_group` RPC (gated by `can_score_game`) so secondary scorers can delete the primary's entries. `useOnlineStatus` drives visibility of the sync state.
 
 ### Stats Computation
 

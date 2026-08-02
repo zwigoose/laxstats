@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /games/*/score
 
-Sitemap: https://laxstats.com/sitemap.xml
+Sitemap: https://laxstats.app/sitemap.xml

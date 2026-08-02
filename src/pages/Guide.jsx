@@ -174,7 +174,7 @@ export default function Guide() {
       <SeoMeta
         title="How to Use LaxStats — Complete Lacrosse Scorebook Guide"
         description="Step-by-step guide to scoring lacrosse games, sharing live stats, managing rosters, and running a league with LaxStats."
-        url="https://laxstats.com/guide"
+        url="https://laxstats.app/guide"
       />
       <Helmet>
         <script type="application/ld+json">{FAQ_JSON_LD}</script>
@@ -189,7 +189,7 @@ export default function Guide() {
           Score a game on your phone, share it live with anyone, and get a full box score
           the moment the final whistle blows.
         </p>
-        <Screenshot label="Home screen showing game list with Live, Pending, and Final tabs" file="home-game-list.png" />
+        <Screenshot label="Home screen — Live now, Upcoming, and Completed games at a glance" file="home-game-list.png" />
         <div style={{ ...S.heroBtns, marginTop: 20 }}>
           <button style={S.btnDark} onClick={() => navigate(user ? "/" : "/login")}>{user ? "Go to my games" : "Get started free"}</button>
           <button style={S.btnLight} onClick={() => navigate("/pricing")}>View plans</button>
@@ -236,15 +236,15 @@ export default function Guide() {
         <p style={S.lead}>The home screen lists all your games organized by status, plus your saved rosters.</p>
 
         <div style={S.card}>
-          <p style={S.cardTitle}>Game tabs</p>
+          <p style={S.cardTitle}>Game sections</p>
           <div style={S.cardBody}>
-            <strong>Live</strong> — games in progress right now.<br />
-            <strong>Pending</strong> — games set up but not yet started.<br />
-            <strong>Final</strong> — completed games with full box scores preserved.
+            <strong>Live now</strong> — games in progress right now.<br />
+            <strong>Upcoming</strong> — games set up but not yet started.<br />
+            <strong>Completed</strong> — finished games with full box scores preserved.
           </div>
         </div>
 
-        <Screenshot label="Home screen — Pending tab with game cards (team names, score, action buttons)" file="home-pending-tab.png" />
+        <Screenshot label="Home screen — game cards with team names, score, and quick-action buttons" file="home-pending-tab.png" />
 
         <div style={S.card}>
           <p style={S.cardTitle}>Game card actions</p>
@@ -255,6 +255,7 @@ export default function Guide() {
               <li><strong>View</strong> — open the Live View (public, read-only)</li>
               <li><strong>Press Box</strong> — open the full-screen press box view</li>
               <li><strong>Delete</strong> — permanently remove the game (requires two confirmations)</li>
+              <li><strong>Public / Private toggle</strong> — control whether anyone with the link can follow the game, or only you</li>
             </ul>
           </div>
         </div>
@@ -693,7 +694,7 @@ export default function Guide() {
           </table>
         </div>
 
-        <Screenshot label="Org dashboard — Games tab with team filters and Live / Pending / Final sections" file="org-dashboard.png" />
+        <Screenshot label="Org dashboard — Games tab showing a completed game's score and the org's Public/Hidden visibility toggle" file="org-dashboard.png" />
 
         <div style={S.card}>
           <p style={S.cardTitle}>Creating an org</p>

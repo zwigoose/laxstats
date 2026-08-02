@@ -173,7 +173,7 @@ export default function Pricing() {
       <SeoMeta
         title="Plans & Pricing"
         description="Free personal scoring, or run a full organization. Simple, transparent pricing for lacrosse stats software. No hidden fees."
-        url="https://laxstats.com/pricing"
+        url="https://laxstats.app/pricing"
       />
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "36px 20px 60px" }}>
 

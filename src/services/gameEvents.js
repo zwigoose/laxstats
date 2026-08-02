@@ -9,17 +9,36 @@ export async function fetchGameEvents(gameId, db = _supabase) {
     .order("seq");
 }
 
-export async function insertGameEvents(rows, db = _supabase) {
-  return db.from("game_events").insert(rows).select();
-}
-
-export async function softDeleteGameEvents(gameId, groupId, userId, db = _supabase) {
+/**
+ * Idempotent append: rows carry client-generated ids, so a retried flush
+ * (offline sync, reconnect race) is a no-op — duplicates are silently
+ * skipped and only newly inserted rows come back.
+ */
+export async function appendGameEvents(rows, db = _supabase) {
   return db
     .from("game_events")
-    .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
-    .eq("game_id", gameId)
-    .eq("group_id", groupId)
-    .is("deleted_at", null);
+    .upsert(rows, { onConflict: "id", ignoreDuplicates: true })
+    .select();
+}
+
+/**
+ * Move mis-stamped stat events to the right quarter. RPC gated by
+ * can_score_game for the same reason as softDeleteEventGroup: a direct
+ * UPDATE would silently no-op on a co-scorer's rows.
+ */
+export async function relabelEventQuarters(gameId, eventIds, quarter, db = _supabase) {
+  return db.rpc("relabel_event_quarters", {
+    p_game_id: gameId, p_event_ids: eventIds, p_quarter: quarter,
+  });
+}
+
+/**
+ * Soft-delete via RPC gated by can_score_game — a direct UPDATE would be
+ * limited by the creator-or-org-admin policy, so a secondary scorer could
+ * not delete the primary scorer's entries.
+ */
+export async function softDeleteEventGroup(gameId, groupId, db = _supabase) {
+  return db.rpc("soft_delete_event_group", { p_game_id: gameId, p_group_id: groupId });
 }
 
 export async function dismissDuplicateFlag(gameId, groupId, db = _supabase) {
@@ -36,45 +55,4 @@ export async function updateGameEventsPlayer(gameId, teamIdx, fromNum, toNum, to
     .eq("team_idx", teamIdx)
     .eq("player_num", fromNum)
     .is("deleted_at", null);
-}
-
-// ── game_meta_events ──────────────────────────────────────────────────────────
-
-export async function fetchMetaEvents(gameId, db = _supabase) {
-  return db
-    .from("game_meta_events")
-    .select("*")
-    .eq("game_id", gameId)
-    .order("seq");
-}
-
-export async function insertMetaEvent(row, db = _supabase) {
-  return db.from("game_meta_events").insert(row).select().single();
-}
-
-/**
- * Pure function: replay game_meta_events rows to derive quarter state.
- * Returns { currentQuarter, completedQuarters, gameOver }.
- */
-export function deriveQuarterState(metaRows) {
-  if (!metaRows?.length) return null;
-
-  let currentQuarter    = 1;
-  let completedQuarters = [];
-  let gameOver          = false;
-
-  for (const row of metaRows) {
-    if (row.event_type === "quarter_end") {
-      completedQuarters = [...completedQuarters, row.from_quarter];
-      currentQuarter    = row.to_quarter;
-    } else if (row.event_type === "game_over") {
-      completedQuarters = [...completedQuarters, row.from_quarter];
-      gameOver          = true;
-      currentQuarter    = row.from_quarter;
-    } else if (row.event_type === "quarter_override") {
-      currentQuarter = row.to_quarter;
-    }
-  }
-
-  return { currentQuarter, completedQuarters, gameOver };
 }

@@ -3,28 +3,27 @@ import { render, screen, waitFor, fireEvent, act } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Scorekeeper from "./Scorekeeper";
 
-// ── useGameEvents mock state ───────────────────────────────────────────────────
+// ── useGameLog mock state ──────────────────────────────────────────────────────
 
 const evState = vi.hoisted(() => ({
+  rows:                [],
   entries:             [],
   loading:             false,
   error:               null,
   channelStatus:       "idle",
   isPrimary:           true,
   presenceList:        [],
-  remoteQuarterState:  null,
   derivedQuarterState: null,
   isOnline:            true,
   pendingCount:        0,
   syncStatus:          "idle",
   commitGroup:         vi.fn().mockResolvedValue(undefined),
   softDeleteGroup:     vi.fn().mockResolvedValue(undefined),
-  broadcastMeta:       vi.fn(),
   commitMetaEvent:     vi.fn().mockResolvedValue({ id: "meta-1", seq: 1 }),
 }));
 
-vi.mock("../hooks/useGameEvents", () => ({
-  useGameEvents: vi.fn(() => ({ ...evState })),
+vi.mock("../hooks/useGameLog", () => ({
+  useGameLog: vi.fn(() => ({ ...evState })),
 }));
 
 // ── Supabase mock ──────────────────────────────────────────────────────────────
@@ -100,7 +99,6 @@ function resetState() {
   evState.channelStatus       = "idle";
   evState.isPrimary           = true;
   evState.presenceList        = [];
-  evState.remoteQuarterState  = null;
   evState.derivedQuarterState = null;
   evState.isOnline            = true;
   evState.pendingCount        = 0;

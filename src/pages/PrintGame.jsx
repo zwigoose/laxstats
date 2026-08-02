@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { buildPlayerStats, buildTeamTotals, qLabel } from "../components/LaxStats";
-import { dbRowToEntry } from "../hooks/useGameEvents";
-import { deriveQuarterState } from "../services/gameEvents";
+import { dbRowToEntry } from "../hooks/useGameLog";
+import { isStatEventType } from "../domain/eventTypes";
+import { deriveQuarterFromStream } from "../domain/reduceGame";
 import { parseRoster } from "../utils/stats";
 import { PLAYER_STAT_KEYS } from "../components/PlayerStatsTable";
 import { STAT_LABELS } from "../constants/lacrosse";
@@ -31,7 +32,7 @@ export default function PrintGame() {
       setLoading(true);
       const { data, error: err } = await supabase
         .from("games")
-        .select("id, created_at, name, state, org_id, away_org_id, referee_names, weather_conditions, field_location")
+        .select("id, created_at, name, state, summary, org_id, away_org_id, referee_names, weather_conditions, field_location")
         .eq("id", id)
         .single();
       if (err) { setError(err.message); setLoading(false); return; }
@@ -45,19 +46,20 @@ export default function PrintGame() {
         setOrgLogos([logoMap[data.org_id] ?? null, logoMap[data.away_org_id] ?? null]);
       }
 
-      const [evRes, metaRes] = await Promise.all([
-        supabase.from("game_events").select("*").eq("game_id", id).is("deleted_at", null).order("seq"),
-        supabase.from("game_meta_events").select("*").eq("game_id", id).order("seq"),
-      ]);
-      setV2Log((evRes.data || []).map(dbRowToEntry));
-      const derived = deriveQuarterState(metaRes.data || []);
+      const evRes = await supabase
+        .from("game_events").select("*").eq("game_id", id).is("deleted_at", null).order("seq");
+      const rows = evRes.data || [];
+      setV2Log(rows.filter(r => isStatEventType(r.event_type)).map(dbRowToEntry));
+      const derived = deriveQuarterFromStream(rows);
       if (derived) setDerivedQuarterState(derived);
       setLoading(false);
     }
     load();
   }, [id]);
 
-  const state = game?.state;
+  // Server-projected summary first; legacy state only for pre-refactor games
+  // (schema_ver 3 games have state = null forever).
+  const state = game?.summary ?? game?.state;
   const teams = state?.teams || [{ name: "Home", color: C.blue600 }, { name: "Away", color: C.orange700 }];
   const log   = v2Log ?? [];
   const completedQuarters = derivedQuarterState?.completedQuarters ?? state?.completedQuarters ?? [];

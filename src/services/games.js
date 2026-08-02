@@ -3,7 +3,7 @@ import { supabase as _supabase } from "../lib/supabase";
 export async function fetchGame(id, db = _supabase) {
   return db
     .from("games")
-    .select("id, created_at, name, state, schema_ver, org_id, away_org_id, season_id, away_season_id, user_id, multi_scorer_enabled, shot_location_enabled, referee_names, weather_conditions, field_location")
+    .select("id, created_at, name, state, summary, schema_ver, org_id, away_org_id, season_id, away_season_id, user_id, multi_scorer_enabled, shot_location_enabled, referee_names, weather_conditions, field_location")
     .eq("id", id)
     .single();
 }
@@ -62,20 +62,4 @@ export async function deleteAllGameEvents(gameId, userId, db = _supabase) {
     .update({ deleted_at: new Date().toISOString(), deleted_by: userId })
     .eq("game_id", gameId)
     .is("deleted_at", null);
-}
-
-/**
- * Write only the teams/roster fields of a game's state, independent of quarter
- * or score data. Used by the Setup tab so a mid-game roster edit cannot race
- * against event or quarter writes.
- */
-export async function updateGameTeams(id, teams, db = _supabase) {
-  const existing = await db.from("games").select("state, name").eq("id", id).single();
-  if (existing.error) return existing;
-  const merged = { ...(existing.data?.state ?? {}), teams };
-  const payload = { state: merged };
-  if (teams?.[0]?.name && teams?.[1]?.name) {
-    payload.name = `${teams[0].name} vs ${teams[1].name}`;
-  }
-  return db.from("games").update(payload).eq("id", id);
 }
