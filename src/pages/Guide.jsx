@@ -189,7 +189,7 @@ export default function Guide() {
           Score a game on your phone, share it live with anyone, and get a full box score
           the moment the final whistle blows.
         </p>
-        <Screenshot label="Home screen — Live now, Upcoming, and Completed games at a glance" file="home-game-list.png" />
+        <Screenshot label="Logged-out home page — hero, feature highlights, and public live/recent games" file="home-game-list.png" />
         <div style={{ ...S.heroBtns, marginTop: 20 }}>
           <button style={S.btnDark} onClick={() => navigate(user ? "/" : "/login")}>{user ? "Go to my games" : "Get started free"}</button>
           <button style={S.btnLight} onClick={() => navigate("/pricing")}>View plans</button>
