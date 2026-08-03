@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildMomentumSeries, momentumControlStats, momentumPointLabel, MOMENTUM_WEIGHTS, PENALTY_WEIGHT } from "./momentum";
+import {
+  buildMomentumSeries, momentumControlStats, momentumBiggestRun, momentumQuarterControl,
+  momentumStoryline, momentumPointLabel, MOMENTUM_WEIGHTS, PENALTY_WEIGHT,
+} from "./momentum";
 
 let seq = 0;
 function ev(teamIdx, event, overrides = {}) {
@@ -153,6 +156,108 @@ describe("momentumControlStats", () => {
       ev(0, "goal", { quarter: 1 }),  // score  3.5 (home)
     ]);
     expect(momentumControlStats(pts, 4).leadChanges).toBe(2);
+  });
+});
+
+describe("momentumBiggestRun", () => {
+  it("returns null for an empty series", () => {
+    expect(momentumBiggestRun([])).toBeNull();
+    expect(momentumBiggestRun(null)).toBeNull();
+  });
+
+  it("finds the biggest fall (away run) over the biggest rise", () => {
+    // home goal (+5) → away goal (0) → away goal (−5) → away shot (−6.5),
+    // all Q1. Away's fall (5 → −6.5, delta 11.5) beats home's opening
+    // run (0 → 5, delta 5).
+    const pts = buildMomentumSeries([
+      ev(0, "goal", { quarter: 1 }),
+      ev(1, "goal", { quarter: 1 }),
+      ev(1, "goal", { quarter: 1 }),
+      ev(1, "shot", { quarter: 1 }),
+    ]);
+    const run = momentumBiggestRun(pts);
+    expect(run.teamIdx).toBe(1);
+    expect(run.goalsFor).toBe(2);
+    expect(run.goalsAgainst).toBe(0);
+    expect(run.startQuarter).toBe(1);
+    expect(run.endQuarter).toBe(1);
+    expect(run.startX).toBe(pts[0].x);
+    expect(run.endX).toBe(pts[3].x);
+  });
+
+  it("finds the biggest rise (home run) over a smaller fall", () => {
+    // away goal (−5) → home goal (0) → home goal (+5) → home goal (+10).
+    // Home's run (−5 → 10, delta 15) beats away's opening dip (0 → −5, delta 5).
+    const pts = buildMomentumSeries([
+      ev(1, "goal", { quarter: 1 }),
+      ev(0, "goal", { quarter: 1 }),
+      ev(0, "goal", { quarter: 1 }),
+      ev(0, "goal", { quarter: 1 }),
+    ]);
+    const run = momentumBiggestRun(pts);
+    expect(run.teamIdx).toBe(0);
+    expect(run.goalsFor).toBe(3);
+    expect(run.goalsAgainst).toBe(0);
+  });
+});
+
+describe("momentumQuarterControl", () => {
+  it("returns an empty array for an empty series", () => {
+    expect(momentumQuarterControl([], 4)).toEqual([]);
+  });
+
+  it("carries control through quiet quarters with no events", () => {
+    const pts = buildMomentumSeries([ev(0, "goal", { quarter: 1 })]);
+    expect(momentumQuarterControl(pts, 4)).toEqual([
+      { quarter: 1, leader: 0 }, { quarter: 2, leader: 0 },
+      { quarter: 3, leader: 0 }, { quarter: 4, leader: 0 },
+    ]);
+  });
+
+  it("splits leadership per quarter when control flips mid-game", () => {
+    // Home goal in Q1, then an away barrage in Q3 that flips control for
+    // the rest of the game.
+    const pts = buildMomentumSeries([
+      ev(0, "goal", { quarter: 1 }),
+      ev(1, "goal", { quarter: 3 }),
+      ev(1, "goal", { quarter: 3 }),
+      ev(1, "shot", { quarter: 3 }),
+    ]);
+    expect(momentumQuarterControl(pts, 4)).toEqual([
+      { quarter: 1, leader: 0 }, { quarter: 2, leader: 0 },
+      { quarter: 3, leader: 1 }, { quarter: 4, leader: 1 },
+    ]);
+  });
+});
+
+describe("momentumStoryline", () => {
+  it("returns null for an empty series", () => {
+    expect(momentumStoryline([], 0)).toBeNull();
+  });
+
+  it("credits wire-to-wire when control never changed hands", () => {
+    const pts = buildMomentumSeries([ev(0, "goal", { quarter: 1 })]);
+    expect(momentumStoryline(pts, 0)).toEqual({ type: "wireToWire", teamIdx: 0 });
+  });
+
+  it("credits a comeback when the game ends on the opposite side it started", () => {
+    const pts = buildMomentumSeries([
+      ev(1, "goal", { quarter: 1 }),   // score −5 (away)
+      ev(0, "goal", { quarter: 1 }),   // score  0
+      ev(0, "goal", { quarter: 1 }),   // score  5 (home)
+    ]);
+    expect(momentumStoryline(pts, 1)).toEqual({ type: "comeback", teamIdx: 0 });
+  });
+
+  it("returns null when the lead flips but ends back where it started", () => {
+    const pts = buildMomentumSeries([
+      ev(0, "goal", { quarter: 1 }),   // score  5 (home)
+      ev(1, "goal", { quarter: 1 }),   // score  0
+      ev(1, "goal", { quarter: 1 }),   // score −5 (away)
+      ev(0, "goal", { quarter: 1 }),   // score  0
+      ev(0, "goal", { quarter: 1 }),   // score  5 (home again)
+    ]);
+    expect(momentumStoryline(pts, 2)).toBeNull();
   });
 });
 
