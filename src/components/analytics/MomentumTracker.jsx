@@ -134,16 +134,10 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
           />
         )}
 
-        {/* Quarter bands + markers, with a dot showing who controlled each quarter */}
+        {/* Quarter bands + markers */}
         {Array.from({ length: maxQ }, (_, i) => (
           <g key={i}>
             {i > 0 && <line x1={xPx(i)} y1={PAD.top} x2={xPx(i)} y2={PAD.top + PLOT_H} stroke={C.gray85} strokeWidth="1" />}
-            {quarterControl[i]?.leader != null && (
-              <circle
-                cx={xPx(i + 0.5)} cy={H - 19} r="3"
-                fill={teamColors?.[quarterControl[i].leader] || (quarterControl[i].leader === 0 ? C.blue600 : C.orange700)}
-              />
-            )}
             <text x={xPx(i + 0.5)} y={H - 8} textAnchor="middle" fontSize="11" fill={C.gray400} fontWeight="600">
               {qLabel(i + 1)}
             </text>
@@ -169,6 +163,15 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
         <path d={path} fill="none" stroke={teamColors?.[0] || C.blue600} strokeWidth="2" strokeLinejoin="round" clipPath={`url(#${clipId}-home)`} />
         <path d={path} fill="none" stroke={teamColors?.[1] || C.orange700} strokeWidth="2" strokeLinejoin="round" clipPath={`url(#${clipId}-away)`} />
 
+        {/* Goals on the timeline — the plays fans actually care about */}
+        {linePts.filter(lp => lp.point?.entry?.event === "goal").map((lp, i) => (
+          <circle
+            key={i} cx={lp.px} cy={lp.py} r="4"
+            fill={teamColors?.[lp.point.entry.teamIdx] ?? (lp.point.entry.teamIdx === 0 ? C.blue600 : C.orange700)}
+            stroke={C.white} strokeWidth="1.5"
+          />
+        ))}
+
         {/* Hover marker */}
         {hover && (
           <circle cx={hover.px} cy={hover.py} r="4" fill={hover.point.score >= 0 ? (teamColors?.[0] || C.blue600) : (teamColors?.[1] || C.orange700)} stroke={C.white} strokeWidth="1.5" />
@@ -186,6 +189,19 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
             <div style={{ width: `${control.pctHome}%`, background: teamColors?.[0] || C.blue600 }} />
             <div style={{ width: `${control.pctAway}%`, background: teamColors?.[1] || C.orange700 }} />
           </div>
+          <div style={{ marginTop: 10, display: "flex", gap: 3 }}>
+            {quarterControl.map(q => (
+              <div key={q.quarter} style={{
+                flex: 1, borderRadius: 4, padding: "3px 0", textAlign: "center",
+                fontSize: 10, fontWeight: 700,
+                background: q.leader === 0 ? (teamColors?.[0] || C.blue600) : q.leader === 1 ? (teamColors?.[1] || C.orange700) : C.gray90,
+                color: q.leader != null ? C.white : C.gray400,
+              }}>
+                {qLabel(q.quarter)}
+              </div>
+            ))}
+          </div>
+
           <div style={{ marginTop: 8, fontSize: 11, color: C.gray500, textAlign: "center" }}>
             🔄 Momentum changed hands {control.leadChanges} {control.leadChanges === 1 ? "time" : "times"}
           </div>
