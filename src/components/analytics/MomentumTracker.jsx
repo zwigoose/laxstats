@@ -14,7 +14,7 @@ import { C, F, SH } from "../../styles/tokens";
 
 const W = 600;
 const H = 180;
-const PAD = { top: 26, right: 10, bottom: 22, left: 10 };
+const PAD = { top: 26, right: 10, bottom: 8, left: 10 };
 const PLOT_W = W - PAD.left - PAD.right;
 const PLOT_H = H - PAD.top - PAD.bottom;
 
@@ -134,14 +134,9 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
           />
         )}
 
-        {/* Quarter bands + markers */}
+        {/* Quarter divider lines — labels now live in the control-pill row below */}
         {Array.from({ length: maxQ }, (_, i) => (
-          <g key={i}>
-            {i > 0 && <line x1={xPx(i)} y1={PAD.top} x2={xPx(i)} y2={PAD.top + PLOT_H} stroke={C.gray85} strokeWidth="1" />}
-            <text x={xPx(i + 0.5)} y={H - 8} textAnchor="middle" fontSize="11" fill={C.gray400} fontWeight="600">
-              {qLabel(i + 1)}
-            </text>
-          </g>
+          i > 0 && <line key={i} x1={xPx(i)} y1={PAD.top} x2={xPx(i)} y2={PAD.top + PLOT_H} stroke={C.gray85} strokeWidth="1" />
         ))}
 
         {/* Zero (neutral) line */}
@@ -178,21 +173,19 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
         )}
       </svg>
 
-      {/* Quarter control — sits directly under the graph's Q# markers */}
-      {points.length > 0 && (
-        <div style={{ display: "flex", gap: 3, padding: `0 ${(PAD.right / W) * 100}% 0 ${(PAD.left / W) * 100}%` }}>
-          {quarterControl.map(q => (
-            <div key={q.quarter} style={{
-              flex: 1, borderRadius: 4, padding: "3px 0", textAlign: "center",
-              fontSize: 10, fontWeight: 700,
-              background: q.leader === 0 ? (teamColors?.[0] || C.blue600) : q.leader === 1 ? (teamColors?.[1] || C.orange700) : C.gray90,
-              color: q.leader != null ? C.white : C.gray400,
-            }}>
-              {qLabel(q.quarter)}
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Quarter control pills — replace the plain Q# axis markers */}
+      <div style={{ marginTop: 4, display: "flex", gap: 3, padding: `0 ${(PAD.right / W) * 100}% 0 ${(PAD.left / W) * 100}%` }}>
+        {quarterControl.map(q => (
+          <div key={q.quarter} style={{
+            flex: 1, borderRadius: 4, padding: "3px 0", textAlign: "center",
+            fontSize: 10, fontWeight: 700,
+            background: q.leader === 0 ? (teamColors?.[0] || C.blue600) : q.leader === 1 ? (teamColors?.[1] || C.orange700) : C.gray90,
+            color: q.leader != null ? C.white : C.gray400,
+          }}>
+            {qLabel(q.quarter)}
+          </div>
+        ))}
+      </div>
 
       {/* Control split + lead changes — layman-friendly summary stats, no raw scores */}
       {points.length > 0 && (
