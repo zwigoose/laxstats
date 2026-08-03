@@ -1,5 +1,8 @@
 import { useMemo, useState, useId } from "react";
-import { buildMomentumSeries, momentumControlStats, momentumPointLabel } from "../../utils/momentum";
+import {
+  buildMomentumSeries, momentumControlStats, momentumBiggestRun, momentumQuarterControl,
+  momentumStoryline, momentumPointLabel,
+} from "../../utils/momentum";
 import { qLabel } from "../../utils/stats";
 import { C, F, SH } from "../../styles/tokens";
 
@@ -42,6 +45,9 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
   const areaPath = `${path} L${linePts.at(-1).px.toFixed(1)},${zeroY.toFixed(1)} L${linePts[0].px.toFixed(1)},${zeroY.toFixed(1)} Z`;
 
   const control = useMemo(() => momentumControlStats(points, maxQ), [points, maxQ]);
+  const biggestRun = useMemo(() => momentumBiggestRun(points), [points]);
+  const quarterControl = useMemo(() => momentumQuarterControl(points, maxQ), [points, maxQ]);
+  const storyline = useMemo(() => momentumStoryline(points, control.leadChanges), [points, control.leadChanges]);
 
   // Resolve the nearest plotted point to a viewport x and surface it as hover.
   // Shared by mouse move and touch (tap + drag scrub).
@@ -118,10 +124,26 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
           <clipPath id={`${clipId}-away`}><rect x="0" y={zeroY} width={W} height={H - zeroY} /></clipPath>
         </defs>
 
-        {/* Quarter bands + markers */}
+        {/* Biggest run — highlight the swing's x-range behind everything else */}
+        {biggestRun && (
+          <rect
+            x={xPx(biggestRun.startX)} y={PAD.top}
+            width={xPx(biggestRun.endX) - xPx(biggestRun.startX)} height={PLOT_H}
+            fill={teamColors?.[biggestRun.teamIdx] || (biggestRun.teamIdx === 0 ? C.blue600 : C.orange700)}
+            fillOpacity="0.08"
+          />
+        )}
+
+        {/* Quarter bands + markers, with a dot showing who controlled each quarter */}
         {Array.from({ length: maxQ }, (_, i) => (
           <g key={i}>
             {i > 0 && <line x1={xPx(i)} y1={PAD.top} x2={xPx(i)} y2={PAD.top + PLOT_H} stroke={C.gray85} strokeWidth="1" />}
+            {quarterControl[i]?.leader != null && (
+              <circle
+                cx={xPx(i + 0.5)} cy={H - 19} r="3"
+                fill={teamColors?.[quarterControl[i].leader] || (quarterControl[i].leader === 0 ? C.blue600 : C.orange700)}
+              />
+            )}
             <text x={xPx(i + 0.5)} y={H - 8} textAnchor="middle" fontSize="11" fill={C.gray400} fontWeight="600">
               {qLabel(i + 1)}
             </text>
@@ -167,6 +189,24 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
           <div style={{ marginTop: 8, fontSize: 11, color: C.gray500, textAlign: "center" }}>
             🔄 Momentum changed hands {control.leadChanges} {control.leadChanges === 1 ? "time" : "times"}
           </div>
+
+          {storyline && (
+            <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, textAlign: "center", color: teamColors?.[storyline.teamIdx] }}>
+              {storyline.type === "wireToWire"
+                ? `🏆 ${teams?.[storyline.teamIdx]?.name || "Home"} led wire-to-wire`
+                : `📈 ${teams?.[storyline.teamIdx]?.name || "Home"} trailed before taking control`}
+            </div>
+          )}
+
+          {biggestRun && (
+            <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, textAlign: "center", color: teamColors?.[biggestRun.teamIdx] }}>
+              🔥 {teams?.[biggestRun.teamIdx]?.name || "Home"}'s biggest run —{" "}
+              {biggestRun.startQuarter === biggestRun.endQuarter
+                ? qLabel(biggestRun.startQuarter)
+                : `${qLabel(biggestRun.startQuarter)}–${qLabel(biggestRun.endQuarter)}`}
+              {biggestRun.goalsFor > 0 ? ` (${biggestRun.goalsFor}-${biggestRun.goalsAgainst} run)` : ""}
+            </div>
+          )}
         </div>
       )}
 
