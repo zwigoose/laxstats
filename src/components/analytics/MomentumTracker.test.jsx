@@ -45,6 +45,9 @@ describe("MomentumTracker", () => {
     );
     expect(screen.queryByText(/Builds as the game is scored/)).not.toBeInTheDocument();
     const paths = container.querySelectorAll("path");
-    expect(paths.length).toBe(2); // same line clipped into home/away halves
+    expect(paths.length).toBe(4); // area fill + line, each clipped into home/away halves
+
+    // Control split + lead-changes summary renders once there's a series
+    expect(screen.getByText(/Momentum changed hands/)).toBeInTheDocument();
   });
 });

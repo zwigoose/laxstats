@@ -98,6 +98,61 @@ export function buildMomentumSeries(log) {
   return points;
 }
 
+/**
+ * Fan-facing summary stats derived from a momentum series — how much of the
+ * game (by x-axis width, i.e. game time) each team spent "in control," and
+ * how many times control changed hands. `maxQ` should match whatever the
+ * chart uses as its x-axis extent (the series is assumed to run from x=0 to
+ * x=maxQ, flat at the last score past the final point, mirroring the drawn
+ * line). Returns { pctHome, pctAway, leadChanges }.
+ */
+export function momentumControlStats(points, maxQ) {
+  if (!points?.length) return { pctHome: 50, pctAway: 50, leadChanges: 0 };
+
+  const signOf = (v) => (v > 0 ? 1 : v < 0 ? -1 : 0);
+  const series = [{ x: 0, score: 0 }, ...points, { x: maxQ, score: points.at(-1).score }];
+
+  let homeWidth = 0;
+  let awayWidth = 0;
+  for (let i = 1; i < series.length; i++) {
+    const a = series[i - 1];
+    const b = series[i];
+    const dx = b.x - a.x;
+    if (dx <= 0) continue;
+
+    const sa = signOf(a.score);
+    const sb = signOf(b.score);
+    if (sa === sb || sa === 0 || sb === 0) {
+      // Whole segment on one side — a linear path to/from zero never
+      // actually crosses it, so no split needed even when one end is 0.
+      const s = sa || sb;
+      if (s > 0) homeWidth += dx;
+      else if (s < 0) awayWidth += dx;
+    } else {
+      // Genuine crossing: sa and sb are nonzero and opposite. Split the
+      // segment's width at the interpolated zero crossing.
+      const t = Math.abs(a.score) / (Math.abs(a.score) + Math.abs(b.score));
+      const crossX = a.x + dx * t;
+      if (sa > 0) { homeWidth += crossX - a.x; awayWidth += b.x - crossX; }
+      else { awayWidth += crossX - a.x; homeWidth += b.x - crossX; }
+    }
+  }
+
+  const total = homeWidth + awayWidth;
+  const pctHome = total > 0 ? Math.round((homeWidth / total) * 100) : 50;
+
+  let leadChanges = 0;
+  let lastSign = 0;
+  for (const p of points) {
+    const sign = signOf(p.score);
+    if (sign === 0) continue;
+    if (lastSign !== 0 && sign !== lastSign) leadChanges++;
+    lastSign = sign;
+  }
+
+  return { pctHome, pctAway: 100 - pctHome, leadChanges };
+}
+
 /** Tooltip text for a momentum point, e.g. "Q3 8:12 · 🥍 Goal — #4 Smith". */
 export function momentumPointLabel(point, teams) {
   const e = point.entry;

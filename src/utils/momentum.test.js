@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildMomentumSeries, momentumPointLabel, MOMENTUM_WEIGHTS, PENALTY_WEIGHT } from "./momentum";
+import { buildMomentumSeries, momentumControlStats, momentumPointLabel, MOMENTUM_WEIGHTS, PENALTY_WEIGHT } from "./momentum";
 
 let seq = 0;
 function ev(teamIdx, event, overrides = {}) {
@@ -115,6 +115,44 @@ describe("buildMomentumSeries", () => {
     // The two Q1 goals sit in band [0,1); the Q2 goal in [1,2).
     expect(pts.filter(p => p.quarter === 1).every(p => p.x < 1)).toBe(true);
     expect(pts.find(p => p.quarter === 2).x).toBeGreaterThan(1);
+  });
+});
+
+describe("momentumControlStats", () => {
+  it("returns a neutral 50/50 split with no lead changes for an empty series", () => {
+    expect(momentumControlStats([], 4)).toEqual({ pctHome: 50, pctAway: 50, leadChanges: 0 });
+    expect(momentumControlStats(null, 4)).toEqual({ pctHome: 50, pctAway: 50, leadChanges: 0 });
+  });
+
+  it("credits 100% control to the only team scoring momentum", () => {
+    const pts = buildMomentumSeries([ev(0, "goal", { quarter: 1 })]);
+    const stats = momentumControlStats(pts, 4);
+    expect(stats.pctHome).toBe(100);
+    expect(stats.pctAway).toBe(0);
+    expect(stats.leadChanges).toBe(0);
+  });
+
+  it("splits control by time on each side of zero, including a zero-crossing segment", () => {
+    // home goal (+5) → away goal (0) → away goal (−5), all in Q1 → x = .25, .5, .75
+    const pts = buildMomentumSeries([
+      ev(0, "goal", { quarter: 1 }),
+      ev(1, "goal", { quarter: 1 }),
+      ev(1, "goal", { quarter: 1 }),
+    ]);
+    const stats = momentumControlStats(pts, 4);
+    // home: [0,.25] + [.25,.5] = .5 of 4 total → 12.5% → rounds to 13
+    expect(stats.pctHome).toBe(13);
+    expect(stats.pctAway).toBe(87);
+  });
+
+  it("counts lead changes only across genuine sign flips, skipping exact-zero points", () => {
+    const pts = buildMomentumSeries([
+      ev(0, "goal", { quarter: 1 }),  // score  5  (home)
+      ev(1, "goal", { quarter: 1 }),  // score  0  (neutral — skipped)
+      ev(1, "shot", { quarter: 1 }),  // score -1.5 (away)
+      ev(0, "goal", { quarter: 1 }),  // score  3.5 (home)
+    ]);
+    expect(momentumControlStats(pts, 4).leadChanges).toBe(2);
   });
 });
 

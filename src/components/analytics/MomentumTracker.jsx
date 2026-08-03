@@ -1,5 +1,5 @@
 import { useMemo, useState, useId } from "react";
-import { buildMomentumSeries, momentumPointLabel } from "../../utils/momentum";
+import { buildMomentumSeries, momentumControlStats, momentumPointLabel } from "../../utils/momentum";
 import { qLabel } from "../../utils/stats";
 import { C, F, SH } from "../../styles/tokens";
 
@@ -37,6 +37,11 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
     if (lastX > linePts.at(-1).px) linePts.push({ px: lastX, py: linePts.at(-1).py });
   }
   const path = linePts.map((p, i) => `${i === 0 ? "M" : "L"}${p.px.toFixed(1)},${p.py.toFixed(1)}`).join(" ");
+  // Same line, closed back along the zero axis — filled (clipped per side,
+  // same as the stroke) to shade the area under the curve.
+  const areaPath = `${path} L${linePts.at(-1).px.toFixed(1)},${zeroY.toFixed(1)} L${linePts[0].px.toFixed(1)},${zeroY.toFixed(1)} Z`;
+
+  const control = useMemo(() => momentumControlStats(points, maxQ), [points, maxQ]);
 
   // Resolve the nearest plotted point to a viewport x and surface it as hover.
   // Shared by mouse move and touch (tap + drag scrub).
@@ -134,6 +139,10 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
           ▼ {teams?.[1]?.name || "Away"} controlling
         </text>
 
+        {/* Area under the curve, clipped into the two halves same as the line */}
+        <path d={areaPath} fill={teamColors?.[0] || C.blue600} fillOpacity="0.12" clipPath={`url(#${clipId}-home)`} />
+        <path d={areaPath} fill={teamColors?.[1] || C.orange700} fillOpacity="0.12" clipPath={`url(#${clipId}-away)`} />
+
         {/* Momentum line, clipped into the two halves */}
         <path d={path} fill="none" stroke={teamColors?.[0] || C.blue600} strokeWidth="2" strokeLinejoin="round" clipPath={`url(#${clipId}-home)`} />
         <path d={path} fill="none" stroke={teamColors?.[1] || C.orange700} strokeWidth="2" strokeLinejoin="round" clipPath={`url(#${clipId}-away)`} />
@@ -143,6 +152,23 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
           <circle cx={hover.px} cy={hover.py} r="4" fill={hover.point.score >= 0 ? (teamColors?.[0] || C.blue600) : (teamColors?.[1] || C.orange700)} stroke={C.white} strokeWidth="1.5" />
         )}
       </svg>
+
+      {/* Control split + lead changes — layman-friendly summary stats, no raw scores */}
+      {points.length > 0 && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.gray90}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
+            <span style={{ color: teamColors?.[0] || C.blue600 }}>{teams?.[0]?.name || "Home"} {control.pctHome}%</span>
+            <span style={{ color: teamColors?.[1] || C.orange700 }}>{control.pctAway}% {teams?.[1]?.name || "Away"}</span>
+          </div>
+          <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ width: `${control.pctHome}%`, background: teamColors?.[0] || C.blue600 }} />
+            <div style={{ width: `${control.pctAway}%`, background: teamColors?.[1] || C.orange700 }} />
+          </div>
+          <div style={{ marginTop: 8, fontSize: 11, color: C.gray500, textAlign: "center" }}>
+            🔄 Momentum changed hands {control.leadChanges} {control.leadChanges === 1 ? "time" : "times"}
+          </div>
+        </div>
+      )}
 
       {/* Tooltip */}
       {hover && (
