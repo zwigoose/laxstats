@@ -27,6 +27,7 @@ dist-ssr
 *.sw?
 .claude/
 supabase/.temp/
+supabase/.branches/
 *_backup_*.sql
 
 # design-sync machine state
