@@ -178,6 +178,22 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
         )}
       </svg>
 
+      {/* Quarter control — sits directly under the graph's Q# markers */}
+      {points.length > 0 && (
+        <div style={{ display: "flex", gap: 3, padding: `0 ${(PAD.right / W) * 100}% 0 ${(PAD.left / W) * 100}%` }}>
+          {quarterControl.map(q => (
+            <div key={q.quarter} style={{
+              flex: 1, borderRadius: 4, padding: "3px 0", textAlign: "center",
+              fontSize: 10, fontWeight: 700,
+              background: q.leader === 0 ? (teamColors?.[0] || C.blue600) : q.leader === 1 ? (teamColors?.[1] || C.orange700) : C.gray90,
+              color: q.leader != null ? C.white : C.gray400,
+            }}>
+              {qLabel(q.quarter)}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Control split + lead changes — layman-friendly summary stats, no raw scores */}
       {points.length > 0 && (
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.gray90}` }}>
@@ -188,18 +204,6 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
           <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden" }}>
             <div style={{ width: `${control.pctHome}%`, background: teamColors?.[0] || C.blue600 }} />
             <div style={{ width: `${control.pctAway}%`, background: teamColors?.[1] || C.orange700 }} />
-          </div>
-          <div style={{ marginTop: 10, display: "flex", gap: 3 }}>
-            {quarterControl.map(q => (
-              <div key={q.quarter} style={{
-                flex: 1, borderRadius: 4, padding: "3px 0", textAlign: "center",
-                fontSize: 10, fontWeight: 700,
-                background: q.leader === 0 ? (teamColors?.[0] || C.blue600) : q.leader === 1 ? (teamColors?.[1] || C.orange700) : C.gray90,
-                color: q.leader != null ? C.white : C.gray400,
-              }}>
-                {qLabel(q.quarter)}
-              </div>
-            ))}
           </div>
 
           <div style={{ marginTop: 8, fontSize: 11, color: C.gray500, textAlign: "center" }}>
