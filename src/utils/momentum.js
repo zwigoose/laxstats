@@ -205,9 +205,11 @@ export function momentumBiggestRun(points) {
  * time-on-each-side method as momentumControlStats but bucketed per
  * quarter instead of totaled across the whole game. Returns an array of
  * { quarter, leader } (leader: 0, 1, or null for an even/quiet quarter).
+ * Always returns one entry per quarter (all neutral) even before any
+ * events exist, since this doubles as the chart's quarter-axis labels.
  */
 export function momentumQuarterControl(points, maxQ) {
-  if (!points?.length) return [];
+  if (!points?.length) return Array.from({ length: maxQ }, (_, i) => ({ quarter: i + 1, leader: null }));
 
   const signOf = (v) => (v > 0 ? 1 : v < 0 ? -1 : 0);
   const series = [{ x: 0, score: 0 }, ...points, { x: maxQ, score: points.at(-1).score }];

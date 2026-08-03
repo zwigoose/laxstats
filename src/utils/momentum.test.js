@@ -202,8 +202,11 @@ describe("momentumBiggestRun", () => {
 });
 
 describe("momentumQuarterControl", () => {
-  it("returns an empty array for an empty series", () => {
-    expect(momentumQuarterControl([], 4)).toEqual([]);
+  it("returns neutral placeholder quarters for an empty series", () => {
+    expect(momentumQuarterControl([], 4)).toEqual([
+      { quarter: 1, leader: null }, { quarter: 2, leader: null },
+      { quarter: 3, leader: null }, { quarter: 4, leader: null },
+    ]);
   });
 
   it("carries control through quiet quarters with no events", () => {
