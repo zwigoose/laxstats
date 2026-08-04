@@ -5,6 +5,18 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.28.0] — 2026-08-04
+
+### Added
+- **Momentum graph, layman-friendly** — the momentum chart now tells the story of the game at a glance: a control-split bar and lead-change count (time-of-possession style), the single biggest momentum swing highlighted on the chart and described as an "X-Y run," a wire-to-wire/comeback storyline badge, and a per-quarter control strip with pills replacing the old plain Q# axis markers
+- Momentum area under the curve is now shaded, split by which team held the lead
+
+### Fixed
+- Season stat views now include `schema_ver` 3 games (previously undercounted season-level stats for event-sourced games)
+- Shot location toggle now shows for all event-sourced games, not just `schema_ver` 2, and defaults on
+
+---
+
 ## [2.27.0] — 2026-07-09
 
 ### Added

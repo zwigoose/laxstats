@@ -181,7 +181,7 @@ export default function AdminGameRow({ game, userMap, users, onReassigned, onDel
             </div>
             {multiScorerError && <div style={{ fontSize: 12, color: C.red600, marginTop: 6 }}>{multiScorerError}</div>}
           </div>
-          {game.schema_ver === 2 && (
+          {game.schema_ver >= 2 && (
             <div style={{ marginTop: 14, borderTop: `1px solid ${C.gray90}`, paddingTop: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.gray500, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Shot Location Overlay</div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

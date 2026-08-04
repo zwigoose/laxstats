@@ -1,5 +1,8 @@
 import { useMemo, useState, useId } from "react";
-import { buildMomentumSeries, momentumPointLabel } from "../../utils/momentum";
+import {
+  buildMomentumSeries, momentumControlStats, momentumBiggestRun, momentumQuarterControl,
+  momentumStoryline, momentumPointLabel,
+} from "../../utils/momentum";
 import { qLabel } from "../../utils/stats";
 import { C, F, SH } from "../../styles/tokens";
 
@@ -11,7 +14,7 @@ import { C, F, SH } from "../../styles/tokens";
 
 const W = 600;
 const H = 180;
-const PAD = { top: 26, right: 10, bottom: 22, left: 10 };
+const PAD = { top: 26, right: 10, bottom: 8, left: 10 };
 const PLOT_W = W - PAD.left - PAD.right;
 const PLOT_H = H - PAD.top - PAD.bottom;
 
@@ -37,6 +40,14 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
     if (lastX > linePts.at(-1).px) linePts.push({ px: lastX, py: linePts.at(-1).py });
   }
   const path = linePts.map((p, i) => `${i === 0 ? "M" : "L"}${p.px.toFixed(1)},${p.py.toFixed(1)}`).join(" ");
+  // Same line, closed back along the zero axis — filled (clipped per side,
+  // same as the stroke) to shade the area under the curve.
+  const areaPath = `${path} L${linePts.at(-1).px.toFixed(1)},${zeroY.toFixed(1)} L${linePts[0].px.toFixed(1)},${zeroY.toFixed(1)} Z`;
+
+  const control = useMemo(() => momentumControlStats(points, maxQ), [points, maxQ]);
+  const biggestRun = useMemo(() => momentumBiggestRun(points), [points]);
+  const quarterControl = useMemo(() => momentumQuarterControl(points, maxQ), [points, maxQ]);
+  const storyline = useMemo(() => momentumStoryline(points, control.leadChanges), [points, control.leadChanges]);
 
   // Resolve the nearest plotted point to a viewport x and surface it as hover.
   // Shared by mouse move and touch (tap + drag scrub).
@@ -113,14 +124,19 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
           <clipPath id={`${clipId}-away`}><rect x="0" y={zeroY} width={W} height={H - zeroY} /></clipPath>
         </defs>
 
-        {/* Quarter bands + markers */}
+        {/* Biggest run — highlight the swing's x-range behind everything else */}
+        {biggestRun && (
+          <rect
+            x={xPx(biggestRun.startX)} y={PAD.top}
+            width={xPx(biggestRun.endX) - xPx(biggestRun.startX)} height={PLOT_H}
+            fill={teamColors?.[biggestRun.teamIdx] || (biggestRun.teamIdx === 0 ? C.blue600 : C.orange700)}
+            fillOpacity="0.08"
+          />
+        )}
+
+        {/* Quarter divider lines — labels now live in the control-pill row below */}
         {Array.from({ length: maxQ }, (_, i) => (
-          <g key={i}>
-            {i > 0 && <line x1={xPx(i)} y1={PAD.top} x2={xPx(i)} y2={PAD.top + PLOT_H} stroke={C.gray85} strokeWidth="1" />}
-            <text x={xPx(i + 0.5)} y={H - 8} textAnchor="middle" fontSize="11" fill={C.gray400} fontWeight="600">
-              {qLabel(i + 1)}
-            </text>
-          </g>
+          i > 0 && <line key={i} x1={xPx(i)} y1={PAD.top} x2={xPx(i)} y2={PAD.top + PLOT_H} stroke={C.gray85} strokeWidth="1" />
         ))}
 
         {/* Zero (neutral) line */}
@@ -134,15 +150,78 @@ export default function MomentumTracker({ log, teams, teamColors, currentQuarter
           ▼ {teams?.[1]?.name || "Away"} controlling
         </text>
 
+        {/* Area under the curve, clipped into the two halves same as the line */}
+        <path d={areaPath} fill={teamColors?.[0] || C.blue600} fillOpacity="0.12" clipPath={`url(#${clipId}-home)`} />
+        <path d={areaPath} fill={teamColors?.[1] || C.orange700} fillOpacity="0.12" clipPath={`url(#${clipId}-away)`} />
+
         {/* Momentum line, clipped into the two halves */}
         <path d={path} fill="none" stroke={teamColors?.[0] || C.blue600} strokeWidth="2" strokeLinejoin="round" clipPath={`url(#${clipId}-home)`} />
         <path d={path} fill="none" stroke={teamColors?.[1] || C.orange700} strokeWidth="2" strokeLinejoin="round" clipPath={`url(#${clipId}-away)`} />
+
+        {/* Goals on the timeline — the plays fans actually care about */}
+        {linePts.filter(lp => lp.point?.entry?.event === "goal").map((lp, i) => (
+          <circle
+            key={i} cx={lp.px} cy={lp.py} r="4"
+            fill={teamColors?.[lp.point.entry.teamIdx] ?? (lp.point.entry.teamIdx === 0 ? C.blue600 : C.orange700)}
+            stroke={C.white} strokeWidth="1.5"
+          />
+        ))}
 
         {/* Hover marker */}
         {hover && (
           <circle cx={hover.px} cy={hover.py} r="4" fill={hover.point.score >= 0 ? (teamColors?.[0] || C.blue600) : (teamColors?.[1] || C.orange700)} stroke={C.white} strokeWidth="1.5" />
         )}
       </svg>
+
+      {/* Quarter control pills — replace the plain Q# axis markers */}
+      <div style={{ marginTop: 4, display: "flex", gap: 3, padding: `0 ${(PAD.right / W) * 100}% 0 ${(PAD.left / W) * 100}%` }}>
+        {quarterControl.map(q => (
+          <div key={q.quarter} style={{
+            flex: 1, borderRadius: 4, padding: "3px 0", textAlign: "center",
+            fontSize: 10, fontWeight: 700,
+            background: q.leader === 0 ? (teamColors?.[0] || C.blue600) : q.leader === 1 ? (teamColors?.[1] || C.orange700) : C.gray90,
+            color: q.leader != null ? C.white : C.gray400,
+          }}>
+            {qLabel(q.quarter)}
+          </div>
+        ))}
+      </div>
+
+      {/* Control split + lead changes — layman-friendly summary stats, no raw scores */}
+      {points.length > 0 && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.gray90}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
+            <span style={{ color: teamColors?.[0] || C.blue600 }}>{teams?.[0]?.name || "Home"} {control.pctHome}%</span>
+            <span style={{ color: teamColors?.[1] || C.orange700 }}>{control.pctAway}% {teams?.[1]?.name || "Away"}</span>
+          </div>
+          <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ width: `${control.pctHome}%`, background: teamColors?.[0] || C.blue600 }} />
+            <div style={{ width: `${control.pctAway}%`, background: teamColors?.[1] || C.orange700 }} />
+          </div>
+
+          <div style={{ marginTop: 8, fontSize: 11, color: C.gray500, textAlign: "center" }}>
+            🔄 Momentum changed hands {control.leadChanges} {control.leadChanges === 1 ? "time" : "times"}
+          </div>
+
+          {storyline && (
+            <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, textAlign: "center", color: teamColors?.[storyline.teamIdx] }}>
+              {storyline.type === "wireToWire"
+                ? `🏆 ${teams?.[storyline.teamIdx]?.name || "Home"} led wire-to-wire`
+                : `📈 ${teams?.[storyline.teamIdx]?.name || "Home"} trailed before taking control`}
+            </div>
+          )}
+
+          {biggestRun && (
+            <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, textAlign: "center", color: teamColors?.[biggestRun.teamIdx] }}>
+              🔥 {teams?.[biggestRun.teamIdx]?.name || "Home"}'s biggest run —{" "}
+              {biggestRun.startQuarter === biggestRun.endQuarter
+                ? qLabel(biggestRun.startQuarter)
+                : `${qLabel(biggestRun.startQuarter)}–${qLabel(biggestRun.endQuarter)}`}
+              {biggestRun.goalsFor > 0 ? ` (${biggestRun.goalsFor}-${biggestRun.goalsAgainst} run)` : ""}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tooltip */}
       {hover && (

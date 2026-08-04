@@ -45,6 +45,15 @@ describe("MomentumTracker", () => {
     );
     expect(screen.queryByText(/Builds as the game is scored/)).not.toBeInTheDocument();
     const paths = container.querySelectorAll("path");
-    expect(paths.length).toBe(2); // same line clipped into home/away halves
+    expect(paths.length).toBe(4); // area fill + line, each clipped into home/away halves
+
+    // Control split + lead-changes summary renders once there's a series
+    expect(screen.getByText(/Momentum changed hands/)).toBeInTheDocument();
+
+    // The one goal in the log gets a marker on the line
+    expect(container.querySelectorAll("circle").length).toBe(1);
+
+    // Quarter-control strip shows one cell per quarter, extended for OT data
+    ["Q1", "Q2"].forEach(q => expect(screen.getAllByText(q).length).toBeGreaterThan(0));
   });
 });

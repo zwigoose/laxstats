@@ -98,6 +98,179 @@ export function buildMomentumSeries(log) {
   return points;
 }
 
+/**
+ * Fan-facing summary stats derived from a momentum series — how much of the
+ * game (by x-axis width, i.e. game time) each team spent "in control," and
+ * how many times control changed hands. `maxQ` should match whatever the
+ * chart uses as its x-axis extent (the series is assumed to run from x=0 to
+ * x=maxQ, flat at the last score past the final point, mirroring the drawn
+ * line). Returns { pctHome, pctAway, leadChanges }.
+ */
+export function momentumControlStats(points, maxQ) {
+  if (!points?.length) return { pctHome: 50, pctAway: 50, leadChanges: 0 };
+
+  const signOf = (v) => (v > 0 ? 1 : v < 0 ? -1 : 0);
+  const series = [{ x: 0, score: 0 }, ...points, { x: maxQ, score: points.at(-1).score }];
+
+  let homeWidth = 0;
+  let awayWidth = 0;
+  for (let i = 1; i < series.length; i++) {
+    const a = series[i - 1];
+    const b = series[i];
+    const dx = b.x - a.x;
+    if (dx <= 0) continue;
+
+    const sa = signOf(a.score);
+    const sb = signOf(b.score);
+    if (sa === sb || sa === 0 || sb === 0) {
+      // Whole segment on one side — a linear path to/from zero never
+      // actually crosses it, so no split needed even when one end is 0.
+      const s = sa || sb;
+      if (s > 0) homeWidth += dx;
+      else if (s < 0) awayWidth += dx;
+    } else {
+      // Genuine crossing: sa and sb are nonzero and opposite. Split the
+      // segment's width at the interpolated zero crossing.
+      const t = Math.abs(a.score) / (Math.abs(a.score) + Math.abs(b.score));
+      const crossX = a.x + dx * t;
+      if (sa > 0) { homeWidth += crossX - a.x; awayWidth += b.x - crossX; }
+      else { awayWidth += crossX - a.x; homeWidth += b.x - crossX; }
+    }
+  }
+
+  const total = homeWidth + awayWidth;
+  const pctHome = total > 0 ? Math.round((homeWidth / total) * 100) : 50;
+
+  let leadChanges = 0;
+  let lastSign = 0;
+  for (const p of points) {
+    const sign = signOf(p.score);
+    if (sign === 0) continue;
+    if (lastSign !== 0 && sign !== lastSign) leadChanges++;
+    lastSign = sign;
+  }
+
+  return { pctHome, pctAway: 100 - pctHome, leadChanges };
+}
+
+/**
+ * The single biggest momentum swing in the game — the largest net rise or
+ * fall between some earlier low/high point and a later point (a "run," in
+ * broadcast terms). Anchors at the implicit kickoff (x=0, score=0) as a
+ * valid start, same as the chart's own leading segment. Returns
+ * { teamIdx, goalsFor, goalsAgainst, startQuarter, endQuarter, startX, endX }
+ * or null if there's no real swing (empty series, or a single flat point).
+ */
+export function momentumBiggestRun(points) {
+  if (!points?.length) return null;
+
+  let riseMin = 0, riseMinIdx = -1, riseBest = { delta: 0, startIdx: -1, endIdx: -1 };
+  let fallMax = 0, fallMaxIdx = -1, fallBest = { delta: 0, startIdx: -1, endIdx: -1 };
+
+  for (let i = 0; i < points.length; i++) {
+    const s = points[i].score;
+    if (s - riseMin > riseBest.delta) riseBest = { delta: s - riseMin, startIdx: riseMinIdx, endIdx: i };
+    if (s < riseMin) { riseMin = s; riseMinIdx = i; }
+
+    if (fallMax - s > fallBest.delta) fallBest = { delta: fallMax - s, startIdx: fallMaxIdx, endIdx: i };
+    if (s > fallMax) { fallMax = s; fallMaxIdx = i; }
+  }
+
+  const useRise = riseBest.delta >= fallBest.delta;
+  const best = useRise ? riseBest : fallBest;
+  if (best.delta <= 0 || best.endIdx === best.startIdx) return null;
+
+  const teamIdx = useRise ? 0 : 1;
+  const windowPoints = points.slice(best.startIdx + 1, best.endIdx + 1);
+
+  let goalsFor = 0, goalsAgainst = 0;
+  for (const p of windowPoints) {
+    if (p.entry?.event !== "goal") continue;
+    if (p.entry.teamIdx === teamIdx) goalsFor++; else goalsAgainst++;
+  }
+
+  return {
+    teamIdx,
+    goalsFor,
+    goalsAgainst,
+    startQuarter: best.startIdx === -1 ? 1 : points[best.startIdx].quarter,
+    endQuarter: points[best.endIdx].quarter,
+    startX: best.startIdx === -1 ? 0 : points[best.startIdx].x,
+    endX: points[best.endIdx].x,
+  };
+}
+
+/**
+ * Which team held momentum within each quarter band, by the same
+ * time-on-each-side method as momentumControlStats but bucketed per
+ * quarter instead of totaled across the whole game. Returns an array of
+ * { quarter, leader } (leader: 0, 1, or null for an even/quiet quarter).
+ * Always returns one entry per quarter (all neutral) even before any
+ * events exist, since this doubles as the chart's quarter-axis labels.
+ */
+export function momentumQuarterControl(points, maxQ) {
+  if (!points?.length) return Array.from({ length: maxQ }, (_, i) => ({ quarter: i + 1, leader: null }));
+
+  const signOf = (v) => (v > 0 ? 1 : v < 0 ? -1 : 0);
+  const series = [{ x: 0, score: 0 }, ...points, { x: maxQ, score: points.at(-1).score }];
+  const quarters = Array.from({ length: maxQ }, (_, i) => ({ quarter: i + 1, homeWidth: 0, awayWidth: 0 }));
+
+  function addWidth(x1, x2, sign) {
+    let cx = x1;
+    while (cx < x2) {
+      const qIdx = Math.floor(cx);
+      const qEnd = Math.min(qIdx + 1, x2);
+      const w = qEnd - cx;
+      if (quarters[qIdx]) {
+        if (sign > 0) quarters[qIdx].homeWidth += w;
+        else if (sign < 0) quarters[qIdx].awayWidth += w;
+      }
+      cx = qEnd;
+    }
+  }
+
+  for (let i = 1; i < series.length; i++) {
+    const a = series[i - 1];
+    const b = series[i];
+    const dx = b.x - a.x;
+    if (dx <= 0) continue;
+
+    const sa = signOf(a.score);
+    const sb = signOf(b.score);
+    if (sa === sb || sa === 0 || sb === 0) {
+      addWidth(a.x, b.x, sa || sb);
+    } else {
+      const t = Math.abs(a.score) / (Math.abs(a.score) + Math.abs(b.score));
+      const crossX = a.x + dx * t;
+      addWidth(a.x, crossX, sa);
+      addWidth(crossX, b.x, sb);
+    }
+  }
+
+  return quarters.map(q => ({
+    quarter: q.quarter,
+    leader: q.homeWidth === q.awayWidth ? null : q.homeWidth > q.awayWidth ? 0 : 1,
+  }));
+}
+
+/**
+ * The game's momentum "storyline": did one team hold it the whole way
+ * (wire-to-wire), or did the team currently in control have to come back
+ * after trailing earlier? Returns { type: 'wireToWire' | 'comeback', teamIdx }
+ * or null when neither headline fits cleanly (e.g. it flipped several times
+ * but ended back on the side it started).
+ */
+export function momentumStoryline(points, leadChanges) {
+  if (!points?.length) return null;
+  const signOf = (v) => (v > 0 ? 1 : v < 0 ? -1 : 0);
+  const firstSign = signOf(points[0].score);
+  const lastSign = signOf(points.at(-1).score);
+
+  if (leadChanges === 0 && firstSign !== 0) return { type: "wireToWire", teamIdx: firstSign > 0 ? 0 : 1 };
+  if (lastSign !== 0 && lastSign !== firstSign) return { type: "comeback", teamIdx: lastSign > 0 ? 0 : 1 };
+  return null;
+}
+
 /** Tooltip text for a momentum point, e.g. "Q3 8:12 · 🥍 Goal — #4 Smith". */
 export function momentumPointLabel(point, teams) {
   const e = point.entry;
