@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.29.0] — 2026-08-05
+
+### Added
+- **Persistent public homepage at `/home`** — the marketing overview and live/recent public games feed is now available as its own always-public route, independent of auth state. Signed-in users get a new "Public games" nav link to reach it, since `/` shows their personal dashboard once signed in
+
+---
+
 ## [2.28.0] — 2026-08-04
 
 ### Added
