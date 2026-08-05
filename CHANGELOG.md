@@ -5,6 +5,13 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.30.0] — 2026-08-05
+
+### Changed
+- **Home and Dashboard are now separate** — `/` is always the public home (marketing content plus the live/recent public games feed), signed in or not. Your personal game list moved to its own page at `/dashboard`, reachable from the nav once signed in. `/home` now redirects to `/`.
+
+---
+
 ## [2.29.1] — 2026-08-05
 
 ### Fixed
