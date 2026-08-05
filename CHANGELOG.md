@@ -5,6 +5,14 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.29.1] — 2026-08-05
+
+### Fixed
+- Live Now games can now be deleted — previously only Upcoming and Completed games had a delete option
+- Hardened the two-stage delete confirm so the final destructive click always lands in a different spot than the previous one, preventing a fast double-click from skipping past both confirmations
+
+---
+
 ## [2.29.0] — 2026-08-05
 
 ### Added
