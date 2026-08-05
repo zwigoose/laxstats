@@ -50,13 +50,14 @@ The top nav bar is visible on all pages except the Scorekeeper and Press Box (wh
 
 - **LaxStats** (logo) — returns to the home screen
 - **Home** — your game list
+- **Public games** — the public games feed at `/home` (visible once signed in — see below)
 - **Orgs** — your organization memberships (visible if you belong to at least one org)
 - **Admin** — platform admin panel (visible to admin accounts only)
 - **Initials avatar** (top-right) — opens your profile page
 
 ### The home page
 
-Signed in, the home page is your season at a glance:
+Signed in, the home page (`/`) is your season at a glance:
 
 - **Live now** — your in-progress games, first
 - **Upcoming** and **Completed** — your personal games, each with a Public/Private visibility toggle (see [Game visibility](#game-visibility-public--private))
@@ -64,7 +65,7 @@ Signed in, the home page is your season at a glance:
 - **Your organizations** — cards for each org you belong to
 - **Rosters** — the Rosters button in the welcome banner switches the game list to your saved rosters and back
 
-Logged out, the home page shows an overview of LaxStats plus any games that owners have flagged public — live games first, then recent finals.
+Logged out, `/` shows an overview of LaxStats plus any games that owners have flagged public — live games first, then recent finals. That same public view is always available at `/home`, so signed-in users can still browse it via the **Public games** nav link.
 
 ---
 

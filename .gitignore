@@ -35,3 +35,6 @@ supabase/.branches/
 ds-bundle/
 .design-sync/.cache/
 .design-sync/learnings/
+
+# personal machine-setup notes (may contain credentials)
+LOCAL_ENV_SETUP.md

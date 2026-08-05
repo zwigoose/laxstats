@@ -5,6 +5,21 @@ Versioning follows [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.P
 
 ---
 
+## [2.29.1] — 2026-08-05
+
+### Fixed
+- Live Now games can now be deleted — previously only Upcoming and Completed games had a delete option
+- Hardened the two-stage delete confirm so the final destructive click always lands in a different spot than the previous one, preventing a fast double-click from skipping past both confirmations
+
+---
+
+## [2.29.0] — 2026-08-05
+
+### Added
+- **Persistent public homepage at `/home`** — the marketing overview and live/recent public games feed is now available as its own always-public route, independent of auth state. Signed-in users get a new "Public games" nav link to reach it, since `/` shows their personal dashboard once signed in
+
+---
+
 ## [2.28.0] — 2026-08-04
 
 ### Added
