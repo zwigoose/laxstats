@@ -17,7 +17,7 @@ export default function Admin() {
 
   if (loading) return null;
   if (!isAdmin) {
-    navigate("/");
+    navigate("/dashboard");
     return null;
   }
 
@@ -25,7 +25,7 @@ export default function Admin() {
     <div style={{ fontFamily: F.ui, minHeight: "100%", background: C.gray50 }}>
       <div style={{ position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ background: C.gray900, padding: "16px 24px", display: "flex", alignItems: "center", gap: 16 }}>
-          <button onClick={() => navigate("/")} style={{ background: "none", border: "none", color: C.whiteA50, fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0, fontFamily: F.ui }}>
+          <button onClick={() => navigate("/dashboard")} style={{ background: "none", border: "none", color: C.whiteA50, fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0, fontFamily: F.ui }}>
             ← Games
           </button>
           <span style={{ fontSize: 17, fontWeight: 700, color: C.white, flex: 1 }}>Admin</span>

@@ -127,7 +127,7 @@ function AppNav() {
 
       <NavItem label="Home"    active={path === "/"}              onClick={() => navigate("/")} />
       {user && (
-        <NavItem label="Public games" active={path === "/home"}  onClick={() => navigate("/home")} />
+        <NavItem label="Dashboard" active={path === "/dashboard"} onClick={() => navigate("/dashboard")} />
       )}
       {hasOrgs && (
         <NavItem label="Orgs"  active={path.startsWith("/orgs")} onClick={() => navigate("/orgs")} />

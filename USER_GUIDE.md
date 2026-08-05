@@ -48,24 +48,24 @@ Tap **Sign out** on your profile page (see [Your Profile](#3-your-profile)).
 
 The top nav bar is visible on all pages except the Scorekeeper and Press Box (which use full-screen layouts).
 
-- **LaxStats** (logo) — returns to the home screen
-- **Home** — your game list
-- **Public games** — the public games feed at `/home` (visible once signed in — see below)
+- **LaxStats** (logo) — returns to Home (`/`)
+- **Home** — the public games feed at `/`, signed in or not (see below)
+- **Dashboard** — your game list at `/dashboard` (visible once signed in)
 - **Orgs** — your organization memberships (visible if you belong to at least one org)
 - **Admin** — platform admin panel (visible to admin accounts only)
 - **Initials avatar** (top-right) — opens your profile page
 
-### The home page
+### Home and your dashboard
 
-Signed in, the home page (`/`) is your season at a glance:
+`/` is LaxStats' persistent home — an overview of LaxStats plus any games that owners have flagged public, live games first then recent finals. It looks the same whether or not you're signed in, so it always doubles as a way to browse what's happening across the platform.
+
+Signed in, your dashboard (`/dashboard`) is your season at a glance:
 
 - **Live now** — your in-progress games, first
 - **Upcoming** and **Completed** — your personal games, each with a Public/Private visibility toggle (see [Game visibility](#game-visibility-public--private))
 - **Your plan** — personal game usage with Manage plan / Upgrade shortcuts
 - **Your organizations** — cards for each org you belong to
 - **Rosters** — the Rosters button in the welcome banner switches the game list to your saved rosters and back
-
-Logged out, `/` shows an overview of LaxStats plus any games that owners have flagged public — live games first, then recent finals. That same public view is always available at `/home`, so signed-in users can still browse it via the **Public games** nav link.
 
 ---
 
@@ -174,7 +174,7 @@ Per-season stats roll up automatically across all games in the season for any re
 Saved rosters let you enter a team once and load it into any future personal game in a single tap. For org games, use registered teams instead.
 
 ### Creating a saved team
-1. Go to the **Rosters** tab on the home screen and tap **+ New Team**.
+1. Go to the **Rosters** tab on your dashboard and tap **+ New Team**.
 2. Enter a team name, pick a color, and type the roster (one player per line).
 3. Tap **Save team**.
 
@@ -203,7 +203,7 @@ Shared users can load the roster but cannot edit or delete it.
 ## 8. Creating and Managing Games
 
 ### Creating a game
-Tap **＋ New Game** on the home screen. You will be asked to choose:
+Tap **＋ New Game** on your dashboard. You will be asked to choose:
 
 - **Personal game** — standalone game linked to your account only; not part of any org or season
 - **Org game** — linked to an organization; optionally tied to a season and registered teams
@@ -216,12 +216,12 @@ Pending personal games can be transferred to an org. On the game card, tap the *
 ### Game visibility (Public / Private)
 Every game has a visibility flag that controls who can open it, including its Live View and Press Box links:
 
-- **Personal games are private by default** — only you (and scorers you invite) can see them. Each game card on the home screen has a footer strip with a **Public/Private toggle**; flip it on to let anyone with the link follow the game and to list it in the "Follow live & recent" section of the logged-out home page. **Share settings** on the same strip shows the game's shareable link with a copy button.
+- **Personal games are private by default** — only you (and scorers you invite) can see them. Each game card on your dashboard has a footer strip with a **Public/Private toggle**; flip it on to let anyone with the link follow the game and to list it in the "Follow live & recent" section of the home page (`/`). **Share settings** on the same strip shows the game's shareable link with a copy button.
 - **Org games are public by default** so fans can follow the org's pages without an account. Org admins and coaches can hide an individual game with the **Public/Hidden toggle** on the org dashboard's game card — hidden games remain visible to org members (home and away) and invited scorers.
 - Moving a personal game into an org makes it public (the org default).
 
 ### Deleting a game
-On the home screen, tap **🗑** on any game card and confirm twice. Deletion is permanent.
+On your dashboard, tap **🗑** on any game card and confirm twice. Deletion is permanent.
 
 ---
 

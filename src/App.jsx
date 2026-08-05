@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import GameList from "./pages/GameList";
 import PublicHome from "./pages/PublicHome";
+import Dashboard from "./pages/Dashboard";
 import Scorekeeper from "./pages/Scorekeeper";
 import ViewGame from "./pages/ViewGame";
 import Pressbox from "./pages/Pressbox";
@@ -47,8 +47,9 @@ function AppRoutes() {
       <div className="app-scroll-container" style={{ position: "fixed", top: showNav ? NAV_H : 0, bottom: FOOTER_H, left: 0, right: 0, overflowY: "auto" }}>
         <Routes>
           <Route path="/login"                    element={<Login />} />
-          <Route path="/"                         element={<GameList />} />
-          <Route path="/home"                     element={<PublicHome />} />
+          <Route path="/"                         element={<PublicHome />} />
+          <Route path="/home"                     element={<Navigate to="/" replace />} />
+          <Route path="/dashboard"                element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/games/new"                element={<PrivateRoute><CreateGame /></PrivateRoute>} />
           <Route path="/games/:id/score"          element={<Scorekeeper />} />
           <Route path="/games/:id/view"           element={<ViewGame />} />

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import {
   buildPlayerStats, buildTeamTotals, buildScoringTimeline,
   qLabel, entryDisplayInfo,
@@ -83,6 +84,7 @@ const STAT_SECTIONS = [
 export default function Dashboard() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [game, setGame]         = useState(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
@@ -294,7 +296,7 @@ export default function Dashboard() {
 
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 20px", borderBottom: `1px solid ${C.gray150}`, background: C.white, flexShrink: 0, flexWrap: "wrap" }}>
-        <button style={{ fontSize: 13, fontWeight: 500, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "4px 0", whiteSpace: "nowrap" }} onClick={() => navigate("/")}>← Games</button>
+        <button style={{ fontSize: 13, fontWeight: 500, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "4px 0", whiteSpace: "nowrap" }} onClick={() => navigate(user ? "/dashboard" : "/")}>← Games</button>
         <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 28, height: 28, objectFit: "contain" }} />
         <span style={{ fontSize: 17, fontWeight: 700, color: C.gray900, flex: 1, letterSpacing: "-0.01em", minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{game?.name || "Game"}</span>
         {gameOver
