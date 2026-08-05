@@ -7,32 +7,10 @@ import { getGameInfo, formatDate } from "../utils/game";
 import RosterEditor from "../components/RosterEditor";
 import SharePanel from "../components/SharePanel";
 import { setGameVisibility } from "../services/games";
-import { usePersonalGameUsage } from "../hooks/usePersonalGameUsage";
-import { Helmet } from "react-helmet-async";
-import SeoMeta from "../hooks/useSeoMeta";
 import { C, F, SH } from "../styles/tokens";
-export { RosterEditor, SharePanel, SavedTeamLogoSection, GameCard, LiveCard, PersonalUsageMeter, OwnedGame, PublicResultCard, MarketingHome };
+export { RosterEditor, SharePanel, SavedTeamLogoSection, GameCard, LiveCard, PersonalUsageMeter, OwnedGame, PublicResultCard, MarketingHome, SignedInHome };
 
 const IS_STAGING = (import.meta.env ?? {}).VITE_IS_STAGING === "true";
-
-const HOME_JSON_LD = JSON.stringify([
-  {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "LaxStats",
-    "url": "https://laxstats.app",
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "LaxStats",
-    "operatingSystem": "Web, iOS, Android",
-    "applicationCategory": "SportsApplication",
-    "description": "Digital scorebook and live stats platform for men's lacrosse.",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "url": "https://laxstats.app",
-  },
-]);
 
 // The mid stop matches the hero logo's background so the lockup blends in.
 const HERO_NAVY = "radial-gradient(125% 150% at 12% 0%, #0d2c52 0%, #02112a 58%, #010a1c 100%)";
@@ -1095,32 +1073,5 @@ function MarketingHome() {
         </section>
       </div>
     </div>
-  );
-}
-
-// ── Root ──────────────────────────────────────────────────────────────────────
-export default function GameList() {
-  const { user, orgMemberships, loading: authLoading } = useAuth();
-  const personalUsage = usePersonalGameUsage(user);
-
-  return (
-    <>
-      <SeoMeta
-        title="Home"
-        description="Score lacrosse games on your phone, share live stats with anyone, and get a full box score instantly. Free to start."
-        url="https://laxstats.app"
-      />
-      <Helmet>
-        <script type="application/ld+json">{HOME_JSON_LD}</script>
-      </Helmet>
-
-      {authLoading ? (
-        <div style={{ fontFamily: F.ui, minHeight: "100%", background: PAGE_BG }} />
-      ) : user ? (
-        <SignedInHome user={user} orgMemberships={orgMemberships} usage={personalUsage} />
-      ) : (
-        <MarketingHome />
-      )}
-    </>
   );
 }

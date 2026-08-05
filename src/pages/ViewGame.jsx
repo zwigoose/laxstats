@@ -337,7 +337,7 @@ useEffect(() => {
   return (
     <div style={S.page}>
       <div style={S.header}>
-        <button style={S.backBtn} onClick={() => navigate("/")}>← Games</button>
+        <button style={S.backBtn} onClick={() => navigate(user ? "/dashboard" : "/")}>← Games</button>
         <img src="/LaxStatsIcon.png" alt="LaxStats" style={{ width: 28, height: 28, objectFit: "contain" }} />
         <span style={S.headerTitle}>{game?.name || "Game"}</span>
         {gameOver

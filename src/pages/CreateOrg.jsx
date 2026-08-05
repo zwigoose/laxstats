@@ -79,7 +79,7 @@ export default function CreateOrg() {
   return (
     <div style={{ fontFamily: F.ui, minHeight: "100vh", background: C.gray50 }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "32px 20px" }}>
-        <button onClick={() => navigate("/")}
+        <button onClick={() => navigate("/dashboard")}
           style={{ fontSize: 13, color: C.gray500, background: "none", border: "none", cursor: "pointer", padding: "0 0 28px", display: "block" }}>
           ← Back
         </button>
