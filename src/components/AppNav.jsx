@@ -126,6 +126,9 @@ function AppNav() {
       <div style={{ width: 1, height: 18, background: C.gray100, marginRight: 4 }} />
 
       <NavItem label="Home"    active={path === "/"}              onClick={() => navigate("/")} />
+      {user && (
+        <NavItem label="Public games" active={path === "/home"}  onClick={() => navigate("/home")} />
+      )}
       {hasOrgs && (
         <NavItem label="Orgs"  active={path.startsWith("/orgs")} onClick={() => navigate("/orgs")} />
       )}

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import GameList from "./pages/GameList";
+import PublicHome from "./pages/PublicHome";
 import Scorekeeper from "./pages/Scorekeeper";
 import ViewGame from "./pages/ViewGame";
 import Pressbox from "./pages/Pressbox";
@@ -47,6 +48,7 @@ function AppRoutes() {
         <Routes>
           <Route path="/login"                    element={<Login />} />
           <Route path="/"                         element={<GameList />} />
+          <Route path="/home"                     element={<PublicHome />} />
           <Route path="/games/new"                element={<PrivateRoute><CreateGame /></PrivateRoute>} />
           <Route path="/games/:id/score"          element={<Scorekeeper />} />
           <Route path="/games/:id/view"           element={<ViewGame />} />
