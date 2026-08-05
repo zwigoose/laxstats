@@ -229,7 +229,9 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage, orgMemberships =
         </div>
       )}
 
-      {/* Delete confirm strips */}
+      {/* Delete confirm strips — each stage's confirming button sits where the
+          PREVIOUS stage's dismiss button was, so a rapid double/triple-click
+          in one spot can't blow through both confirmations. */}
       {deleteStage === 1 && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", background: C.red50, borderTop: `1px solid ${C.red100}` }}>
           <span style={{ fontSize: 13, color: C.red600, fontWeight: 500 }}>Delete this game?</span>
@@ -243,8 +245,8 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage, orgMemberships =
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", background: C.red60, borderTop: `1px solid ${C.red310}` }}>
           <span style={{ fontSize: 13, color: C.red600, fontWeight: 600 }}>Permanently delete? Cannot be undone.</span>
           <div style={{ display: "flex", gap: 8 }}>
-            <button style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }} onClick={() => onDeleteStage(null)}>Cancel</button>
             <button style={{ padding: "5px 12px", fontSize: 12, background: C.red600, border: "none", borderRadius: 7, cursor: "pointer", color: C.white, fontWeight: 600 }} onClick={onDelete}>Yes, delete</button>
+            <button style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }} onClick={() => onDeleteStage(null)}>Cancel</button>
           </div>
         </div>
       )}
@@ -253,11 +255,12 @@ function GameCard({ game, onDelete, deleteStage, onDeleteStage, orgMemberships =
 }
 
 // ── Live Card (public, no edit/delete) ───────────────────────────────────────
-function LiveCard({ game, isOwner, hasPressbox }) {
+function LiveCard({ game, isOwner, hasPressbox, deleteStage = 0, onDeleteStage, onDelete }) {
   const navigate = useNavigate();
   const info = getGameInfo(game);
   const c0 = info?.t0?.color || C.gray700;
   const c1 = info?.t1?.color || C.gray500;
+  const canDelete = isOwner && !!onDeleteStage;
 
   return (
     <div style={{ borderRadius: 16, overflow: "hidden", marginBottom: 12, boxShadow: SH.card, border: `1px solid ${C.gray100}`, background: C.white }}>
@@ -294,9 +297,35 @@ function LiveCard({ game, isOwner, hasPressbox }) {
               <button style={{ padding: "7px 15px", fontSize: 13, fontWeight: 600, background: C.gray900, border: "none", borderRadius: 8, cursor: "pointer", color: C.white }}
                 onClick={() => navigate(`/games/${game.id}/score`)}>Score</button>
             )}
+            {canDelete && (
+              <button style={{ padding: "7px 9px", fontSize: 14, background: "transparent", border: `1px solid ${C.red300}`, borderRadius: 8, cursor: "pointer", color: C.red600, lineHeight: 1 }}
+                onClick={() => onDeleteStage(deleteStage === 0 ? 1 : null)}>🗑</button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Delete confirm strips — each stage's confirming button sits where the
+          PREVIOUS stage's dismiss button was, so a rapid double/triple-click
+          in one spot can't blow through both confirmations. */}
+      {canDelete && deleteStage === 1 && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", background: C.red50, borderTop: `1px solid ${C.red100}` }}>
+          <span style={{ fontSize: 13, color: C.red600, fontWeight: 500 }}>Delete this game?</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }} onClick={() => onDeleteStage(null)}>Cancel</button>
+            <button style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.red400}`, borderRadius: 7, cursor: "pointer", color: C.red600, fontWeight: 600 }} onClick={() => onDeleteStage(2)}>Delete</button>
+          </div>
+        </div>
+      )}
+      {canDelete && deleteStage === 2 && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", background: C.red60, borderTop: `1px solid ${C.red310}` }}>
+          <span style={{ fontSize: 13, color: C.red600, fontWeight: 600 }}>Permanently delete? Cannot be undone.</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button style={{ padding: "5px 12px", fontSize: 12, background: C.red600, border: "none", borderRadius: 7, cursor: "pointer", color: C.white, fontWeight: 600 }} onClick={onDelete}>Yes, delete</button>
+            <button style={{ padding: "5px 12px", fontSize: 12, background: "transparent", border: `1px solid ${C.gray250}`, borderRadius: 7, cursor: "pointer", color: C.gray650 }} onClick={() => onDeleteStage(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -858,7 +887,11 @@ function SignedInHome({ user, orgMemberships, usage }) {
           <section style={{ marginBottom: 34 }}>
             <LiveLabel />
             {liveGames.map(game => (
-              <LiveCard key={game.id} game={game} isOwner hasPressbox={!!game.pressbox_enabled} />
+              <LiveCard key={game.id} game={game} isOwner hasPressbox={!!game.pressbox_enabled}
+                deleteStage={deleteStages[game.id] ?? 0}
+                onDeleteStage={(stage) => setDeleteStages(prev => stage === null ? (({ [game.id]: _, ...rest }) => rest)(prev) : { ...prev, [game.id]: stage })}
+                onDelete={() => handleDelete(game.id)}
+              />
             ))}
           </section>
         )}
