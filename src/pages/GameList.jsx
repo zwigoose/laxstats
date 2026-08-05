@@ -11,7 +11,7 @@ import { usePersonalGameUsage } from "../hooks/usePersonalGameUsage";
 import { Helmet } from "react-helmet-async";
 import SeoMeta from "../hooks/useSeoMeta";
 import { C, F, SH } from "../styles/tokens";
-export { RosterEditor, SharePanel, SavedTeamLogoSection, GameCard, LiveCard, PersonalUsageMeter, OwnedGame, PublicResultCard };
+export { RosterEditor, SharePanel, SavedTeamLogoSection, GameCard, LiveCard, PersonalUsageMeter, OwnedGame, PublicResultCard, MarketingHome };
 
 const IS_STAGING = (import.meta.env ?? {}).VITE_IS_STAGING === "true";
 
