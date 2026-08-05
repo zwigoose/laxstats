@@ -172,7 +172,7 @@ export default function CreateGame() {
   return (
     <div style={S.page}>
       <div style={S.wrap}>
-        <button style={S.back} onClick={() => navigate("/")}>← Back</button>
+        <button style={S.back} onClick={() => navigate("/dashboard")}>← Back</button>
 
         {error && <div style={S.err}>{error}</div>}
 

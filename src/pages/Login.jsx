@@ -9,7 +9,7 @@ const IS_STAGING = (import.meta.env ?? {}).VITE_IS_STAGING === "true";
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const nextUrl  = new URLSearchParams(location.search).get("next") || "/";
+  const nextUrl  = new URLSearchParams(location.search).get("next") || "/dashboard";
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
